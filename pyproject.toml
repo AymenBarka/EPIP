@@ -1,0 +1,41 @@
+[project]
+name = "epip"
+version = "0.1.0"
+description = "Elliott Pattern Intelligence Platform"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Aymen Barka" }
+]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "plotly",
+    "scipy"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "ruff",
+    "mypy"
+]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
