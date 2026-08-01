@@ -1,0 +1,10 @@
+numpy
+pandas
+pytest
+pytest-cov
+black
+ruff
+mypy
+matplotlib
+plotly
+scipy
