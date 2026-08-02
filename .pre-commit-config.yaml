@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: quality-check
+        name: quality-check
+        entry: python scripts/quality.py
+        language: system
+        pass_filenames: false
