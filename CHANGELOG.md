@@ -1,5 +1,33 @@
 # Changelog
 
+## EPIP-004
+
+### Added
+
+- Market Data Layer
+- DataSource Protocol
+- DataSource Factory
+- Registry
+- Cache
+- CSV Provider
+- Fake Provider
+- TwelveData Adapter
+- MT5 Adapter
+
+### Tests
+
+- Provider tests
+- Cache tests
+- Registry tests
+
+### Quality
+
+- Black OK
+- Ruff OK
+- MyPy OK
+- Pytest OK
+- Coverage 96%
+
 ## EPIP-003
 
 ### Added
