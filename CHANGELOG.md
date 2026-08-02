@@ -213,3 +213,44 @@
 - MyPy OK
 - Pytest OK
 - Coverage 96%
+## EPIP-009
+
+### Added
+
+- Fibonacci Engine
+- Fibonacci Levels
+- Retracements
+- Extensions
+- Premium / Discount
+- OTE
+- Golden Zone
+- Confluence
+- Fibonacci Graph
+- Fibonacci History
+- Fibonacci Strength
+- Fibonacci Cluster
+- Institutional Entry Zone
+- Projection Targets
+- Multi-TimeFrame Alignment
+- Probability Score
+- Deterministic Serialization
+
+### Tests
+
+- Engine
+- Retracements
+- Extensions
+- OTE
+- Premium / Discount
+- Confluence
+- Graph
+- History
+- Hardening
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 95%
