@@ -1,5 +1,33 @@
 # Changelog
 
+## EPIP-006
+
+### Added
+
+- Swing Detection Engine
+- Pivot Window Strategy
+- Swing Models
+- Swing Validators
+- Swing Filters
+- Swing Events
+- Swing Statistics
+- Swing Metrics
+
+### Tests
+
+- Swing Engine tests
+- Strategy tests
+- Filters tests
+- Validator tests
+
+### Quality
+
+- Black OK
+- Ruff OK
+- MyPy OK
+- Pytest OK
+- Coverage >=95%
+
 ## EPIP-005
 
 ### Added
