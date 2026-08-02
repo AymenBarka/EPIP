@@ -292,3 +292,42 @@
 - MyPy PASS
 - Pytest PASS
 - Coverage 96%
+## EPIP-011
+
+### Added
+
+- Elliott Wave Engine
+- Wave Detection
+- Wave Validation
+- Wave Counter
+- Alternate Wave Counter
+- Wave Degrees
+- Wave Rules
+- Wave Projections
+- Wave Targets
+- Wave Graph
+- Wave History
+- Wave Serialization
+- Elliott Events
+- Confidence / Probability / Quality scoring
+- Market Context integration
+
+### Tests
+
+- Engine
+- Wave Rules
+- Alternate Counts
+- Degrees
+- Projections
+- Serialization
+- History
+- Graph
+- Market Context integration
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 96%
