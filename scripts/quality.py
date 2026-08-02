@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = ["epip/core", "tests/core"]
+TARGETS = ["epip", "tests"]
 
 
 def run_step(name: str, command: list[str]) -> int:

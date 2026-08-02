@@ -1,5 +1,31 @@
 # Changelog
 
+## EPIP-003
+
+### Added
+
+- Feature
+- FeatureSet
+- FeatureStore
+- FeatureRegistry
+- FeaturePipeline
+- OHLC Provider
+- Provider Interfaces
+
+### Tests
+
+- Feature tests
+- Pipeline tests
+- Store tests
+
+### Quality
+
+- Black OK
+- Ruff OK
+- MyPy OK
+- Pytest OK
+- Coverage 95%
+
 ## EPIP-002
 
 ### Added
