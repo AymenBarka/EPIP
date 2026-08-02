@@ -1,5 +1,35 @@
 # Changelog
 
+## EPIP-005
+
+### Added
+
+- Replay Engine
+- Replay Scheduler
+- Replay Iterator
+- Replay Clock
+- Replay Session
+- Replay Statistics
+- Replay Metrics
+- Replay Controller
+- Replay Events
+- Replay Config
+
+### Tests
+
+- Replay Engine tests
+- Replay Scheduler tests
+- Replay Iterator tests
+- Replay Session tests
+
+### Quality
+
+- Black OK
+- Ruff OK
+- MyPy OK
+- Pytest OK
+- Coverage 96%
+
 ## EPIP-004
 
 ### Added
