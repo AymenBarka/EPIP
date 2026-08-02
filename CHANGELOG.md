@@ -1,5 +1,47 @@
 # Changelog
 
+## EPIP-008
+
+### Added
+
+- Liquidity Engine
+- Liquidity Pools
+- Liquidity Sweeps
+- Equal High Detection
+- Equal Low Detection
+- Internal Liquidity
+- External Liquidity
+- Liquidity Graph
+- Liquidity History
+- Liquidity State Machine
+- Liquidity Strength
+- Liquidity Ranking
+- Fair Value Gap domain
+- Liquidity Void domain
+- Liquidity Cluster
+- Multi-TimeFrame Liquidity Tree
+- Confluence Score
+- Deterministic Serialization
+
+### Tests
+
+- Engine
+- Pools
+- Sweeps
+- Equal Levels
+- History
+- Graph
+- State Machine
+- Hardening
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 95%
+
 ## EPIP-007
 
 ### Added
