@@ -1,5 +1,40 @@
 # Changelog
 
+## EPIP-007
+
+### Added
+
+- Market Structure Engine
+- Structure State Machine
+- BOS Detector
+- CHOCH Detector
+- Trend Detector
+- Range Detector
+- StructureGraph
+- StructureHistory
+- Serialization
+- Observer support
+- Versioning
+- Domain metadata
+- Deterministic snapshots
+
+### Tests
+
+- Engine tests
+- Detector tests
+- State machine tests
+- Observer tests
+- Serialization tests
+- Benchmark tests
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 95%
+
 ## EPIP-006
 
 ### Added
