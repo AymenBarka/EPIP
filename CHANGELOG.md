@@ -1,5 +1,55 @@
 # Changelog
 
+## EPIP-013
+
+### Added
+
+- Risk Engine
+- PositionPlan
+- Position Sizing Engine
+- Fixed Risk Sizing
+- Fixed Amount Sizing
+- Kelly Criterion
+- Fractional Kelly
+- ATR Position Sizing
+- Volatility Position Sizing
+- Exposure Management
+- Drawdown Management
+- Margin Calculation
+- Leverage Calculation
+- Portfolio Limits
+- Stop Loss Management
+- Take Profit Management
+- Position Graph
+- Position History
+- Risk Events
+- Deterministic Serialization
+
+### Tests
+
+- Position Sizing
+- Kelly
+- ATR Sizing
+- Volatility Sizing
+- Exposure
+- Drawdown
+- Margin
+- Leverage
+- Stop Management
+- Take Profit
+- Serialization
+- History
+- Graph
+- Decision Integration
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 96%
+
 ## EPIP-008
 
 ### Added
