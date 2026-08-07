@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use EPIP, please cite it using the metadata in this file."
+title: "EPIP: Elliott Pattern Intelligence Platform"
+type: software
+authors:
+  - family-names: Barka
+    given-names: Aymen
+repository-code: "https://github.com/AymenBarka/EPIP"
+url: "https://github.com/AymenBarka/EPIP"
+version: 1.4.0
+license: Apache-2.0
+preferred-citation:
+  type: software
+  title: "EPIP: Elliott Pattern Intelligence Platform"
+  authors:
+    - family-names: Barka
+      given-names: Aymen
+  version: 1.4.0
+  repository-code: "https://github.com/AymenBarka/EPIP"
