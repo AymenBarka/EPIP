@@ -1,5 +1,46 @@
 # Changelog
 
+## EPIP-015
+
+### Added
+
+- Portfolio Engine
+- Portfolio Snapshot
+- Portfolio State
+- Multi-Position Management
+- Global Long / Short Exposure
+- Net / Gross Exposure
+- Capital Allocation
+- Cash and Margin Management
+- Portfolio PnL and Equity
+- Drawdown Management
+- Correlation Groups
+- Risk Limits and Concentration
+- Portfolio Rebalancing
+- Immutable History and Graph
+- Portfolio Events
+- Deterministic Serialization
+
+### Tests
+
+- Portfolio Engine
+- Position Lifecycle
+- Exposure and Allocation
+- Capital and Margin
+- PnL and Equity
+- Risk Limits
+- Rebalancing
+- History and Graph
+- Serialization
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 97%
+
 ## EPIP-014
 
 ### Added
