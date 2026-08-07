@@ -3,7 +3,7 @@
 ## Supported versions
 
 | Version | Supported |
-|---|---|
+| --- | --- |
 | 1.4.x | Yes |
 | 1.3.x | Security fixes until the next minor release |
 | 1.2.x and earlier | No |
@@ -44,7 +44,7 @@ engineering, and automated testing against third-party brokers or data providers
 ## Security response SLA
 
 | Milestone | Target |
-|---|---|
+| --- | --- |
 | Acknowledgement | 3 business days |
 | Initial triage and severity | 7 business days |
 | Status update or remediation plan | 14 business days |

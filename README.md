@@ -41,7 +41,7 @@ versioning, deterministic serialization, thread-safe engines, and EventBus-based
 ## Completed modules
 
 | EPIP | Module | Principal output |
-|---|---|---|
+| --- | --- | --- |
 | 001 | Core Domain | Domain values and contracts |
 | 002 | Event Bus | Domain-event delivery |
 | 003 | Feature Store | Versioned feature sets |

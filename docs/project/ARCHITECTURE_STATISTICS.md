@@ -4,7 +4,7 @@ Generated for the EPIP `v1.4.0` governance milestone. Counts describe the curren
 use the methods below so future maintainers can reproduce them.
 
 | Metric | Count | Method |
-|---|---:|---|
+| --- | ---: | --- |
 | Completed EPIP modules | 14 | EPIP-001 through EPIP-014 |
 | Public API symbols | 330 | Literal names in package-root `__all__` declarations |
 | Immutable model classes | 257 | Python AST classes decorated with `@dataclass(frozen=True, ...)` under `epip/` |

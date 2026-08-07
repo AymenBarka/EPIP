@@ -8,7 +8,7 @@ or `ConfluenceUpdated` exist in different bounded contexts.
 ## Core Domain — EPIP-001/002
 
 | Event | Purpose | Domain payload |
-|---|---|---|
+| --- | --- | --- |
 | `EvidenceCreated` | Evidence accepted and published | `evidence_id` |
 | `EvidenceRejected` | Evidence rejected | `evidence_id`, `reason` |
 | `ScenarioCreated` | Scenario created | `scenario_id` |
@@ -19,7 +19,7 @@ or `ConfluenceUpdated` exist in different bounded contexts.
 ## Replay — EPIP-005
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `ReplayStarted` | Session entered running state |
 | `ReplayPaused` | Replay clock/session paused |
 | `ReplayResumed` | Paused replay resumed |
@@ -35,7 +35,7 @@ addition to BaseEvent fields.
 ## Swing — EPIP-006
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `SwingDetected` | Candidate swing detected |
 | `SwingUpdated` | Existing swing information updated |
 | `SwingConfirmed` | Swing passed confirmation rules |
@@ -50,7 +50,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `engine_version`, and `source`.
 
 | Event | Purpose | Additional payload |
-|---|---|---|
+| --- | --- | --- |
 | `StructureDetected` | New structure state published | structure state/details |
 | `BOSDetected` | Break of Structure confirmed | BOS object |
 | `CHOCHDetected` | Change of Character confirmed | CHOCH object |
@@ -63,7 +63,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `LiquidityEvent` carries symbol, timeframe and version identifiers.
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `LiquidityDetected` | General liquidity object detected |
 | `LiquidityPoolCreated` | New buy-side/sell-side pool created |
 | `LiquiditySweepDetected` | Pool or level swept |
@@ -77,7 +77,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `FibonacciEvent` carries symbol, timeframe and version identifiers.
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `FibonacciComputed` | Fibonacci snapshot/levels computed |
 | `GoldenZoneDetected` | Golden Zone identified |
 | `OTEFound` | OTE zone identified |
@@ -89,7 +89,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `MarketContextEvent` carries symbol, timeframe and context version identifiers.
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `ContextCreated` | First context snapshot for a stream |
 | `ContextUpdated` | Later context version published |
 | `BiasChanged` | Institutional bias changed |
@@ -101,7 +101,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `ElliottEvent` carries symbol, timeframe, version and wave-count identifiers.
 
 | Event | Purpose |
-|---|---|
+| --- | --- |
 | `WaveDetected` | Wave candidate detected |
 | `WaveValidated` | Wave/count passed rules |
 | `WaveInvalidated` | Wave/count violated rules |
@@ -114,7 +114,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `TradeDecisionEvent` carries symbol, timeframe, version and `decision_id`.
 
 | Event | Purpose | Additional payload |
-|---|---|---|
+| --- | --- | --- |
 | `DecisionCreated` | First official decision published | action |
 | `DecisionUpdated` | New version of decision published | action |
 | `DecisionInvalidated` | Decision became invalid | reason |
@@ -126,7 +126,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `RiskEvent` carries symbol, `decision_id`, and `plan_id`.
 
 | Event | Purpose | Additional payload |
-|---|---|---|
+| --- | --- | --- |
 | `PositionPlanned` | PositionPlan produced | accepted flag |
 | `RiskAccepted` | Plan passed risk constraints | none |
 | `RiskRejected` | Plan failed one or more constraints | reason |
@@ -138,7 +138,7 @@ Swing events identify symbol, timeframe, timestamp and applicable swing/pivot da
 `ExecutionEvent` carries symbol, `order_id`, and `plan_id`.
 
 | Event | Purpose | Additional payload |
-|---|---|---|
+| --- | --- | --- |
 | `OrderCreated` | PositionPlan mapped to an order | none |
 | `OrderSubmitted` | Order submitted to adapter | none |
 | `OrderFilled` | Order reached filled state | quantity |

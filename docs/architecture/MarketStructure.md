@@ -1,10 +1,12 @@
 # Market Structure Engine Architecture (EPIP-007)
 
 ## Purpose
+
 Market Structure Engine is the single official source for trend, BOS, CHOCH, and ranging state.
 All downstream modules must consume this engine and must not recompute structure independently.
 
 ## Dependency Rule
+
 Market Structure depends only on Swing outputs (`SwingSequence`).
 It does not access Replay, MarketData, FeatureStore, CSV, MT5, or TwelveData.
 
@@ -47,16 +49,19 @@ classDiagram
 ```
 
 ## Algorithms
+
 - TrendDetector infers trend from latest swing classifications.
 - BOSDetector detects bullish/bearish structure breaks and suppresses duplicates.
 - CHOCHDetector detects first trend reversal transition and suppresses duplicates.
 - RangeDetector identifies sideways regimes through repeated equal/high-low touches.
 
 ## Detector Protocol
+
 - All detectors implement `StructureDetectorProtocol`.
 - This keeps the engine closed for modification and open for extension (future Liquidity/ICT/Wyckoff detectors).
 
 ## Determinism
+
 Given the same SwingSequence and config, the engine emits the same structure snapshot and events.
 
 ## State Machine
@@ -84,6 +89,7 @@ stateDiagram-v2
 Illegal transitions raise `IllegalStructureTransitionError`.
 
 ## Events
+
 - StructureDetected
 - BOSDetected
 - CHOCHDetected
@@ -92,6 +98,7 @@ Illegal transitions raise `IllegalStructureTransitionError`.
 - StructureReset
 
 Each event includes immutable metadata:
+
 - `event_id`
 - `timestamp`
 - `symbol`
@@ -100,21 +107,26 @@ Each event includes immutable metadata:
 - `source`
 
 ## Thread Safety
+
 Engine state is guarded by RLock.
 Statistics accumulation is also RLock-protected.
 
 ## Metrics and Statistics
+
 - Counters: number_of_bos, number_of_choch, trend_changes, ranges, processed_swings.
 - Robustness: false_bos, false_choch, invalid_structures, duplicate_events.
 - Timings: processing latency, average BOS detection time, average CHOCH detection time, average detection time, maximum detection time.
 
 ## Confidence and Quality
+
 - `MarketStructure.confidence` is deterministic and clamped to `[0.0, 1.0]`.
 - Confidence combines confirmations, distance regime, trend consistency, and equal-high/low ratio.
 - `MarketStructure.quality` maps confidence to tiers: LOW, MEDIUM, HIGH, VERY_HIGH.
 
 ## Snapshot Contract
+
 `MarketStructureSnapshot` is frozen and includes:
+
 - `version`
 - `timestamp`
 - `symbol`
@@ -129,6 +141,7 @@ Statistics accumulation is also RLock-protected.
 Backward compatibility is preserved by keeping `structure` in the snapshot payload.
 
 ## Future Compatibility
+
 - Swing references are preserved in Trend/BOS/CHOCH via origin/destination swing references (no data duplication).
 - Detector protocol allows pluggable modules for EPIP-008+ without engine rewrites.
 

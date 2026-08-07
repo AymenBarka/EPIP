@@ -1,6 +1,7 @@
 # Market Data Layer Architecture (EPIP-004)
 
 ## Purpose
+
 The Market Data Layer is the single ingress point for market data across EPIP.
 No downstream module should directly use CSV, TwelveData, MT5, or any external vendor SDK.
 
@@ -77,6 +78,7 @@ sequenceDiagram
 ```
 
 ## Responsibilities
+
 - DataSourceProtocol: stable ingress contract.
 - DataSourceFactory: centralized provider construction from config.
 - DataSourceRegistry: runtime provider registration and default resolution.
@@ -88,10 +90,12 @@ sequenceDiagram
   - MT5: adapter-based architecture-only provider.
 
 ## Thread Safety
+
 - Provider lifecycle and cache access are guarded by `RLock`.
 - Cache structures are protected and mutated under lock.
 - Registry operations are lock-protected.
 
 ## Dependency Rules
+
 - Replay, Feature Store, Context, Kernel, and Plugins must depend on `DataSourceProtocol` only.
 - Provider-specific concerns remain encapsulated behind this layer.

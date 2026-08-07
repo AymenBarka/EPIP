@@ -1,16 +1,20 @@
 # ADR-0007 - Market Structure Engine as Single Structure Source
 
 ## Status
+
 Accepted
 
 ## Context
+
 EPIP has validated Core Domain, Event Bus, Feature Store, Market Data, Replay, and Swing layers.
 A dedicated Market Structure layer is required to avoid duplicated BOS/CHOCH/trend logic in downstream engines.
 
 ## Decision
+
 Introduce EPIP-007 Market Structure Engine as the single official source of trend, BOS, CHOCH, and range state.
 
 ## Key Decisions
+
 - Input contract is `SwingSequence` only.
 - No dependency allowed on Replay, MarketData, FeatureStore, or external providers.
 - Deterministic analyzer with explicit detectors:
@@ -28,12 +32,15 @@ Introduce EPIP-007 Market Structure Engine as the single official source of tren
 - Backward compatibility is preserved through additive fields and state aliases.
 
 ## Rationale
+
 - Prevents structural inconsistency between advanced engines.
 - Keeps dependency direction clean and composable.
 - Simplifies testing and governance of market structure logic.
 
 ## Consequences
+
 ### Positive
+
 - One canonical structure truth for all consumers.
 - Easier auditability and reproducibility.
 - Strong extension points for future algorithms.
@@ -86,5 +93,6 @@ EPIP-007 finalization is additive: algorithms, detectors, event contracts, and e
 constructors are unchanged. New constructor parameters are optional, and new dataclass fields have
 defaults. Future modules must depend on snapshots, graph/history contracts, or protocols rather than
 detector internals.
+
 - Additional abstraction layers and state management.
 - Requires disciplined consumption by downstream teams.

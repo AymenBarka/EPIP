@@ -4,7 +4,7 @@ This summary groups the tagged framework milestones. Detailed capability lists r
 `CHANGELOG.md` and module architecture documents.
 
 | Release | Modules and architecture | Quality | Benchmark summary |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | v1.0.0-pre | Core through Market Context; immutable snapshots, events, graphs, histories, and deterministic serialization established as framework conventions | Black, Ruff, MyPy, Pytest PASS; module coverage 95–96% | Per-engine benchmark suite established for feature, data, replay, swing, structure, liquidity, Fibonacci, and Context operations |
 | v1.1.0 | Elliott Wave Engine; rules, alternate counts, degrees, projections, scoring, Context integration | All gates PASS; coverage 96% | Elliott benchmark added; consolidated hardware-neutral baseline is not recorded in release metadata |
 | v1.2.0 | Decision Engine; sole trading-intent authority with rules, scores, probability, priority, rationale, graph/history | All gates PASS; coverage 96% | Decision benchmark added; performance remains environment-dependent |
