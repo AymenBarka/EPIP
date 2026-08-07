@@ -331,3 +331,47 @@
 - MyPy PASS
 - Pytest PASS
 - Coverage 96%
+## EPIP-012
+
+### Added
+
+- Decision Engine
+- TradeDecision
+- Decision Snapshot
+- Decision Graph
+- Decision History
+- Rule Engine
+- Decision Matrix
+- Decision Scoring
+- Confidence
+- Probability
+- Execution Priority
+- Decision Quality
+- Risk Profile
+- Entry / Exit Suggestions
+- Decision Events
+- Deterministic Serialization
+
+### Tests
+
+- Decision Engine
+- Rule Engine
+- Decision Matrix
+- Decision Scoring
+- Confidence
+- Probability
+- Priority
+- Risk Profile
+- Serialization
+- History
+- Graph
+- Market Context Integration
+- Elliott Integration
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 96%
