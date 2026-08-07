@@ -377,6 +377,7 @@
 - MyPy OK
 - Pytest OK
 - Coverage 96%
+
 ## EPIP-009
 
 ### Added
@@ -418,6 +419,7 @@
 - MyPy PASS
 - Pytest PASS
 - Coverage 95%
+
 ## EPIP-010
 
 ### Added
@@ -456,6 +458,7 @@
 - MyPy PASS
 - Pytest PASS
 - Coverage 96%
+
 ## EPIP-011
 
 ### Added
@@ -495,6 +498,7 @@
 - MyPy PASS
 - Pytest PASS
 - Coverage 96%
+
 ## EPIP-012
 
 ### Added

@@ -3,7 +3,7 @@
 ## Current support matrix
 
 | Release line | Status | Maintenance |
-|---|---|---|
+| --- | --- | --- |
 | 1.4.x | Active | Security fixes, correctness fixes, documentation and compatible improvements |
 | 1.3.x | Maintenance | Critical/high security fixes until 1.5.0 is released |
 | 1.2.x and earlier | End of life | No planned fixes |

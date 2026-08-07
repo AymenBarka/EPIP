@@ -90,7 +90,8 @@ classDiagram
 The core domain depends only on:
 
 - standard library modules such as `dataclasses`, `datetime`, `json`, `uuid`, and `typing`
-- the shared domain enums from [epip/core/types.py](../core/types.py)
+- the shared domain enums from
+  [epip/core/types.py](https://github.com/AymenBarka/EPIP/blob/develop/epip/core/types.py)
 
 ## Execution Flow
 
