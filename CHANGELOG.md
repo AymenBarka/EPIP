@@ -1,5 +1,48 @@
 # Changelog
 
+## EPIP-014
+
+### Added
+
+- Execution Engine
+- ExecutionSnapshot
+- Order Manager
+- Fill Manager
+- Broker Adapter Protocol
+- Paper Trading Adapter
+- MT5 Adapter Stub
+- Order State Machine
+- Retry Manager
+- Slippage Manager
+- Commission Manager
+- Execution History
+- Execution Graph
+- Execution Events
+- Deterministic Serialization
+
+### Tests
+
+- Order Lifecycle
+- State Machine
+- Paper Adapter
+- Broker Adapter Protocol
+- Retry
+- Slippage
+- Commission
+- Serialization
+- History
+- Graph
+- PositionPlan Integration
+- Illegal State Transitions
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 97%
+
 ## EPIP-013
 
 ### Added
