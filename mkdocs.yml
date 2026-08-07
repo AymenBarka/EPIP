@@ -1,0 +1,71 @@
+site_name: EPIP Documentation
+site_description: Elliott Pattern Intelligence Platform architecture and developer documentation
+site_url: https://aymenbarka.github.io/EPIP/
+repo_url: https://github.com/AymenBarka/EPIP
+repo_name: AymenBarka/EPIP
+copyright: Copyright 2026 Aymen Barka — Apache License 2.0
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Overview:
+      - Home: index.md
+      - Project Overview: project/PROJECT_OVERVIEW.md
+      - FAQ: project/FAQ.md
+  - Architecture:
+      - System Architecture: project/ARCHITECTURE.md
+      - Principles: project/ARCHITECTURE_PRINCIPLES.md
+      - Dependency Graph: project/DEPENDENCY_GRAPH.md
+      - Statistics: project/ARCHITECTURE_STATISTICS.md
+  - Modules: project/MODULES.md
+  - Pipeline: project/PIPELINE.md
+  - Developer Guide:
+      - Contributing: project/DEVELOPER_GUIDE.md
+      - Quality: project/QUALITY.md
+  - API Guide:
+      - Public API: project/API_GUIDE.md
+      - Object Catalog: project/OBJECT_CATALOG.md
+      - Event Catalog: project/EVENT_CATALOG.md
+      - Stability Policy: project/API_STABILITY.md
+  - Governance:
+      - API Stability: project/API_STABILITY.md
+      - Release Policy: project/RELEASE_POLICY.md
+  - Roadmap:
+      - Roadmap: project/ROADMAP.md
+      - Future: project/FUTURE.md
+      - Changelog Summary: project/CHANGELOG_SUMMARY.md
+  - ADR: project/DECISIONS.md
+  - Glossary: project/GLOSSARY.md
+  - Releases:
+      - v1.0.0-pre: project/releases/v1.0.0-pre.md
+      - v1.1.0: project/releases/v1.1.0.md
+      - v1.2.0: project/releases/v1.2.0.md
+      - v1.3.0: project/releases/v1.3.0.md
+      - v1.4.0: project/releases/v1.4.0.md
+
+not_in_nav: |
+  /adr/*
+  /architecture/*
+
+plugins:
+  - search
+
+strict: true

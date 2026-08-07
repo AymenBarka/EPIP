@@ -1,5 +1,35 @@
 # Changelog
 
+## Repository Foundation Hardening
+
+### Governance
+
+- Apache License 2.0
+- Security and supported-version policies
+- Contribution and community standards
+- CODEOWNERS, funding, and citation metadata
+
+### Open Source Infrastructure
+
+- GitHub issue and pull request templates
+- Dependabot and CodeQL configuration
+- Documentation and release workflows
+- Pre-commit and Markdown quality tooling
+
+### Documentation
+
+- MkDocs documentation website
+- Project, architecture, API, governance, and release documentation
+- Developer experience and repository navigation improvements
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 97%
+
 ## EPIP-015
 
 ### Added
