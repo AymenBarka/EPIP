@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from typing import Any, Self
-from uuid import uuid4
 
-
-def _utc_now() -> str:
-    """Return a UTC timestamp suitable for domain persistence."""
-    return datetime.now(UTC).isoformat()
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 
 
 class _DomainValue(float):
     """Base class for immutable domain value objects backed by a float."""
 
+    schema_version: int
+    created_at: str
+    uuid: str
     __slots__ = ("created_at", "schema_version", "uuid")
 
     def __new__(
@@ -24,6 +27,8 @@ class _DomainValue(float):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
         return super().__new__(cls, float(value))
 
@@ -33,10 +38,28 @@ class _DomainValue(float):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
-        self.schema_version = schema_version
-        self.created_at = created_at or _utc_now()
-        self.uuid = uuid_value or uuid4().hex
+        object.__setattr__(self, "schema_version", schema_version)
+        object.__setattr__(self, "created_at", created_at or resolve_clock(clock).now())
+        object.__setattr__(
+            self,
+            "uuid",
+            uuid_value
+            or resolve_id_generator(id_generator).generate(type(self).__name__, float(self)),
+        )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Prevent mutation of technical identity after construction."""
+        raise AttributeError(f"{type(self).__name__} is immutable")
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        del memo
+        return self
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the value object into a dictionary."""
@@ -80,11 +103,15 @@ class Confidence(_DomainValue):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
         numeric_value = float(value)
         if not 0.0 <= numeric_value <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
-        return super().__new__(cls, numeric_value, schema_version, created_at, uuid_value)
+        return super().__new__(
+            cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
+        )
 
 
 class Probability(_DomainValue):
@@ -96,11 +123,15 @@ class Probability(_DomainValue):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
         numeric_value = float(value)
         if not 0.0 <= numeric_value <= 1.0:
             raise ValueError("probability must be between 0 and 1")
-        return super().__new__(cls, numeric_value, schema_version, created_at, uuid_value)
+        return super().__new__(
+            cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
+        )
 
 
 class RiskScore(_DomainValue):
@@ -112,11 +143,15 @@ class RiskScore(_DomainValue):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
         numeric_value = float(value)
         if not 0.0 <= numeric_value <= 1.0:
             raise ValueError("risk_score must be between 0 and 1")
-        return super().__new__(cls, numeric_value, schema_version, created_at, uuid_value)
+        return super().__new__(
+            cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
+        )
 
 
 class Price(_DomainValue):
@@ -128,8 +163,12 @@ class Price(_DomainValue):
         schema_version: int = 1,
         created_at: str = "",
         uuid_value: str = "",
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
         numeric_value = float(value)
         if numeric_value < 0.0:
             raise ValueError("price must be non-negative")
-        return super().__new__(cls, numeric_value, schema_version, created_at, uuid_value)
+        return super().__new__(
+            cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
+        )

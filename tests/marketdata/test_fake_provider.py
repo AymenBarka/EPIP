@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from typing import cast
 
 import pytest
 
+from epip.core import DeterministicClock, DeterministicIdGenerator, Price
 from epip.marketdata.datasource import DataSource
 from epip.marketdata.datasource_models import ConnectionState, HistoryRequest
 from epip.marketdata.exceptions import ConnectionError, ProviderError
@@ -81,3 +83,24 @@ def test_interface_only_providers_raise() -> None:
 
     tw.disconnect()
     mt5.disconnect()
+
+
+def test_fake_provider_propagates_deterministic_identity_to_candles_and_prices() -> None:
+    def identities() -> tuple[str, ...]:
+        provider = FakeProvider(
+            candles_per_series=2,
+            clock=DeterministicClock(),
+            id_generator=DeterministicIdGenerator("market-data"),
+        )
+        provider.connect()
+        candle = provider.latest("EURUSD", "M1")
+        assert candle is not None
+        prices = tuple(
+            cast(Price, item) for item in (candle.open, candle.high, candle.low, candle.close)
+        )
+        return (
+            candle.uuid,
+            *(item.uuid for item in prices),
+        )
+
+    assert identities() == identities()

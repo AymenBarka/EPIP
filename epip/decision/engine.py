@@ -6,6 +6,12 @@ from time import perf_counter
 
 from epip.context import MarketContextSnapshot
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.decision.analyzer import DecisionAnalyzer
 from epip.decision.config import DecisionConfig
 from epip.decision.events import (
@@ -32,6 +38,8 @@ class DecisionEngine:
         config: DecisionConfig,
         event_bus: EventBus,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._bus = event_bus
@@ -43,6 +51,8 @@ class DecisionEngine:
         self._histories: dict[tuple[str, str], DecisionHistory] = {}
         self._graphs: dict[tuple[str, str], DecisionGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process(self, context: MarketContextSnapshot, elliott: WaveSnapshot) -> DecisionSnapshot:
         if not self._validator.validate(context, elliott):
@@ -90,6 +100,8 @@ class DecisionEngine:
     def mark_executed(self, snapshot: DecisionSnapshot) -> None:
         self._bus.publish(
             DecisionExecuted(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"executed-{snapshot.decision.decision_id}",
                 timestamp=snapshot.timestamp,
                 symbol=snapshot.symbol,
@@ -102,6 +114,8 @@ class DecisionEngine:
     def mark_expired(self, snapshot: DecisionSnapshot) -> None:
         self._bus.publish(
             DecisionExpired(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"expired-{snapshot.decision.decision_id}",
                 timestamp=snapshot.timestamp,
                 symbol=snapshot.symbol,
@@ -116,6 +130,8 @@ class DecisionEngine:
         decision = snapshot.decision
         self._bus.publish(
             event_type(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"decision-{snapshot.symbol}-{snapshot.version}",
                 timestamp=snapshot.timestamp,
                 symbol=snapshot.symbol,
@@ -128,6 +144,8 @@ class DecisionEngine:
         if decision.action == DecisionAction.INVALID:
             self._bus.publish(
                 DecisionInvalidated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"invalid-{snapshot.symbol}-{snapshot.version}",
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,

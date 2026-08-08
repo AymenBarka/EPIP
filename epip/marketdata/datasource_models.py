@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import InitVar, dataclass
 from enum import Enum
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, resolve_clock
 
 
 class ConnectionState(str, Enum):
@@ -26,7 +26,11 @@ class HealthCheck:
     status: HealthState
     connection: ConnectionState
     message: str
-    checked_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    checked_at: str = ""
+    clock: InitVar[ClockProtocol | None] = None
+
+    def __post_init__(self, clock: ClockProtocol | None) -> None:
+        object.__setattr__(self, "checked_at", self.checked_at or resolve_clock(clock).now())
 
 
 @dataclass(frozen=True, slots=True)

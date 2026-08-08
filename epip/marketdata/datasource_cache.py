@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from threading import RLock
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, resolve_clock
 from epip.marketdata.datasource_models import HistoryRequest, HistoryResponse
 
 
@@ -47,7 +48,13 @@ class _Entry[T]:
 class DataSourceCache:
     """Stores cached history and latest responses using LRU eviction."""
 
-    def __init__(self, *, expiration_seconds: float = 60.0, max_entries: int = 1024) -> None:
+    def __init__(
+        self,
+        *,
+        expiration_seconds: float = 60.0,
+        max_entries: int = 1024,
+        clock: ClockProtocol | None = None,
+    ) -> None:
         if expiration_seconds <= 0:
             raise ValueError("expiration_seconds must be greater than zero")
         if max_entries <= 0:
@@ -56,6 +63,7 @@ class DataSourceCache:
         self._lock = RLock()
         self._expiration = timedelta(seconds=expiration_seconds)
         self._max_entries = max_entries
+        self._clock = resolve_clock(clock)
         self._history: OrderedDict[_HistoryKey, _Entry[HistoryResponse]] = OrderedDict()
         self._latest: OrderedDict[_LatestKey, _Entry[Candle]] = OrderedDict()
         self._history_hits = 0
@@ -73,7 +81,7 @@ class DataSourceCache:
             page=request.page,
             page_size=request.page_size,
         )
-        now = datetime.now(UTC)
+        now = datetime.fromisoformat(self._clock.now())
         with self._lock:
             entry = self._history.get(key)
             if entry is None:
@@ -115,14 +123,15 @@ class DataSourceCache:
         )
         with self._lock:
             self._history[key] = _Entry(
-                value=response, expires_at=datetime.now(UTC) + self._expiration
+                value=response,
+                expires_at=datetime.fromisoformat(self._clock.now()) + self._expiration,
             )
             self._history.move_to_end(key)
             self._trim_history()
 
     def get_latest(self, *, symbol: str, timeframe: str) -> Candle | None:
         key = _LatestKey(symbol=symbol, timeframe=timeframe)
-        now = datetime.now(UTC)
+        now = datetime.fromisoformat(self._clock.now())
         with self._lock:
             entry = self._latest.get(key)
             if entry is None:
@@ -140,7 +149,8 @@ class DataSourceCache:
         key = _LatestKey(symbol=symbol, timeframe=timeframe)
         with self._lock:
             self._latest[key] = _Entry(
-                value=candle, expires_at=datetime.now(UTC) + self._expiration
+                value=candle,
+                expires_at=datetime.fromisoformat(self._clock.now()) + self._expiration,
             )
             self._latest.move_to_end(key)
             self._trim_latest()
@@ -175,7 +185,7 @@ class DataSourceCache:
             )
 
     def prune_expired(self) -> int:
-        now = datetime.now(UTC)
+        now = datetime.fromisoformat(self._clock.now())
         removed = 0
         with self._lock:
             history_keys = [key for key, value in self._history.items() if value.expires_at <= now]

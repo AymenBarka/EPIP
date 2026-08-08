@@ -11,7 +11,7 @@ from epip.replay.replay_metrics import ReplayMetrics
 class ReplayStatistics:
     """Accumulates replay counters and latency metrics."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, normalize_runtime: bool = False) -> None:
         self._lock = RLock()
         self._started_at: float | None = None
         self._elapsed_override = 0.0
@@ -21,6 +21,7 @@ class ReplayStatistics:
         self._total_latency = 0.0
         self._max_latency = 0.0
         self._peak_memory = 0
+        self._normalize_runtime = normalize_runtime
 
     def mark_started(self) -> None:
         with self._lock:
@@ -53,6 +54,17 @@ class ReplayStatistics:
 
     def snapshot(self) -> ReplayMetrics:
         with self._lock:
+            if self._normalize_runtime:
+                return ReplayMetrics(
+                    elapsed_time=0.0,
+                    candles_per_second=0.0,
+                    average_latency=0.0,
+                    max_latency=0.0,
+                    peak_memory=0,
+                    processed_candles=self._processed_candles,
+                    processed_events=self._processed_events,
+                    processed_features=self._processed_features,
+                )
             elapsed = self._compute_elapsed_locked()
             average_latency = (
                 self._total_latency / self._processed_candles if self._processed_candles else 0.0

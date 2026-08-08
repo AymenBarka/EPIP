@@ -6,6 +6,12 @@ from time import perf_counter
 
 from epip.context import MarketContextSnapshot
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.elliott.analyzer import ElliottAnalyzer
 from epip.elliott.config import ElliottConfig
 from epip.elliott.events import (
@@ -32,6 +38,8 @@ class ElliottWaveEngine:
         config: ElliottConfig,
         event_bus: EventBus,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._bus = event_bus
@@ -43,6 +51,8 @@ class ElliottWaveEngine:
         self._histories: dict[tuple[str, str], WaveHistory] = {}
         self._graphs: dict[tuple[str, str], WaveGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process(self, context: MarketContextSnapshot) -> WaveSnapshot:
         if not self._validator.validate(context):
@@ -87,6 +97,8 @@ class ElliottWaveEngine:
         primary = snapshot.analysis.primary
         self._bus.publish(
             WaveDetected(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"wave-{snapshot.symbol}-{snapshot.version}",
                 wave_count=len(primary.sequence.waves),
                 symbol=snapshot.symbol,
@@ -98,6 +110,8 @@ class ElliottWaveEngine:
         if primary.status == CountStatus.VALID:
             self._bus.publish(
                 WaveValidated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"validated-{snapshot.symbol}-{snapshot.version}",
                     count_id=primary.count_id,
                     symbol=snapshot.symbol,
@@ -109,6 +123,8 @@ class ElliottWaveEngine:
         else:
             self._bus.publish(
                 WaveInvalidated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"invalid-{snapshot.symbol}-{snapshot.version}",
                     violation_count=len(primary.violations),
                     symbol=snapshot.symbol,
@@ -120,6 +136,8 @@ class ElliottWaveEngine:
         if snapshot.analysis.alternates:
             self._bus.publish(
                 AlternateCreated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"alternate-{snapshot.symbol}-{snapshot.version}",
                     alternate_count=len(snapshot.analysis.alternates),
                     symbol=snapshot.symbol,
@@ -130,6 +148,8 @@ class ElliottWaveEngine:
             )
         self._bus.publish(
             CountUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"count-{snapshot.symbol}-{snapshot.version}",
                 probability=primary.probability,
                 symbol=snapshot.symbol,
@@ -141,6 +161,8 @@ class ElliottWaveEngine:
         if snapshot.analysis.projection is not None:
             self._bus.publish(
                 ProjectionUpdated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"projection-{snapshot.symbol}-{snapshot.version}",
                     target_count=len(snapshot.analysis.projection.targets),
                     symbol=snapshot.symbol,

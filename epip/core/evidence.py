@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import InitVar, dataclass, field
 from types import MappingProxyType
 from typing import Any
-from uuid import uuid4
 
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.core.types import Direction
 from epip.core.value_objects import Confidence
 
@@ -34,16 +38,24 @@ class Evidence:
     direction: Direction
     confidence: Confidence | float
     timestamp: str
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-    schema_version: int = 1
-    created_at: str = ""
-    uuid: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict, compare=False)
+    schema_version: int = field(default=1, compare=False)
+    created_at: str = field(default="", compare=False)
+    uuid: str = field(default="", compare=False)
+    clock: InitVar[ClockProtocol | None] = None
+    id_generator: InitVar[IdGeneratorProtocol | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(
+        self, clock: ClockProtocol | None, id_generator: IdGeneratorProtocol | None
+    ) -> None:
         """Validate the evidence values and freeze metadata."""
         object.__setattr__(self, "confidence", Confidence(self.confidence))
-        object.__setattr__(self, "created_at", self.created_at or datetime.now(UTC).isoformat())
-        object.__setattr__(self, "uuid", self.uuid or uuid4().hex)
+        object.__setattr__(self, "created_at", self.created_at or resolve_clock(clock).now())
+        object.__setattr__(
+            self,
+            "uuid",
+            self.uuid or resolve_id_generator(id_generator).generate("evidence", self.id),
+        )
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
     def to_dict(self) -> dict[str, Any]:

@@ -6,6 +6,12 @@ from threading import RLock
 from time import perf_counter
 
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.execution.config import ExecutionConfig
 from epip.execution.events import (
     ExecutionCompleted,
@@ -44,6 +50,8 @@ class ExecutionEngine:
         config: ExecutionConfig | None = None,
         broker: BrokerAdapterProtocol | None = None,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._bus = event_bus
         self._config = config or ExecutionConfig()
@@ -58,6 +66,8 @@ class ExecutionEngine:
         self._histories: dict[str, ExecutionHistory] = {}
         self._graphs: dict[str, ExecutionGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def execute(
         self, plan: PositionPlan, *, timestamp: str, **observations: float
@@ -155,6 +165,8 @@ class ExecutionEngine:
     ) -> None:
         self._bus.publish(
             event_type(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"{event_type.__name__}-{order.order_id}",
                 timestamp=timestamp,
                 symbol=order.symbol,
@@ -170,6 +182,8 @@ class ExecutionEngine:
         if report.completed:
             self._bus.publish(
                 OrderFilled(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -180,6 +194,8 @@ class ExecutionEngine:
             )
             self._bus.publish(
                 ExecutionCompleted(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -191,6 +207,8 @@ class ExecutionEngine:
         elif order.state == OrderState.REJECTED:
             self._bus.publish(
                 OrderRejected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,

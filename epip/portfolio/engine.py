@@ -5,6 +5,12 @@ from threading import RLock
 from time import perf_counter
 
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.execution.models import ExecutionSnapshot, OrderSide
 from epip.portfolio.allocation import calculate_allocations
 from epip.portfolio.capital import available_cash, used_margin
@@ -42,6 +48,8 @@ class PortfolioEngine:
         event_bus: EventBus,
         config: PortfolioConfig | None = None,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config or PortfolioConfig()
         validate_config(self._config)
@@ -55,6 +63,8 @@ class PortfolioEngine:
         self._graph = PortfolioGraph()
         self._statistics = PortfolioStatistics()
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process(self, execution: ExecutionSnapshot) -> PortfolioSnapshot:
         validate_execution(execution)
@@ -137,6 +147,8 @@ class PortfolioEngine:
             if instructions:
                 self._bus.publish(
                     PortfolioRebalanced(
+                        clock=self._clock,
+                        id_generator=self._id_generator,
                         id=f"rebalance-{self._snapshot.version}",
                         timestamp=self._snapshot.timestamp,
                         version=self._snapshot.version,
@@ -182,6 +194,8 @@ class PortfolioEngine:
         plan = snapshot.execution_plan_id
         self._bus.publish(
             PortfolioUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=event_id,
                 timestamp=snapshot.timestamp,
                 version=snapshot.version,
@@ -192,6 +206,8 @@ class PortfolioEngine:
         if snapshot.state.exposure.gross_exposure > self._config.max_gross_exposure:
             self._bus.publish(
                 ExposureExceeded(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     version=snapshot.version,
@@ -202,6 +218,8 @@ class PortfolioEngine:
         if snapshot.state.limit_reasons:
             self._bus.publish(
                 RiskLimitReached(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     version=snapshot.version,
@@ -216,6 +234,8 @@ class PortfolioEngine:
             if old.get(item.symbol) != item.fraction:
                 self._bus.publish(
                     AllocationChanged(
+                        clock=self._clock,
+                        id_generator=self._id_generator,
                         id=f"allocation-{snapshot.version}-{item.symbol}",
                         timestamp=snapshot.timestamp,
                         version=snapshot.version,
