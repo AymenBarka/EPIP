@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.5.6
+
+### Fixed
+
+- Added complete release metadata for Hardening-002
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.5 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.5
+
+### Added
+
+- Hardening-002 Data Integrity
+- Fail-fast validation across official engine boundaries
+- Domain-specific integrity exceptions
+- Immutable metadata and payload protection
+- Automated immutable-dataclass compliance inventory
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 97%
+
 ## v1.5.4
 
 ### Fixed
