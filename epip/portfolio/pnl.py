@@ -8,6 +8,6 @@ def calculate_pnl(
 ) -> PortfolioPnL:
     unrealized = sum(position.unrealized_pnl for position in positions)
     net_realized = realized - commission
-    return PortfolioPnL(
-        net_realized, net_realized, net_realized, unrealized, net_realized, unrealized
-    )
+    # EPIP has no trading calendar or period ledger.  Reporting cumulative
+    # realized PnL as daily, weekly, or monthly would therefore be misleading.
+    return PortfolioPnL(None, None, None, unrealized, net_realized, unrealized)

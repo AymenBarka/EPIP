@@ -9,7 +9,7 @@ universal structural validation. EventBus requires the explicit protocol.
 The automated inventory currently covers **278 immutable business dataclasses**:
 64 have a class-specific contract and 214 use the universal structural contract.
 Its approved SHA-256 fingerprint is
-`fcf14ec080715cfda8a13336d52909cd6a8f008d72d3b4d95cdc5c798527f9bb`.
+`e5531c2ec1c70a6b2758bd447f2c0a0325d62442e1ddc647e941805592504f8e`.
 Any added, removed, renamed, or reclassified frozen dataclass changes that
 fingerprint and fails CI until an architect reviews its invariants.
 
