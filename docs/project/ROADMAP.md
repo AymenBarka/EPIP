@@ -12,6 +12,7 @@ timeline
     v1.5.1 : Foundation Hardening
     v1.5.2 : Determinism and Identity
     v1.5.3 : Release metadata correction
+    v1.5.4 : Release workflow correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -36,6 +37,7 @@ timeline
 - **v1.5.2:** delivered Hardening-001 deterministic clocks, identity generators, event metadata,
   serialization identity preservation, and reproducible replay support.
 - **v1.5.3:** corrects release metadata and Markdown validation for the Hardening-001 delivery.
+- **v1.5.4:** makes annotated-tag validation reliable in GitHub Actions runners.
 
 ## Planned releases
 

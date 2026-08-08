@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.5.4
+
+### Fixed
+
+- Explicitly fetch the pushed tag before validating that it is annotated
+- Make release validation independent of the checkout runner's local tag references
+
+### Quality
+
+- Release workflow correction only
+- No framework implementation changes
+
 ## v1.5.3
 
 ### Fixed
