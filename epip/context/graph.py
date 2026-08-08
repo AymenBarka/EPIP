@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from epip.context.snapshot import MarketContextSnapshot
+from epip.core.integrity import RelationshipIntegrityError
 
 
 class ContextRelation(StrEnum):
@@ -51,7 +52,7 @@ class MarketContextGraph:
             edges.append(MarketContextEdge(self.nodes[-1].node_id, node_id, ContextRelation.NEXT))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(MarketContextEdge(parent_id, node_id, ContextRelation.CHILD))
         return MarketContextGraph((*self.nodes, node), tuple(edges))
 

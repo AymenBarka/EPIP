@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.decision.analyzer import DecisionAnalyzer
 from epip.decision.config import DecisionConfig
 from epip.decision.events import (
@@ -54,6 +55,7 @@ class DecisionEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(self, context: MarketContextSnapshot, elliott: WaveSnapshot) -> DecisionSnapshot:
         if not self._validator.validate(context, elliott):
             raise InvalidDecisionInputError("Context and Elliott snapshots must be stream-aligned")

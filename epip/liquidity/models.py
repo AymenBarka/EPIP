@@ -8,6 +8,15 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
+from epip.core.integrity import (
+    RelationshipIntegrityError,
+    integrity_deserializer,
+    require_positive,
+    require_text,
+    require_unit_interval,
+    require_version,
+)
+
 
 class LiquiditySide(StrEnum):
     BUY_SIDE = "BUY_SIDE"
@@ -37,6 +46,14 @@ class LiquidityLevel:
     touches: int = 1
     status: LiquidityStatus = LiquidityStatus.RESTING
     confluence_score: float = 0.0
+
+    def __post_init__(self) -> None:
+        require_text(self.symbol, "liquidity_level.symbol")
+        require_text(self.timeframe, "liquidity_level.timeframe")
+        require_text(self.timestamp, "liquidity_level.timestamp")
+        require_positive(self.price, "liquidity_level.price")
+        require_positive(self.touches, "liquidity_level.touches")
+        require_unit_interval(self.confluence_score, "liquidity_level.confluence_score")
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +110,16 @@ class LiquidityPool:
     resting: bool = True
     confluence_score: float = 0.0
 
+    def __post_init__(self) -> None:
+        require_text(self.pool_id, "liquidity_pool.id")
+        require_text(self.symbol, "liquidity_pool.symbol")
+        require_text(self.timeframe, "liquidity_pool.timeframe")
+        require_positive(self.price, "liquidity_pool.price")
+        require_positive(self.touches, "liquidity_pool.touches")
+        require_unit_interval(self.confluence_score, "liquidity_pool.confluence_score")
+        if len(self.level_indices) != len(set(self.level_indices)):
+            raise RelationshipIntegrityError("liquidity pool contains duplicated indices")
+
 
 @dataclass(frozen=True, slots=True)
 class LiquiditySweep:
@@ -122,6 +149,22 @@ class LiquiditySnapshot:
     structure_version: int = 1
     engine_version: str = "EPIP-008"
 
+    def __post_init__(self) -> None:
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        require_text(self.timestamp, "liquidity_snapshot.timestamp")
+        require_text(self.symbol, "liquidity_snapshot.symbol")
+        require_text(self.timeframe, "liquidity_snapshot.timeframe")
+        require_version(self.version, "liquidity_snapshot.version")
+        require_version(self.structure_version, "liquidity_snapshot.structure_version")
+        require_text(self.engine_version, "liquidity_snapshot.engine_version")
+        pool_ids = tuple(pool.pool_id for pool in self.pools)
+        if len(pool_ids) != len(set(pool_ids)):
+            raise RelationshipIntegrityError("liquidity snapshot contains duplicated pool IDs")
+        if any(level.symbol != self.symbol for level in self.levels):
+            raise RelationshipIntegrityError("liquidity snapshot contains a different symbol")
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -129,6 +172,7 @@ class LiquiditySnapshot:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> LiquiditySnapshot:
         level: Callable[[dict[str, Any]], LiquidityLevel] = lambda x: LiquidityLevel(
             **{
@@ -178,5 +222,6 @@ class LiquiditySnapshot:
         )
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> LiquiditySnapshot:
         return cls.from_dict(json.loads(payload))

@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict
 from typing import Any, TypeVar, cast
 
+from epip.core.integrity import integrity_deserializer
 from epip.fibonacci.alignment import MultiTimeFrameAlignment
 from epip.fibonacci.clusters import FibonacciCluster
 from epip.fibonacci.institutional import InstitutionalEntryZone
@@ -28,6 +29,7 @@ def to_dict(value: FibonacciSnapshot) -> dict[str, object]:
     return value.to_dict()
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, object]) -> FibonacciSnapshot:
     return FibonacciSnapshot.from_dict(cast(dict[str, Any], data))
 
@@ -36,6 +38,7 @@ def to_json(value: FibonacciSnapshot) -> str:
     return value.to_json()
 
 
+@integrity_deserializer
 def from_json(payload: str) -> FibonacciSnapshot:
     return FibonacciSnapshot.from_json(payload)
 
@@ -97,6 +100,7 @@ def _institutional(data: dict[str, Any]) -> InstitutionalEntryZone:
     )
 
 
+@integrity_deserializer
 def object_from_json(cls: type[T], payload: str) -> T:  # noqa: UP047
     data: dict[str, Any] = json.loads(payload)
     result: object

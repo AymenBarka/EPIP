@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
-from types import MappingProxyType
 from typing import Any
 
 from epip.core.identity import (
@@ -13,6 +12,13 @@ from epip.core.identity import (
     IdGeneratorProtocol,
     resolve_clock,
     resolve_id_generator,
+)
+from epip.core.integrity import (
+    deep_freeze,
+    deep_thaw,
+    integrity_deserializer,
+    require_text,
+    require_version,
 )
 from epip.core.types import Direction
 from epip.core.value_objects import Confidence
@@ -56,7 +62,12 @@ class Evidence:
             "uuid",
             self.uuid or resolve_id_generator(id_generator).generate("evidence", self.id),
         )
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+        object.__setattr__(self, "metadata", deep_freeze(self.metadata))
+        require_text(self.id, "evidence.id")
+        require_text(self.source, "evidence.source")
+        require_text(self.category, "evidence.category")
+        require_text(self.timestamp, "evidence.timestamp")
+        require_version(self.schema_version, "evidence.schema_version")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the evidence to a dictionary."""
@@ -67,13 +78,14 @@ class Evidence:
             "direction": self.direction.value,
             "confidence": float(self.confidence),
             "timestamp": self.timestamp,
-            "metadata": dict(self.metadata),
+            "metadata": deep_thaw(self.metadata),
             "schema_version": self.schema_version,
             "created_at": self.created_at,
             "uuid": self.uuid,
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> Evidence:
         """Deserialize the evidence from a dictionary."""
         return cls(
@@ -94,6 +106,7 @@ class Evidence:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> Evidence:
         """Deserialize the evidence from JSON."""
         return cls.from_dict(json.loads(payload))

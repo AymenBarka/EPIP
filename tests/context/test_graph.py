@@ -3,6 +3,7 @@ import pytest
 from epip.context import MarketContextConfig, MarketContextEngine
 from epip.context.graph import MarketContextGraph
 from epip.core.event_bus import EventBus
+from epip.core.integrity import RelationshipIntegrityError
 from tests.context.helpers import official_inputs
 
 
@@ -18,5 +19,5 @@ def test_graph_traversal_and_links() -> None:
     assert child_graph.parent(second_id) == child_graph.nodes[0]
     assert child_graph.children(first_id) == (child_graph.nodes[1],)
     assert child_graph.nodes[0].linked_snapshots
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         MarketContextGraph().append(first, "missing")

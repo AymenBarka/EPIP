@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable
 from threading import RLock
 from typing import Any
 
+from epip.core.integrity import DataIntegrityError, EventIntegrityError, validate_object
+
 Listener = Callable[[object], None]
 
 
@@ -39,6 +41,10 @@ class EventBus:
 
     def publish(self, event: object) -> None:
         """Dispatch an event to all matching listeners."""
+        try:
+            validate_object(event, "event", explicit=True)
+        except DataIntegrityError as exc:
+            raise EventIntegrityError(f"invalid event: {exc}") from exc
         with self._lock:
             self._history.append(event)
             snapshot = list(self._listeners.get(type(event), ()))

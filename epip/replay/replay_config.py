@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import DataIntegrityError
+
 
 @dataclass(frozen=True, slots=True)
 class ReplayConfig:
@@ -32,14 +34,14 @@ class ReplayConfig:
         )
 
         if not self.symbols:
-            raise ValueError("at least one symbol must be provided")
+            raise DataIntegrityError("at least one symbol must be provided")
         if not self.timeframes:
-            raise ValueError("at least one timeframe must be provided")
+            raise DataIntegrityError("at least one timeframe must be provided")
         if self.warmup_bars < 0:
-            raise ValueError("warmup_bars must be non-negative")
+            raise DataIntegrityError("warmup_bars must be non-negative")
         if self.replay_speed <= 0:
-            raise ValueError("replay_speed must be greater than zero")
+            raise DataIntegrityError("replay_speed must be greater than zero")
         if self.page_size <= 0:
-            raise ValueError("page_size must be greater than zero")
+            raise DataIntegrityError("page_size must be greater than zero")
         if self.max_memory is not None and self.max_memory <= 0:
-            raise ValueError("max_memory must be greater than zero when provided")
+            raise DataIntegrityError("max_memory must be greater than zero when provided")

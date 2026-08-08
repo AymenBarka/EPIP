@@ -1,5 +1,6 @@
 import pytest
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.risk import RiskConfig
 from epip.risk.analyzer import RiskAnalyzer
 from epip.risk.exceptions import RiskVersionError
@@ -49,5 +50,5 @@ def test_graph_traversal() -> None:
     assert graph.children("EURUSD:H1:v1") == (graph.node("EURUSD:H1:v2"),)
     assert graph.linked_trade_decision("EURUSD:H1:v1") == "d-1"
     assert graph.node("missing") is None and graph.next("missing") is None
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         graph.append(snapshot(3), "missing")

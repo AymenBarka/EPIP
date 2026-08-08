@@ -13,6 +13,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_deserializer
 from epip.core.types import Direction, ScenarioType
 from epip.core.value_objects import Probability
 
@@ -81,6 +82,7 @@ class Scenario:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> Scenario:
         """Deserialize the scenario from a dictionary."""
         return cls(
@@ -100,6 +102,7 @@ class Scenario:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> Scenario:
         """Deserialize the scenario from JSON."""
         return cls.from_dict(json.loads(payload))

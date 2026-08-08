@@ -11,6 +11,13 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import (
+    integrity_deserializer,
+    require_finite,
+    require_non_negative,
+    require_unit_interval,
+    require_version,
+)
 
 
 class _DomainValue(float):
@@ -41,6 +48,8 @@ class _DomainValue(float):
         clock: ClockProtocol | None = None,
         id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
+        require_finite(float(self), type(self).__name__)
+        require_version(schema_version, f"{type(self).__name__}.schema_version")
         object.__setattr__(self, "schema_version", schema_version)
         object.__setattr__(self, "created_at", created_at or resolve_clock(clock).now())
         object.__setattr__(
@@ -71,6 +80,7 @@ class _DomainValue(float):
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any] | float) -> _DomainValue:
         """Deserialize the value object from a dictionary or scalar."""
         if isinstance(data, (float, int)):
@@ -106,9 +116,7 @@ class Confidence(_DomainValue):
         clock: ClockProtocol | None = None,
         id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
-        numeric_value = float(value)
-        if not 0.0 <= numeric_value <= 1.0:
-            raise ValueError("confidence must be between 0 and 1")
+        numeric_value = require_unit_interval(value, "confidence")
         return super().__new__(
             cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
         )
@@ -126,9 +134,7 @@ class Probability(_DomainValue):
         clock: ClockProtocol | None = None,
         id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
-        numeric_value = float(value)
-        if not 0.0 <= numeric_value <= 1.0:
-            raise ValueError("probability must be between 0 and 1")
+        numeric_value = require_unit_interval(value, "probability")
         return super().__new__(
             cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
         )
@@ -146,9 +152,7 @@ class RiskScore(_DomainValue):
         clock: ClockProtocol | None = None,
         id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
-        numeric_value = float(value)
-        if not 0.0 <= numeric_value <= 1.0:
-            raise ValueError("risk_score must be between 0 and 1")
+        numeric_value = require_unit_interval(value, "risk_score")
         return super().__new__(
             cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
         )
@@ -166,9 +170,7 @@ class Price(_DomainValue):
         clock: ClockProtocol | None = None,
         id_generator: IdGeneratorProtocol | None = None,
     ) -> Self:
-        numeric_value = float(value)
-        if numeric_value < 0.0:
-            raise ValueError("price must be non-negative")
+        numeric_value = require_non_negative(value, "price")
         return super().__new__(
             cls, numeric_value, schema_version, created_at, uuid_value, clock, id_generator
         )

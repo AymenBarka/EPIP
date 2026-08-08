@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.liquidity.models import LiquiditySnapshot
 
 
@@ -39,7 +40,7 @@ class LiquidityGraph:
             edges.append(LiquidityEdge(self.nodes[-1].node_id, node.node_id))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(LiquidityEdge(parent_id, node.node_id, "CHILD"))
         return LiquidityGraph((*self.nodes, node), tuple(edges))
 

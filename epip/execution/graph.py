@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.execution.models import ExecutionSnapshot
 
 
@@ -41,7 +42,7 @@ class ExecutionGraph:
             edges.append(ExecutionEdge(self.nodes[-1].node_id, node_id, ExecutionRelation.NEXT))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(ExecutionEdge(parent_id, node_id, ExecutionRelation.CHILD))
         edges.append(
             ExecutionEdge(

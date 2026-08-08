@@ -1,5 +1,6 @@
 import pytest
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.liquidity.graph import LiquidityGraph
 from epip.liquidity.models import LiquiditySnapshot
 
@@ -16,5 +17,5 @@ def test_graph_navigation() -> None:
     assert graph.previous(graph.nodes[1].node_id) == graph.nodes[0]
     assert graph.parent(graph.nodes[1].node_id) == graph.nodes[0]
     assert graph.children(parent) == (graph.nodes[1],)
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         graph.append(snap(3), parent_id="missing")

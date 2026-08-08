@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.execution.config import ExecutionConfig
 from epip.execution.events import (
     ExecutionCompleted,
@@ -69,6 +70,7 @@ class ExecutionEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def execute(
         self, plan: PositionPlan, *, timestamp: str, **observations: float
     ) -> ExecutionSnapshot:
@@ -124,6 +126,7 @@ class ExecutionEngine:
             self._logger.debug("execution v%d completed for %s", snapshot.version, plan.symbol)
             return snapshot
 
+    @integrity_boundary
     def cancel(self, symbol: str, *, timestamp: str) -> ExecutionSnapshot:
         with self._lock:
             current = self._snapshots[symbol]

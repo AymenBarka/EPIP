@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from epip.core.integrity import integrity_deserializer
+
 
 @dataclass(frozen=True, slots=True)
 class CacheConfig:
@@ -42,6 +44,7 @@ class MarketDataConfig:
     fake_candles_per_series: int = 2_000
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: dict[str, object]) -> MarketDataConfig:
         cache_payload = payload.get("cache", {})
         csv_payload = payload.get("csv", {})

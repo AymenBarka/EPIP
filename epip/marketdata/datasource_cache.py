@@ -9,6 +9,7 @@ from threading import RLock
 
 from epip.core.candle import Candle
 from epip.core.identity import ClockProtocol, resolve_clock
+from epip.core.integrity import DataIntegrityError
 from epip.marketdata.datasource_models import HistoryRequest, HistoryResponse
 
 
@@ -56,9 +57,9 @@ class DataSourceCache:
         clock: ClockProtocol | None = None,
     ) -> None:
         if expiration_seconds <= 0:
-            raise ValueError("expiration_seconds must be greater than zero")
+            raise DataIntegrityError("expiration_seconds must be greater than zero")
         if max_entries <= 0:
-            raise ValueError("max_entries must be greater than zero")
+            raise DataIntegrityError("max_entries must be greater than zero")
 
         self._lock = RLock()
         self._expiration = timedelta(seconds=expiration_seconds)

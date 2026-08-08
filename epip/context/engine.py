@@ -27,6 +27,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.fibonacci.models import FibonacciSnapshot
 from epip.liquidity.models import LiquiditySnapshot
 from epip.market_structure.models import MarketStructureSnapshot
@@ -56,6 +57,7 @@ class MarketContextEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(
         self,
         swings: SwingSequence,

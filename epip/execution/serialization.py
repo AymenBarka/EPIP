@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.execution.models import (
     ExecutionReason,
     ExecutionReport,
@@ -22,6 +23,7 @@ def to_dict(snapshot: ExecutionSnapshot) -> dict[str, Any]:
     return asdict(snapshot)
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, Any]) -> ExecutionSnapshot:
     report = data["report"]
     raw = report["order"]
@@ -63,5 +65,6 @@ def to_json(snapshot: ExecutionSnapshot) -> str:
     return json.dumps(to_dict(snapshot), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_json(payload: str) -> ExecutionSnapshot:
     return from_dict(json.loads(payload))

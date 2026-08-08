@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.elliott.models import (
     AlternateCount,
     CountStatus,
@@ -88,6 +89,7 @@ def _projection(data: dict[str, Any] | None) -> WaveProjection | None:
     )
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, Any]) -> WaveSnapshot:
     analysis = data["analysis"]
     return WaveSnapshot(
@@ -112,5 +114,6 @@ def to_json(snapshot: WaveSnapshot) -> str:
     return json.dumps(to_dict(snapshot), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_json(payload: str) -> WaveSnapshot:
     return from_dict(json.loads(payload))

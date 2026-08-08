@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.portfolio.models import PortfolioSnapshot
 
 
@@ -41,7 +42,7 @@ class PortfolioGraph:
             edges.append(PortfolioEdge(self.nodes[-1].node_id, node_id, PortfolioRelation.NEXT))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(PortfolioEdge(parent_id, node_id, PortfolioRelation.CHILD))
         edges.append(
             PortfolioEdge(node_id, snapshot.execution_plan_id, PortfolioRelation.LINKED_EXECUTION)

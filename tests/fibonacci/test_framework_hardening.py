@@ -107,7 +107,8 @@ def test_snapshot_exposes_bounded_probability_and_strength_serializes() -> None:
     assert 0.0 <= snapshot.probability <= 1.0
     payload = snapshot.to_dict()
     payload["probability"] = 2.0
-    assert snapshot.from_dict(payload).probability == 1.0
+    with pytest.raises(ValueError, match="probability"):
+        snapshot.from_dict(payload)
     strength = FibonacciStrength.calculate(2, 1, 0.6)
     assert object_from_json(FibonacciStrength, object_to_json(strength)) == strength
 

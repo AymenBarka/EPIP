@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.liquidity.models import LiquiditySnapshot
 
 _ORDER = {"M1": 0, "M5": 1, "M15": 2, "H1": 3, "H4": 4, "D1": 5}
@@ -25,11 +26,11 @@ class MultiTimeFrameLiquidityTree:
         self, snapshot: LiquiditySnapshot, parent_id: str | None = None
     ) -> MultiTimeFrameLiquidityTree:
         if snapshot.timeframe not in _ORDER:
-            raise ValueError("unsupported timeframe")
+            raise RelationshipIntegrityError("unsupported timeframe")
         if parent_id is not None:
             parent = self.node(parent_id)
             if parent is None or _ORDER[parent.timeframe] <= _ORDER[snapshot.timeframe]:
-                raise ValueError("parent must be a higher timeframe")
+                raise RelationshipIntegrityError("parent must be a higher timeframe")
         node = LiquidityTreeNode(
             f"{snapshot.symbol}:{snapshot.timeframe}:v{snapshot.version}",
             snapshot.timeframe,

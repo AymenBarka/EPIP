@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from threading import RLock
 
+from epip.core.integrity import NumericIntegrityError
 from epip.replay.replay_state import ReplayState
 
 
@@ -67,7 +68,7 @@ class ReplayClock:
         with self._lock:
             if value is not None:
                 if value <= 0:
-                    raise ValueError("replay speed must be greater than zero")
+                    raise NumericIntegrityError("replay speed must be greater than zero")
                 self._speed = value
             return self._speed
 

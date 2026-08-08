@@ -21,6 +21,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.core.plugin_context import PluginContext
 from epip.core.plugin_protocol import PluginProtocol
 from epip.core.plugin_result import PluginResult
@@ -61,6 +62,7 @@ class Kernel:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def run(self, market_context: MarketContext) -> KernelResult:
         """Execute the active plugins against a market context."""
         plugin_context = PluginContext(
