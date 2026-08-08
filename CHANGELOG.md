@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.5.8
+
+### Fixed
+
+- Added complete release metadata for Hardening-003 Financial Correctness
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.7 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.7
+
+### Added
+
+- Hardening-003 Financial Correctness
+- Explicit unavailable semantics for unsupported periodic PnL
+- Formal average-cost accounting policy
+- Commission, weighted-fill, exposure, margin, equity, drawdown, and allocation validation
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 97%
+
 ## v1.5.6
 
 ### Fixed
