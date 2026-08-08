@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, IdGeneratorProtocol
 from epip.marketdata.adapters.twelvedata_adapter import NullTwelveDataAdapter, TwelveDataAdapter
 from epip.marketdata.datasource_models import (
     ConnectionState,
@@ -20,8 +21,14 @@ from epip.marketdata.providers.base_provider import BaseProvider
 class TwelveDataProvider(BaseProvider):
     """Adapter-backed provider prepared for future TwelveData integration."""
 
-    def __init__(self, *, adapter: TwelveDataAdapter | None = None) -> None:
-        super().__init__(name="twelvedata")
+    def __init__(
+        self,
+        *,
+        adapter: TwelveDataAdapter | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
+    ) -> None:
+        super().__init__(name="twelvedata", clock=clock, id_generator=id_generator)
         self._adapter = adapter or NullTwelveDataAdapter()
 
     def _connect_impl(self) -> None:
@@ -65,4 +72,5 @@ class TwelveDataProvider(BaseProvider):
                 status=HealthState.DEGRADED,
                 connection=ConnectionState.CONNECTED,
                 message="interface-only provider",
+                clock=self._clock,
             )

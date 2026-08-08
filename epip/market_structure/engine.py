@@ -7,6 +7,12 @@ import tracemalloc
 from threading import RLock
 
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.market_structure.analyzer import AnalyzerResult, MarketStructureAnalyzer
 from epip.market_structure.config import MarketStructureConfig
 from epip.market_structure.events import (
@@ -42,6 +48,8 @@ class MarketStructureEngine:
         event_bus: EventBus,
         logger: logging.Logger | None = None,
         observer_registry: ObserverRegistry | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._event_bus = event_bus
@@ -54,6 +62,8 @@ class MarketStructureEngine:
         self._histories: dict[tuple[str, str], StructureHistory] = {}
         self._emitted_event_ids: set[str] = set()
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process_sequence(self, sequence: SwingSequence) -> MarketStructureSnapshot:
         """Process one swing sequence deterministically and publish structure events."""
@@ -158,6 +168,8 @@ class MarketStructureEngine:
         structure = snapshot.structure
         self._emit_once(
             StructureDetected(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"structure-detected-{structure.symbol}-{structure.timeframe}-{snapshot.timestamp}",
                 timestamp=snapshot.timestamp,
                 symbol=structure.symbol,
@@ -171,6 +183,8 @@ class MarketStructureEngine:
             bos = result.bos
             self._emit_once(
                 BOSDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"bos-detected-{bos.symbol}-{bos.timeframe}-{bos.timestamp}",
                     timestamp=bos.timestamp,
                     symbol=bos.symbol,
@@ -185,6 +199,8 @@ class MarketStructureEngine:
             choch = result.choch
             self._emit_once(
                 CHOCHDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"choch-detected-{choch.symbol}-{choch.timeframe}-{choch.timestamp}",
                     timestamp=choch.timestamp,
                     symbol=choch.symbol,
@@ -198,6 +214,8 @@ class MarketStructureEngine:
             range_regime = result.range_regime
             self._emit_once(
                 RangeDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=(
                         f"range-detected-{range_regime.symbol}-"
                         f"{range_regime.timeframe}-{snapshot.timestamp}"
@@ -216,6 +234,8 @@ class MarketStructureEngine:
         if previous_trend != structure.trend.direction:
             self._emit_once(
                 TrendChanged(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=(
                         f"trend-changed-{structure.symbol}-"
                         f"{structure.timeframe}-{snapshot.timestamp}"

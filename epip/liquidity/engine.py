@@ -5,6 +5,12 @@ from threading import RLock
 from time import perf_counter
 
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.liquidity.analyzer import LiquidityAnalyzer
 from epip.liquidity.config import LiquidityConfig
 from epip.liquidity.events import (
@@ -27,7 +33,13 @@ from epip.swing.models import SwingSequence
 
 class LiquidityEngine:
     def __init__(
-        self, *, config: LiquidityConfig, event_bus: EventBus, logger: logging.Logger | None = None
+        self,
+        *,
+        config: LiquidityConfig,
+        event_bus: EventBus,
+        logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._bus = event_bus
@@ -39,6 +51,8 @@ class LiquidityEngine:
         self._histories: dict[tuple[str, str], LiquidityHistory] = {}
         self._graphs: dict[tuple[str, str], LiquidityGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process(
         self, structure: MarketStructureSnapshot, sequence: SwingSequence
@@ -86,6 +100,8 @@ class LiquidityEngine:
     def _publish(self, snapshot: LiquiditySnapshot) -> None:
         self._bus.publish(
             LiquidityDetected(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"liquidity-{snapshot.symbol}-{snapshot.timeframe}-{snapshot.version}",
                 version=snapshot.version,
                 symbol=snapshot.symbol,
@@ -96,6 +112,8 @@ class LiquidityEngine:
         for pool in snapshot.pools:
             self._bus.publish(
                 LiquidityPoolCreated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"pool-{pool.pool_id}",
                     pool_id=pool.pool_id,
                     symbol=snapshot.symbol,
@@ -106,6 +124,8 @@ class LiquidityEngine:
         for sweep in snapshot.sweeps:
             self._bus.publish(
                 LiquiditySweepDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"sweep-{snapshot.version}-{sweep.side}",
                     side=sweep.side,
                     price=sweep.sweep_price,
@@ -117,6 +137,8 @@ class LiquidityEngine:
         for high in snapshot.equal_highs:
             self._bus.publish(
                 EqualHighDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"eqh-{snapshot.version}-{high.price}",
                     price=high.price,
                     symbol=snapshot.symbol,
@@ -127,6 +149,8 @@ class LiquidityEngine:
         for low in snapshot.equal_lows:
             self._bus.publish(
                 EqualLowDetected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"eql-{snapshot.version}-{low.price}",
                     price=low.price,
                     symbol=snapshot.symbol,

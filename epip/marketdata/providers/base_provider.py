@@ -8,6 +8,12 @@ from collections.abc import Iterator
 from threading import RLock
 
 from epip.core.candle import Candle
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.marketdata.datasource_cache import CacheStats, DataSourceCache
 from epip.marketdata.datasource_models import (
     ConnectionState,
@@ -29,13 +35,18 @@ class BaseProvider(ABC):
         cache_expiration_seconds: float = 60.0,
         cache_max_entries: int = 1024,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self.name = name
         self._lock = RLock()
         self._connected = False
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
         self._cache = DataSourceCache(
             expiration_seconds=cache_expiration_seconds,
             max_entries=cache_max_entries,
+            clock=self._clock,
         )
         self._logger = logger or logging.getLogger(f"epip.marketdata.{name}")
 
@@ -60,11 +71,13 @@ class BaseProvider(ABC):
                     status=HealthState.DEGRADED,
                     connection=ConnectionState.DISCONNECTED,
                     message="provider disconnected",
+                    clock=self._clock,
                 )
             return HealthCheck(
                 status=HealthState.HEALTHY,
                 connection=ConnectionState.CONNECTED,
                 message="provider connected",
+                clock=self._clock,
             )
 
     def history(self, request: HistoryRequest) -> HistoryResponse:

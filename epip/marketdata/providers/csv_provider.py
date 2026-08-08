@@ -6,6 +6,7 @@ import csv
 from pathlib import Path
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, IdGeneratorProtocol
 from epip.marketdata.datasource_models import (
     HistoryChunk,
     HistoryMetadata,
@@ -27,11 +28,15 @@ class CSVProvider(BaseProvider):
         default_timeframe: str | None = None,
         cache_expiration_seconds: float = 60.0,
         cache_max_entries: int = 1024,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         super().__init__(
             name="csv",
             cache_expiration_seconds=cache_expiration_seconds,
             cache_max_entries=cache_max_entries,
+            clock=clock,
+            id_generator=id_generator,
         )
         self._path = Path(csv_path)
         self._default_symbol = default_symbol
@@ -54,6 +59,8 @@ class CSVProvider(BaseProvider):
                 timeframe = str(row.get("timeframe") or self._default_timeframe or "M1")
                 candles.append(
                     Candle(
+                        clock=self._clock,
+                        id_generator=self._id_generator,
                         timestamp=str(row["timestamp"]),
                         symbol=symbol,
                         timeframe=timeframe,

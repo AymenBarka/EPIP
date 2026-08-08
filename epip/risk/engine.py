@@ -6,6 +6,12 @@ from time import perf_counter
 from typing import Any
 
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.decision.models import DecisionSnapshot
 from epip.risk.analyzer import RiskAnalyzer
 from epip.risk.config import RiskConfig
@@ -25,7 +31,13 @@ from epip.risk.validators import validate_config, validate_decision
 
 class RiskEngine:
     def __init__(
-        self, *, config: RiskConfig, event_bus: EventBus, logger: logging.Logger | None = None
+        self,
+        *,
+        config: RiskConfig,
+        event_bus: EventBus,
+        logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         validate_config(config)
         self._config = config
@@ -37,6 +49,8 @@ class RiskEngine:
         self._histories: dict[tuple[str, str], RiskHistory] = {}
         self._graphs: dict[tuple[str, str], RiskGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process(self, decision: DecisionSnapshot, **market_data: Any) -> RiskSnapshot:
         validate_decision(decision)
@@ -82,6 +96,8 @@ class RiskEngine:
         event_id = f"risk-{snapshot.symbol}-{snapshot.version}"
         self._bus.publish(
             PositionPlanned(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=event_id,
                 timestamp=snapshot.timestamp,
                 symbol=snapshot.symbol,
@@ -93,6 +109,8 @@ class RiskEngine:
         if plan.accepted:
             self._bus.publish(
                 RiskAccepted(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -104,6 +122,8 @@ class RiskEngine:
             failed = ",".join(reason.code for reason in plan.reasons if not reason.accepted)
             self._bus.publish(
                 RiskRejected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -115,6 +135,8 @@ class RiskEngine:
         if any(not reason.accepted and "EXPOSURE" in reason.code for reason in plan.reasons):
             self._bus.publish(
                 ExposureExceeded(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -126,6 +148,8 @@ class RiskEngine:
         if any(not reason.accepted and reason.code == "DRAWDOWN" for reason in plan.reasons):
             self._bus.publish(
                 DrawdownExceeded(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,

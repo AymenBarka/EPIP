@@ -9,6 +9,12 @@ from threading import RLock
 
 from epip.core.candle import Candle
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.swing.config import SwingConfig
 from epip.swing.detector import SwingDetector
 from epip.swing.events import SwingConfirmed, SwingDetected, SwingUpdated
@@ -28,6 +34,8 @@ class SwingEngine:
         event_bus: EventBus,
         detector: SwingDetector | None = None,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._event_bus = event_bus
@@ -35,6 +43,8 @@ class SwingEngine:
         self._logger = logger or logging.getLogger("epip.swing.engine")
         self._statistics = SwingStatisticsCollector()
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def process_candle(self, candle: Candle) -> tuple[Swing, ...]:
         """Process one candle and emit swing events."""
@@ -77,6 +87,8 @@ class SwingEngine:
     def _publish_swing_events(self, swing: Swing) -> None:
         self._event_bus.publish(
             SwingDetected(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"swing-detected-{swing.point.timestamp}",
                 timestamp=swing.point.timestamp,
                 symbol=swing.point.symbol,
@@ -90,6 +102,8 @@ class SwingEngine:
         if swing.classification in (SwingClassification.EQUAL_HIGH, SwingClassification.EQUAL_LOW):
             self._event_bus.publish(
                 SwingUpdated(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"swing-updated-{swing.point.timestamp}",
                     timestamp=swing.point.timestamp,
                     symbol=swing.point.symbol,
@@ -101,6 +115,8 @@ class SwingEngine:
             )
         self._event_bus.publish(
             SwingConfirmed(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"swing-confirmed-{swing.point.timestamp}",
                 timestamp=swing.point.timestamp,
                 symbol=swing.point.symbol,

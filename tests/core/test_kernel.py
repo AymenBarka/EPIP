@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import cast
+
 from epip.core.context import MarketContext
 from epip.core.decision import Decision
-from epip.core.events import EvidenceCreated, ScenarioCreated
+from epip.core.events import BaseEvent, EvidenceCreated, ScenarioCreated
 from epip.core.evidence import Evidence
+from epip.core.identity import DeterministicClock, DeterministicIdGenerator
 from epip.core.kernel import Kernel
 from epip.core.plugin_context import PluginContext
 from epip.core.plugin_result import PluginResult
@@ -28,6 +31,8 @@ class EchoPlugin:
             confidence=0.8,
             timestamp=context.market_context.timestamp,
             metadata={"plugin": self.name},
+            clock=context.clock,
+            id_generator=context.id_generator,
         )
         return PluginResult(
             plugin=self.name,
@@ -94,3 +99,26 @@ def test_kernel_handles_disabled_plugins_and_failures() -> None:
     assert result.plugin_results[0].errors[0].startswith("boom")
     assert result.evidence == ()
     assert result.scenario is None
+
+
+def test_kernel_propagates_deterministic_services_to_all_outputs() -> None:
+    def run() -> tuple[str, ...]:
+        registry = Registry()
+        registry.register(EchoPlugin())
+        clock = DeterministicClock("2025-01-01T00:00:00Z")
+        ids = DeterministicIdGenerator("kernel")
+        context = MarketContext("EURUSD", "M1", "timestamp", clock=clock, id_generator=ids)
+        kernel = Kernel(registry=registry, clock=clock, id_generator=ids)
+        result = kernel.run(context)
+        assert result.scenario is not None
+        assert result.hypothesis is not None
+        assert result.decision is not None
+        return (
+            result.evidence[0].uuid,
+            result.scenario.uuid,
+            result.hypothesis.uuid,
+            result.decision.uuid,
+            *(cast(BaseEvent, event).uuid for event in kernel.event_bus.event_history()),
+        )
+
+    assert run() == run()

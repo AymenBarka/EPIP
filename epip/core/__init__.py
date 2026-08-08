@@ -16,6 +16,14 @@ from epip.core.events import (
 )
 from epip.core.evidence import Evidence
 from epip.core.hypothesis import Hypothesis
+from epip.core.identity import (
+    ClockProtocol,
+    DeterministicClock,
+    DeterministicIdGenerator,
+    IdGeneratorProtocol,
+    SystemClock,
+    SystemIdGenerator,
+)
 from epip.core.kernel import Kernel, KernelResult
 from epip.core.plugin_context import PluginContext
 from epip.core.plugin_protocol import PluginProtocol
@@ -27,17 +35,21 @@ from epip.core.value_objects import Confidence, Price, Probability, RiskScore
 __all__ = [
     "BaseEvent",
     "Candle",
+    "ClockProtocol",
     "Confidence",
     "Decision",
     "DecisionConsumer",
     "DecisionCreated",
     "DecisionRejected",
+    "DeterministicClock",
+    "DeterministicIdGenerator",
     "EventBus",
     "Evidence",
     "EvidenceCreated",
     "EvidenceProducer",
     "EvidenceRejected",
     "Hypothesis",
+    "IdGeneratorProtocol",
     "Kernel",
     "KernelResult",
     "MarketContext",
@@ -52,4 +64,6 @@ __all__ = [
     "ScenarioBuilder",
     "ScenarioCreated",
     "ScenarioRejected",
+    "SystemClock",
+    "SystemIdGenerator",
 ]

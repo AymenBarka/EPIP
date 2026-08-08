@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from dataclasses import InitVar, dataclass, field
 from typing import Any
-from uuid import uuid4
 
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.core.value_objects import Price
 
 
@@ -34,18 +38,61 @@ class Candle:
     low: Price | float
     close: Price | float
     volume: float
-    schema_version: int = 1
-    created_at: str = ""
-    uuid: str = ""
+    schema_version: int = field(default=1, compare=False)
+    created_at: str = field(default="", compare=False)
+    uuid: str = field(default="", compare=False)
+    clock: InitVar[ClockProtocol | None] = None
+    id_generator: InitVar[IdGeneratorProtocol | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(
+        self, clock: ClockProtocol | None, id_generator: IdGeneratorProtocol | None
+    ) -> None:
         """Validate the candle values after initialization."""
-        object.__setattr__(self, "open", Price(self.open))
-        object.__setattr__(self, "high", Price(self.high))
-        object.__setattr__(self, "low", Price(self.low))
-        object.__setattr__(self, "close", Price(self.close))
-        object.__setattr__(self, "created_at", self.created_at or datetime.now(UTC).isoformat())
-        object.__setattr__(self, "uuid", self.uuid or uuid4().hex)
+        resolved_clock = resolve_clock(clock)
+        resolved_ids = resolve_id_generator(id_generator)
+        object.__setattr__(
+            self,
+            "open",
+            (
+                self.open
+                if isinstance(self.open, Price)
+                else Price(self.open, clock=resolved_clock, id_generator=resolved_ids)
+            ),
+        )
+        object.__setattr__(
+            self,
+            "high",
+            (
+                self.high
+                if isinstance(self.high, Price)
+                else Price(self.high, clock=resolved_clock, id_generator=resolved_ids)
+            ),
+        )
+        object.__setattr__(
+            self,
+            "low",
+            (
+                self.low
+                if isinstance(self.low, Price)
+                else Price(self.low, clock=resolved_clock, id_generator=resolved_ids)
+            ),
+        )
+        object.__setattr__(
+            self,
+            "close",
+            (
+                self.close
+                if isinstance(self.close, Price)
+                else Price(self.close, clock=resolved_clock, id_generator=resolved_ids)
+            ),
+        )
+        object.__setattr__(self, "created_at", self.created_at or resolved_clock.now())
+        object.__setattr__(
+            self,
+            "uuid",
+            self.uuid
+            or resolved_ids.generate("candle", self.symbol, self.timeframe, self.timestamp),
+        )
 
         if self.high < self.open or self.high < self.close or self.high < self.low:
             raise ValueError("high must be greater than or equal to open, close, and low")

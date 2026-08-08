@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from epip.core.events import BaseEvent
+from epip.core.identity import ClockProtocol, IdGeneratorProtocol
 from epip.market_structure.models import StructureState, TrendDirection
 
 
@@ -12,12 +13,14 @@ from epip.market_structure.models import StructureState, TrendDirection
 class MarketStructureEvent(BaseEvent):
     """Common immutable metadata for all market structure events."""
 
-    event_id: str = ""
-    engine_version: str = "EPIP-007"
-    source: str = "market-structure-engine"
+    event_id: str = field(default="", compare=False)
+    engine_version: str = field(default="EPIP-007", compare=False)
+    source: str = field(default="market-structure-engine", compare=False)
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
+    def __post_init__(
+        self, clock: ClockProtocol | None, id_generator: IdGeneratorProtocol | None
+    ) -> None:
+        super().__post_init__(clock, id_generator)
         object.__setattr__(self, "event_id", self.event_id or self.id)
 
 

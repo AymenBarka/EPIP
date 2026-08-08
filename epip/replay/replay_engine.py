@@ -9,6 +9,14 @@ from time import perf_counter
 from epip.core.candle import Candle
 from epip.core.context import MarketContext
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    DeterministicClock,
+    DeterministicIdGenerator,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
 from epip.core.kernel import Kernel
 from epip.features.feature_store import FeatureStore
 from epip.marketdata.datasource_protocol import DataSourceProtocol
@@ -40,12 +48,19 @@ class ReplayEngine:
         event_bus: EventBus,
         kernel: Kernel | None = None,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self.market_data = market_data
         self.feature_store = feature_store
         self.event_bus = event_bus
         self.kernel = kernel
         self.logger = logger or logging.getLogger("epip.replay")
+        self._deterministic = isinstance(clock, DeterministicClock) and isinstance(
+            id_generator, DeterministicIdGenerator
+        )
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
     def create_session(
         self,
@@ -53,13 +68,14 @@ class ReplayEngine:
         clock: ReplayClock | None = None,
     ) -> ReplaySession:
         scheduler = ReplayScheduler(market_data=self.market_data, config=config)
-        statistics = ReplayStatistics()
+        statistics = ReplayStatistics(normalize_runtime=self._deterministic)
         replay_clock = clock or ReplayClock(replay_speed=config.replay_speed)
         return ReplaySession(
             config=config,
             clock=replay_clock,
             statistics=statistics,
             scheduler=scheduler,
+            id_generator=self._id_generator,
         )
 
     def run(self, session: ReplaySession) -> ReplayMetrics:
@@ -71,6 +87,8 @@ class ReplayEngine:
         session.set_state(ReplayState.RUNNING)
         self.event_bus.publish(
             ReplayStarted(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"replay-started-{session.session_id}",
                 timestamp=session.config.start_date or "replay-start",
                 session_id=session.session_id,
@@ -94,6 +112,8 @@ class ReplayEngine:
         session.set_state(ReplayState.FINISHED)
         self.event_bus.publish(
             ReplayFinished(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"replay-finished-{session.session_id}",
                 timestamp=session.clock.now() or (session.config.end_date or "replay-finished"),
                 session_id=session.session_id,
@@ -112,6 +132,8 @@ class ReplayEngine:
         started = perf_counter()
         self.event_bus.publish(
             CandleLoaded(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"candle-loaded-{candle.timestamp}",
                 timestamp=candle.timestamp,
                 symbol=symbol,
@@ -130,6 +152,8 @@ class ReplayEngine:
         session.statistics.record_feature(len(feature_set.features))
         self.event_bus.publish(
             FeatureUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"feature-updated-{candle.timestamp}",
                 timestamp=candle.timestamp,
                 symbol=symbol,
@@ -143,6 +167,8 @@ class ReplayEngine:
         window = session.window_for(symbol, timeframe)
         window.append(candle)
         context = MarketContext(
+            clock=self._clock,
+            id_generator=self._id_generator,
             symbol=symbol,
             timeframe=timeframe,
             timestamp=candle.timestamp,
@@ -152,6 +178,8 @@ class ReplayEngine:
         session.set_context(context)
         self.event_bus.publish(
             ContextUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"context-updated-{candle.timestamp}",
                 timestamp=candle.timestamp,
                 symbol=symbol,
@@ -170,6 +198,8 @@ class ReplayEngine:
 
         self.event_bus.publish(
             CandleProcessed(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"candle-processed-{candle.timestamp}",
                 timestamp=candle.timestamp,
                 symbol=symbol,
