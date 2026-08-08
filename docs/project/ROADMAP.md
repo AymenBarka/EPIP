@@ -15,6 +15,8 @@ timeline
     v1.5.4 : Release workflow correction
     v1.5.5 : Hardening-002 Data Integrity
     v1.5.6 : Hardening-002 release metadata correction
+    v1.5.7 : Hardening-003 Financial Correctness
+    v1.5.8 : Hardening-003 release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -44,6 +46,10 @@ timeline
   domain-specific integrity errors, and automated compliance coverage.
 - **v1.5.6:** aligns all release metadata for the Hardening-002 delivery while preserving the
   already-published v1.5.5 tag.
+- **v1.5.7:** delivered Hardening-003 periodic PnL semantics, average-cost accounting, commission
+  and fill validation, and enforced portfolio financial identities.
+- **v1.5.8:** aligns all release metadata for the Hardening-003 delivery while preserving the
+  already-published v1.5.7 tag.
 
 ## Planned releases
 
