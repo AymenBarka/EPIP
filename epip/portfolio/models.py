@@ -64,6 +64,13 @@ class PortfolioExposure:
         require_non_negative(self.gross_exposure, "portfolio_exposure.gross")
         require_finite(self.net_exposure, "portfolio_exposure.net")
         require_unit_interval(self.concentration, "portfolio_exposure.concentration")
+        tolerance = 1e-12 * max(1.0, self.gross_exposure)
+        if abs(self.gross_exposure - (self.long_exposure + self.short_exposure)) > tolerance:
+            raise RelationshipIntegrityError("gross exposure must equal long plus short exposure")
+        if abs(self.net_exposure - (self.long_exposure - self.short_exposure)) > tolerance:
+            raise RelationshipIntegrityError("net exposure must equal long minus short exposure")
+        if abs(self.net_exposure) > self.gross_exposure + tolerance:
+            raise RelationshipIntegrityError("absolute net exposure exceeds gross exposure")
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,12 +88,22 @@ class PortfolioAllocation:
 
 @dataclass(frozen=True, slots=True)
 class PortfolioPnL:
-    daily: float
-    weekly: float
-    monthly: float
+    daily: float | None
+    weekly: float | None
+    monthly: float | None
     floating: float
     realized: float
     unrealized: float
+
+    def __post_init__(self) -> None:
+        for name in ("daily", "weekly", "monthly"):
+            value = getattr(self, name)
+            if value is not None:
+                require_finite(value, f"portfolio_pnl.{name}")
+        for name in ("floating", "realized", "unrealized"):
+            require_finite(getattr(self, name), f"portfolio_pnl.{name}")
+        if abs(self.floating - self.unrealized) > 1e-12 * max(1.0, abs(self.unrealized)):
+            raise RelationshipIntegrityError("floating PnL must equal unrealized PnL")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +124,8 @@ class PortfolioEquity:
         require_non_negative(self.used_margin, "portfolio_equity.used_margin")
         if self.peak < self.current:
             raise RelationshipIntegrityError("portfolio equity peak is below current equity")
+        if self.used_margin > self.current:
+            raise RelationshipIntegrityError("used margin exceeds current equity")
 
 
 @dataclass(frozen=True, slots=True)

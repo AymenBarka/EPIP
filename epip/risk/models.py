@@ -116,6 +116,8 @@ class Margin:
         require_non_negative(self.used, "margin.used")
         require_non_negative(self.remaining, "margin.remaining")
         require_non_negative(self.liquidation_safety_ratio, "margin.liquidation_safety_ratio")
+        if self.used < self.required:
+            raise RelationshipIntegrityError("used margin is below newly required margin")
 
 
 @dataclass(frozen=True, slots=True)
