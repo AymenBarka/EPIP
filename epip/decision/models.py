@@ -6,6 +6,17 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from epip.core.integrity import (
+    RelationshipIntegrityError,
+    integrity_deserializer,
+    require_non_negative,
+    require_positive,
+    require_text,
+    require_unit_interval,
+    require_version,
+    validate_object,
+)
+
 
 class DecisionAction(StrEnum):
     LONG = "LONG"
@@ -66,10 +77,16 @@ class DecisionScore:
 class DecisionConfidence:
     value: float
 
+    def __post_init__(self) -> None:
+        require_unit_interval(self.value, "decision.confidence")
+
 
 @dataclass(frozen=True, slots=True)
 class DecisionProbability:
     value: float
+
+    def __post_init__(self) -> None:
+        require_unit_interval(self.value, "decision.probability")
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +101,10 @@ class RiskProfile:
     max_risk_fraction: float
     risk_reward_ratio: float
 
+    def __post_init__(self) -> None:
+        require_unit_interval(self.max_risk_fraction, "risk_profile.max_risk_fraction")
+        require_non_negative(self.risk_reward_ratio, "risk_profile.risk_reward_ratio")
+
 
 @dataclass(frozen=True, slots=True)
 class Invalidation:
@@ -96,6 +117,13 @@ class EntryZone:
     low: float
     high: float
     suggested_price: float
+
+    def __post_init__(self) -> None:
+        require_positive(self.low, "entry_zone.low")
+        require_positive(self.high, "entry_zone.high")
+        require_positive(self.suggested_price, "entry_zone.suggested_price")
+        if self.low > self.high or not self.low <= self.suggested_price <= self.high:
+            raise RelationshipIntegrityError("entry zone prices are inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +157,14 @@ class TradeDecision:
     entry_zone: EntryZone | None
     exit_zone: ExitZone
 
+    def validate_integrity(self) -> None:
+        require_text(self.decision_id, "decision.id")
+        validate_object(self.confidence, "decision.confidence")
+        validate_object(self.probability, "decision.probability")
+        validate_object(self.risk_profile, "decision.risk_profile")
+        if self.entry_zone is not None:
+            validate_object(self.entry_zone, "decision.entry_zone")
+
 
 @dataclass(frozen=True, slots=True)
 class DecisionSnapshot:
@@ -141,12 +177,26 @@ class DecisionSnapshot:
     decision: TradeDecision
     engine_version: str = "EPIP-012"
 
+    def __post_init__(self) -> None:
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        require_text(self.timestamp, "decision_snapshot.timestamp")
+        require_text(self.symbol, "decision_snapshot.symbol")
+        require_text(self.timeframe, "decision_snapshot.timeframe")
+        require_version(self.version, "decision_snapshot.version")
+        require_version(self.context_version, "decision_snapshot.context_version")
+        require_version(self.elliott_version, "decision_snapshot.elliott_version")
+        require_text(self.engine_version, "decision_snapshot.engine_version")
+        self.decision.validate_integrity()
+
     def to_dict(self) -> dict[str, Any]:
         from epip.decision.serialization import to_dict
 
         return to_dict(self)
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> DecisionSnapshot:
         from epip.decision.serialization import from_dict
 

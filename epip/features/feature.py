@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Any
+
+from epip.core.integrity import deep_freeze, deep_thaw, require_text, require_unit_interval
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,16 +24,23 @@ class Feature:
     source: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+        require_text(self.id, "feature.id")
+        require_text(self.name, "feature.name")
+        require_text(self.category, "feature.category")
+        require_text(self.timestamp, "feature.timestamp")
+        require_text(self.source, "feature.source")
+        require_unit_interval(self.quality_score, "feature.quality_score")
+        object.__setattr__(self, "metadata", deep_freeze(self.metadata))
+        object.__setattr__(self, "value", deep_freeze(self.value))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "category": self.category,
-            "value": self.value,
+            "value": deep_thaw(self.value),
             "timestamp": self.timestamp,
-            "metadata": dict(self.metadata),
+            "metadata": deep_thaw(self.metadata),
             "quality_score": self.quality_score,
             "source": self.source,
         }

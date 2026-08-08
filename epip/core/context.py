@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
-from types import MappingProxyType
 from typing import Any
 
 from epip.core.candle import Candle
@@ -14,6 +13,13 @@ from epip.core.identity import (
     IdGeneratorProtocol,
     resolve_clock,
     resolve_id_generator,
+)
+from epip.core.integrity import (
+    deep_freeze,
+    deep_thaw,
+    integrity_deserializer,
+    require_text,
+    require_version,
 )
 
 
@@ -53,11 +59,11 @@ class MarketContext:
     ) -> None:
         """Normalize container values into immutable structures."""
         object.__setattr__(self, "candles", tuple(self.candles))
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
-        object.__setattr__(self, "plugin_cache", MappingProxyType(dict(self.plugin_cache)))
+        object.__setattr__(self, "metadata", deep_freeze(self.metadata))
+        object.__setattr__(self, "plugin_cache", deep_freeze(self.plugin_cache))
         object.__setattr__(self, "swings", tuple(self.swings))
-        object.__setattr__(self, "indicators", MappingProxyType(dict(self.indicators)))
-        object.__setattr__(self, "plugin_outputs", MappingProxyType(dict(self.plugin_outputs)))
+        object.__setattr__(self, "indicators", deep_freeze(self.indicators))
+        object.__setattr__(self, "plugin_outputs", deep_freeze(self.plugin_outputs))
         object.__setattr__(self, "created_at", self.created_at or resolve_clock(clock).now())
         object.__setattr__(
             self,
@@ -67,6 +73,10 @@ class MarketContext:
                 "market-context", self.symbol, self.timeframe, self.timestamp
             ),
         )
+        require_text(self.symbol, "context.symbol")
+        require_text(self.timeframe, "context.timeframe")
+        require_text(self.timestamp, "context.timestamp")
+        require_version(self.schema_version, "context.schema_version")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the context to a dictionary."""
@@ -75,20 +85,21 @@ class MarketContext:
             "timeframe": self.timeframe,
             "timestamp": self.timestamp,
             "candles": [candle.to_dict() for candle in self.candles],
-            "metadata": dict(self.metadata),
-            "plugin_cache": dict(self.plugin_cache),
+            "metadata": deep_thaw(self.metadata),
+            "plugin_cache": deep_thaw(self.plugin_cache),
             "swings": list(self.swings),
             "market_structure": self.market_structure,
             "regime": self.regime,
             "liquidity": self.liquidity,
-            "indicators": dict(self.indicators),
-            "plugin_outputs": dict(self.plugin_outputs),
+            "indicators": deep_thaw(self.indicators),
+            "plugin_outputs": deep_thaw(self.plugin_outputs),
             "schema_version": self.schema_version,
             "created_at": self.created_at,
             "uuid": self.uuid,
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> MarketContext:
         """Deserialize the context from a dictionary."""
         return cls(
@@ -114,6 +125,7 @@ class MarketContext:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> MarketContext:
         """Deserialize the context from JSON."""
         return cls.from_dict(json.loads(payload))

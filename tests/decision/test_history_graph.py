@@ -1,6 +1,7 @@
 import pytest
 
 from epip.core.event_bus import EventBus
+from epip.core.integrity import RelationshipIntegrityError
 from epip.decision import DecisionConfig, DecisionEngine
 from epip.decision.exceptions import DecisionVersionError
 from epip.decision.graph import DecisionGraph
@@ -26,7 +27,7 @@ def test_history_and_graph() -> None:
     child_graph = DecisionGraph().append(first).append(second, first_id)
     assert child_graph.parent(second_id) == child_graph.nodes[0]
     assert child_graph.children(first_id) == (child_graph.nodes[1],)
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         DecisionGraph().append(first, "missing")
     with pytest.raises(DecisionVersionError):
         DecisionHistory().append(second)

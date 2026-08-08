@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.decision.models import DecisionSnapshot
 from epip.risk.analyzer import RiskAnalyzer
 from epip.risk.config import RiskConfig
@@ -52,6 +53,7 @@ class RiskEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(self, decision: DecisionSnapshot, **market_data: Any) -> RiskSnapshot:
         validate_decision(decision)
         key = (decision.symbol, decision.timeframe)

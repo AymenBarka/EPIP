@@ -13,6 +13,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.market_structure.analyzer import AnalyzerResult, MarketStructureAnalyzer
 from epip.market_structure.config import MarketStructureConfig
 from epip.market_structure.events import (
@@ -65,6 +66,7 @@ class MarketStructureEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process_sequence(self, sequence: SwingSequence) -> MarketStructureSnapshot:
         """Process one swing sequence deterministically and publish structure events."""
         if not self._validator.validate(sequence, self._config.minimum_swings):

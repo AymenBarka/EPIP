@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.elliott.models import WaveSnapshot
 
 
@@ -41,7 +42,7 @@ class WaveGraph:
             edges.append(WaveEdge(self.nodes[-1].node_id, node_id, WaveRelation.NEXT))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(WaveEdge(parent_id, node_id, WaveRelation.CHILD))
         if snapshot.analysis.alternates:
             edges.append(WaveEdge(node_id, f"{node_id}:alternate", WaveRelation.ALTERNATE))

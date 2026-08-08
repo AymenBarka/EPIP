@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.elliott.analyzer import ElliottAnalyzer
 from epip.elliott.config import ElliottConfig
 from epip.elliott.events import (
@@ -54,6 +55,7 @@ class ElliottWaveEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(self, context: MarketContextSnapshot) -> WaveSnapshot:
         if not self._validator.validate(context):
             raise InvalidElliottInputError("invalid or version-misaligned Market Context")

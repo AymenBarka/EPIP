@@ -11,6 +11,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.execution.models import ExecutionSnapshot, OrderSide
 from epip.portfolio.allocation import calculate_allocations
 from epip.portfolio.capital import available_cash, used_margin
@@ -66,6 +67,7 @@ class PortfolioEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(self, execution: ExecutionSnapshot) -> PortfolioSnapshot:
         validate_execution(execution)
         with self._lock:

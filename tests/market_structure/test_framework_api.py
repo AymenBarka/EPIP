@@ -6,6 +6,7 @@ from typing import Any, cast
 import pytest
 
 from epip.core.event_bus import EventBus
+from epip.core.integrity import RelationshipIntegrityError
 from epip.market_structure.config import MarketStructureConfig
 from epip.market_structure.engine import MarketStructureEngine
 from epip.market_structure.exceptions import (
@@ -142,7 +143,7 @@ def test_graph_supports_hierarchy_and_chronological_traversal() -> None:
     assert graph.parent(graph.nodes[2].node_id) == graph.nodes[0]
     assert graph.children(parent_id) == (graph.nodes[2],)
     assert StructureGraph.from_snapshots((first, second)).nodes == graph.nodes[:2]
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         graph.append(_snapshot(4, 4), parent_id="missing")
 
 

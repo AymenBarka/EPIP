@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.decision.models import (
     DecisionAction,
     DecisionConfidence,
@@ -29,6 +30,7 @@ def to_dict(snapshot: DecisionSnapshot) -> dict[str, Any]:
     return asdict(snapshot)
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, Any]) -> DecisionSnapshot:
     raw = data["decision"]
     decision = TradeDecision(
@@ -70,5 +72,6 @@ def to_json(snapshot: DecisionSnapshot) -> str:
     return json.dumps(to_dict(snapshot), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_json(payload: str) -> DecisionSnapshot:
     return from_dict(json.loads(payload))

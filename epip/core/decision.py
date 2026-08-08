@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_deserializer, require_text, require_version
 from epip.core.types import DecisionType
 from epip.core.value_objects import Probability, RiskScore
 
@@ -53,6 +54,9 @@ class Decision:
             "uuid",
             self.uuid or resolve_id_generator(id_generator).generate("decision", self.id),
         )
+        require_text(self.id, "decision.id")
+        require_text(self.reason, "decision.reason")
+        require_version(self.schema_version, "decision.schema_version")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the decision to a dictionary."""
@@ -69,6 +73,7 @@ class Decision:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> Decision:
         """Deserialize the decision from a dictionary."""
         return cls(
@@ -88,6 +93,7 @@ class Decision:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> Decision:
         """Deserialize the decision from JSON."""
         return cls.from_dict(json.loads(payload))

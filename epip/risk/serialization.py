@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.risk.models import (
     Exposure,
     Leverage,
@@ -27,6 +28,7 @@ def to_dict(snapshot: RiskSnapshot) -> dict[str, Any]:
     return asdict(snapshot)
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, Any]) -> RiskSnapshot:
     raw = data["plan"]
     size = raw["position_size"]
@@ -69,5 +71,6 @@ def to_json(snapshot: RiskSnapshot) -> str:
     return json.dumps(to_dict(snapshot), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_json(payload: str) -> RiskSnapshot:
     return from_dict(json.loads(payload))

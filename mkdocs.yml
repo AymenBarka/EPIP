@@ -33,6 +33,7 @@ nav:
   - Architecture:
       - System Architecture: project/ARCHITECTURE.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
+      - Data Integrity: architecture/DataIntegrity.md
       - Dependency Graph: project/DEPENDENCY_GRAPH.md
       - Statistics: project/ARCHITECTURE_STATISTICS.md
   - Modules: project/MODULES.md
@@ -40,6 +41,9 @@ nav:
   - Developer Guide:
       - Contributing: project/DEVELOPER_GUIDE.md
       - Quality: project/QUALITY.md
+      - Validation Policy: project/VALIDATION_POLICY.md
+      - Integrity Compliance: project/DATA_INTEGRITY_COMPLIANCE.md
+      - Data Integrity Migration: project/DATA_INTEGRITY_MIGRATION.md
   - API Guide:
       - Public API: project/API_GUIDE.md
       - Object Catalog: project/OBJECT_CATALOG.md

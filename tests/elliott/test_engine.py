@@ -2,7 +2,6 @@ import pytest
 
 from epip.core.event_bus import EventBus
 from epip.elliott import ElliottConfig, ElliottWaveEngine
-from epip.elliott.exceptions import InvalidElliottInputError
 from tests.elliott.helpers import market_context
 
 
@@ -18,8 +17,8 @@ def test_engine_processes_market_context_and_isolates_streams() -> None:
 
 def test_engine_rejects_invalid_context_version() -> None:
     context = market_context()
-    invalid = context.__class__(
-        context.timestamp, context.version.__class__(0, 1, 1, 1), context.context
-    )
-    with pytest.raises(InvalidElliottInputError):
+    with pytest.raises(ValueError, match="positive integer"):
+        invalid = context.__class__(
+            context.timestamp, context.version.__class__(0, 1, 1, 1), context.context
+        )
         ElliottWaveEngine(config=ElliottConfig(), event_bus=EventBus()).process(invalid)

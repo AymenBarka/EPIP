@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import DataIntegrityError
+
 
 @dataclass(frozen=True, slots=True)
 class MarketStructureConfig:
@@ -19,8 +21,8 @@ class MarketStructureConfig:
 
     def __post_init__(self) -> None:
         if self.minimum_swings < 2:
-            raise ValueError("minimum_swings must be >= 2")
+            raise DataIntegrityError("minimum_swings must be >= 2")
         if self.equal_threshold < 0.0:
-            raise ValueError("equal_threshold must be non-negative")
+            raise DataIntegrityError("equal_threshold must be non-negative")
         if self.range_touch_count < 1:
-            raise ValueError("range_touch_count must be >= 1")
+            raise DataIntegrityError("range_touch_count must be >= 1")

@@ -12,6 +12,14 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import (
+    RelationshipIntegrityError,
+    integrity_deserializer,
+    require_non_negative,
+    require_positive,
+    require_text,
+    require_version,
+)
 from epip.core.value_objects import Price
 
 
@@ -94,12 +102,29 @@ class Candle:
             or resolved_ids.generate("candle", self.symbol, self.timeframe, self.timestamp),
         )
 
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        """Validate candle identity, numeric values, and OHLC relationships."""
+        require_text(self.timestamp, "candle.timestamp")
+        require_text(self.symbol, "candle.symbol")
+        require_text(self.timeframe, "candle.timeframe")
+        require_positive(float(self.open), "candle.open")
+        require_positive(float(self.high), "candle.high")
+        require_positive(float(self.low), "candle.low")
+        require_positive(float(self.close), "candle.close")
+        require_non_negative(self.volume, "candle.volume")
+        require_version(self.schema_version, "candle.schema_version")
+        require_text(self.created_at, "candle.created_at")
+        require_text(self.uuid, "candle.uuid")
         if self.high < self.open or self.high < self.close or self.high < self.low:
-            raise ValueError("high must be greater than or equal to open, close, and low")
+            raise RelationshipIntegrityError(
+                "candle.high must be greater than or equal to open, close, and low"
+            )
         if self.low > self.open or self.low > self.close:
-            raise ValueError("low must be less than or equal to open and close")
-        if self.volume < 0:
-            raise ValueError("volume must be non-negative")
+            raise RelationshipIntegrityError(
+                "candle.low must be less than or equal to open and close"
+            )
 
     def body_size(self) -> float:
         """Return the candle body size in price points."""
@@ -194,6 +219,7 @@ class Candle:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> Candle:
         """Deserialize the candle from a dictionary."""
         return cls(
@@ -215,6 +241,7 @@ class Candle:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> Candle:
         """Deserialize the candle from JSON."""
         return cls.from_dict(json.loads(payload))

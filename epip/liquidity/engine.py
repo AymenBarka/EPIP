@@ -11,6 +11,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.liquidity.analyzer import LiquidityAnalyzer
 from epip.liquidity.config import LiquidityConfig
 from epip.liquidity.events import (
@@ -54,6 +55,7 @@ class LiquidityEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(
         self, structure: MarketStructureSnapshot, sequence: SwingSequence
     ) -> LiquiditySnapshot:

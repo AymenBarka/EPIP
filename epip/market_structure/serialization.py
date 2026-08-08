@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.swing.models import Swing, SwingPoint
 from epip.swing.types import PivotType, SwingClassification, SwingScope
 
@@ -26,6 +27,7 @@ def swing_to_dict(swing: Swing | None) -> dict[str, Any] | None:
     return payload
 
 
+@integrity_deserializer
 def swing_from_dict(payload: object) -> Swing | None:
     if payload is None:
         return None
@@ -55,6 +57,7 @@ def swing_from_dict(payload: object) -> Swing | None:
     )
 
 
+@integrity_deserializer
 def load_json(payload: str) -> dict[str, Any]:
     value = json.loads(payload)
     if not isinstance(value, dict):

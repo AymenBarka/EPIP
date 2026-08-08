@@ -15,6 +15,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.swing.config import SwingConfig
 from epip.swing.detector import SwingDetector
 from epip.swing.events import SwingConfirmed, SwingDetected, SwingUpdated
@@ -46,6 +47,7 @@ class SwingEngine:
         self._clock = resolve_clock(clock)
         self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process_candle(self, candle: Candle) -> tuple[Swing, ...]:
         """Process one candle and emit swing events."""
         with self._lock:

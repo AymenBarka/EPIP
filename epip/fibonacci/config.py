@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from epip.core.integrity import DataIntegrityError
+
 DEFAULT_LEVELS = (
     0.0,
     0.236,
@@ -32,6 +34,6 @@ class FibonacciConfig:
 
     def __post_init__(self) -> None:
         if not self.levels or any(x < 0 for x in self.levels):
-            raise ValueError("levels must be non-empty and non-negative")
+            raise DataIntegrityError("levels must be non-empty and non-negative")
         if not 0 <= self.ote_low <= self.ote_high <= 1:
-            raise ValueError("invalid OTE range")
+            raise DataIntegrityError("invalid OTE range")

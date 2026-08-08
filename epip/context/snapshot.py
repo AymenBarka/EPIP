@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from epip.core.integrity import (
+    RelationshipIntegrityError,
+    integrity_deserializer,
+    require_signed_unit_interval,
+    require_text,
+    require_unit_interval,
+    require_version,
+)
 from epip.fibonacci.models import FibonacciSnapshot, FibonacciZone
 from epip.liquidity.models import LiquidityPool, LiquiditySnapshot
 from epip.market_structure.models import (
@@ -41,17 +49,29 @@ class MarketContextVersion:
     liquidity: int
     fibonacci: int
 
+    def __post_init__(self) -> None:
+        require_version(self.context, "context_version.context")
+        require_version(self.structure, "context_version.structure")
+        require_version(self.liquidity, "context_version.liquidity")
+        require_version(self.fibonacci, "context_version.fibonacci")
+
 
 @dataclass(frozen=True, slots=True)
 class TrendContext:
     direction: TrendDirection
     confidence: float
 
+    def __post_init__(self) -> None:
+        require_unit_interval(self.confidence, "trend_context.confidence")
+
 
 @dataclass(frozen=True, slots=True)
 class BiasContext:
     bias: InstitutionalBias
     score: float
+
+    def __post_init__(self) -> None:
+        require_signed_unit_interval(self.score, "bias_context.score")
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +80,12 @@ class ConfluenceContext:
     structure_score: float
     liquidity_score: float
     fibonacci_score: float
+
+    def __post_init__(self) -> None:
+        require_unit_interval(self.score, "confluence.score")
+        require_unit_interval(self.structure_score, "confluence.structure_score")
+        require_unit_interval(self.liquidity_score, "confluence.liquidity_score")
+        require_unit_interval(self.fibonacci_score, "confluence.fibonacci_score")
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +124,21 @@ class MarketContextSnapshot:
     context: MarketContext
     engine_version: str = "EPIP-010"
 
+    def __post_init__(self) -> None:
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        require_text(self.timestamp, "market_context_snapshot.timestamp")
+        require_text(self.engine_version, "market_context_snapshot.engine_version")
+        require_text(self.context.symbol, "market_context.symbol")
+        require_text(self.context.timeframe, "market_context.timeframe")
+        if self.context.structure_snapshot.symbol != self.context.symbol:
+            raise RelationshipIntegrityError("context and structure symbols differ")
+        if self.context.liquidity_snapshot.symbol != self.context.symbol:
+            raise RelationshipIntegrityError("context and liquidity symbols differ")
+        if self.context.fibonacci_snapshot.symbol != self.context.symbol:
+            raise RelationshipIntegrityError("context and fibonacci symbols differ")
+
     @property
     def symbol(self) -> str:
         return self.context.symbol
@@ -112,6 +153,7 @@ class MarketContextSnapshot:
         return to_dict(self)
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> MarketContextSnapshot:
         from epip.context.serialization import from_dict
 

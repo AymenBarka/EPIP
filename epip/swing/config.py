@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import DataIntegrityError
+
 
 @dataclass(frozen=True, slots=True)
 class SwingConfig:
@@ -22,18 +24,18 @@ class SwingConfig:
 
     def __post_init__(self) -> None:
         if self.left_bars <= 0:
-            raise ValueError("left_bars must be greater than zero")
+            raise DataIntegrityError("left_bars must be greater than zero")
         if self.right_bars <= 0:
-            raise ValueError("right_bars must be greater than zero")
+            raise DataIntegrityError("right_bars must be greater than zero")
         if self.minimum_distance < 0:
-            raise ValueError("minimum_distance must be non-negative")
+            raise DataIntegrityError("minimum_distance must be non-negative")
         if self.minimum_price_move < 0:
-            raise ValueError("minimum_price_move must be non-negative")
+            raise DataIntegrityError("minimum_price_move must be non-negative")
         if self.minimum_atr < 0:
-            raise ValueError("minimum_atr must be non-negative")
+            raise DataIntegrityError("minimum_atr must be non-negative")
         if self.equal_high_threshold < 0:
-            raise ValueError("equal_high_threshold must be non-negative")
+            raise DataIntegrityError("equal_high_threshold must be non-negative")
         if self.equal_low_threshold < 0:
-            raise ValueError("equal_low_threshold must be non-negative")
+            raise DataIntegrityError("equal_low_threshold must be non-negative")
         if self.atr_period <= 0:
-            raise ValueError("atr_period must be greater than zero")
+            raise DataIntegrityError("atr_period must be greater than zero")

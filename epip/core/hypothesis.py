@@ -12,6 +12,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_deserializer
 from epip.core.scenario import Scenario
 
 
@@ -57,6 +58,7 @@ class Hypothesis:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> Hypothesis:
         """Deserialize the hypothesis from a dictionary."""
         return cls(
@@ -73,6 +75,7 @@ class Hypothesis:
         return json.dumps(self.to_dict(), sort_keys=True)
 
     @classmethod
+    @integrity_deserializer
     def from_json(cls, payload: str) -> Hypothesis:
         """Deserialize the hypothesis from JSON."""
         return cls.from_dict(json.loads(payload))

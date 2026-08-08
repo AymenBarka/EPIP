@@ -38,5 +38,6 @@ def test_validation_edges() -> None:
     with pytest.raises(InvalidExecutionInputError):
         validate_plan(position_plan(accepted=False))
     order = OrderManager().create(position_plan(), ExecutionConfig())
-    with pytest.raises(InvalidExecutionInputError):
-        validate_order(replace(order, quantity=0))
+    with pytest.raises(ValueError, match="order.quantity"):
+        invalid = replace(order, quantity=0)
+        validate_order(invalid)

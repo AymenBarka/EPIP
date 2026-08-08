@@ -17,6 +17,7 @@ from epip.core.identity import (
     resolve_clock,
     resolve_id_generator,
 )
+from epip.core.integrity import integrity_boundary
 from epip.core.kernel import Kernel
 from epip.features.feature_store import FeatureStore
 from epip.marketdata.datasource_protocol import DataSourceProtocol
@@ -78,6 +79,7 @@ class ReplayEngine:
             id_generator=self._id_generator,
         )
 
+    @integrity_boundary
     def run(self, session: ReplaySession) -> ReplayMetrics:
         tracemalloc.start()
         session.set_state(ReplayState.READY)

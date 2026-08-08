@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.market_structure.models import MarketStructure, MarketStructureSnapshot
 
 
@@ -74,7 +75,7 @@ class StructureGraph:
             )
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(f"unknown parent node: {parent_id}")
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(StructureEdge(parent_id, node.node_id, StructureRelation.PARENT_CHILD))
         return StructureGraph(nodes=(*self.nodes, node), edges=tuple(edges))
 

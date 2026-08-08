@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.risk.models import RiskSnapshot
 
 
@@ -41,7 +42,7 @@ class RiskGraph:
             edges.append(RiskEdge(self.nodes[-1].node_id, node_id, RiskRelation.NEXT))
         if parent_id is not None:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(RiskEdge(parent_id, node_id, RiskRelation.CHILD))
         edges.append(RiskEdge(node_id, node.linked_decision, RiskRelation.LINKED_DECISION))
         return RiskGraph((*self.nodes, node), tuple(edges))
