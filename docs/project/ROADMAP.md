@@ -13,6 +13,8 @@ timeline
     v1.5.2 : Determinism and Identity
     v1.5.3 : Release metadata correction
     v1.5.4 : Release workflow correction
+    v1.5.5 : Hardening-002 Data Integrity
+    v1.5.6 : Hardening-002 release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -38,6 +40,10 @@ timeline
   serialization identity preservation, and reproducible replay support.
 - **v1.5.3:** corrects release metadata and Markdown validation for the Hardening-001 delivery.
 - **v1.5.4:** makes annotated-tag validation reliable in GitHub Actions runners.
+- **v1.5.5:** delivered Hardening-002 fail-fast validation, immutable payload protection,
+  domain-specific integrity errors, and automated compliance coverage.
+- **v1.5.6:** aligns all release metadata for the Hardening-002 delivery while preserving the
+  already-published v1.5.5 tag.
 
 ## Planned releases
 
