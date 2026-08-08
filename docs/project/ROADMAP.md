@@ -9,6 +9,9 @@ timeline
     v1.3.0 : Risk Engine
     v1.4.0 : Execution Engine
     v1.5.0 : Portfolio Engine
+    v1.5.1 : Foundation Hardening
+    v1.5.2 : Determinism and Identity
+    v1.5.3 : Release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -26,11 +29,16 @@ timeline
   `PositionPlan`, portfolio limits, stops, targets, exposure, drawdown, leverage, and margin.
 - **v1.4.0:** established the Execution Engine as the sole broker boundary with explicit order
   lifecycle, paper trading, adapters, fills, retry, costs, history, and graph.
+- **v1.5.0:** established the Portfolio Engine for positions, allocation, cash, P&L, exposure,
+  drawdown, correlation groups, and portfolio-level risk limits.
+- **v1.5.1:** delivered repository governance, open-source infrastructure, security automation,
+  MkDocs, CodeQL, Dependabot, and developer-experience hardening.
+- **v1.5.2:** delivered Hardening-001 deterministic clocks, identity generators, event metadata,
+  serialization identity preservation, and reproducible replay support.
+- **v1.5.3:** corrects release metadata and Markdown validation for the Hardening-001 delivery.
 
 ## Planned releases
 
-- **v1.5.0 — Portfolio Engine:** aggregate execution outcomes, positions, cash, P&L, exposure, and
-  portfolio constraints using `ExecutionSnapshot` as the official input.
 - **v1.6.0 — Strategy Engine:** orchestrate portfolio-aware strategy policies without duplicating
   analysis, decision, risk, or execution calculations.
 - **v1.7.0 — Monitoring & Observability:** metrics, tracing, health, audit streams, operational

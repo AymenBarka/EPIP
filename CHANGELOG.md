@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.5.3
+
+### Fixed
+
+- Corrected Markdown structure in the Core Domain and Replay architecture documentation
+- Added complete release metadata for Hardening-001
+- Synchronized the package version, roadmap, changelog, and release notes
+
+### Quality
+
+- Documentation workflow validation
+- Release workflow validation
+- No framework implementation changes
+
 ## Repository Foundation Hardening
 
 ### Governance

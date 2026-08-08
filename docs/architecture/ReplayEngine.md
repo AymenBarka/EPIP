@@ -78,7 +78,8 @@ sequenceDiagram
 - Market data access uses DataSourceProtocol only.
 - Feature construction uses FeatureStore only.
 - Analysis execution remains delegated to Kernel.
-# Reproducible replay
+
+## Reproducible Replay
 
 Replay session IDs, event metadata, and context metadata use injected identity services.
 With identical inputs, a reset deterministic clock, and the same deterministic ID seed,
