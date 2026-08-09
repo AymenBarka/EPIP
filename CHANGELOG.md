@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.5.13
+
+### Fixed
+
+- Added complete release metadata for Hardening-006 Reliability & Fault Tolerance
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.12 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.12
+
+### Added
+
+- Hardening-006 Programme A: Reliability Contracts
+- Programme B: Exception Taxonomy
+- Programme C: Retry Policies
+- Programme D: Circuit Breakers
+- Programme E: Graceful Degradation
+- Programme F: Reliability Audit
+- Programme G: Reliability Validation
+- Programme H: Final Institutional Certification
+
+### Compatibility
+
+- Additive architecture
+- Full compatibility with Hardening-001 through Hardening-006
+- No breaking public API change
+- No financial calculation change
+- Determinism preserved
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+- CodeQL PASS
+
 ## v1.5.11
 
 ### Fixed
