@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from threading import RLock
 
 from epip.core.candle import Candle
@@ -72,6 +73,27 @@ class SwingDetector:
         with self._lock:
             swings = tuple(self._sequences.get(key, ()))
         return SwingSequence(symbol=symbol, timeframe=timeframe, swings=swings)
+
+    def _checkpoint(
+        self,
+    ) -> tuple[
+        dict[SwingKey, PivotStrategyProtocol],
+        dict[SwingKey, list[Swing]],
+    ]:
+        """Capture private mutable detector state for an engine transaction."""
+        with self._lock:
+            return deepcopy(self._strategies), deepcopy(self._sequences)
+
+    def _restore(
+        self,
+        checkpoint: tuple[
+            dict[SwingKey, PivotStrategyProtocol],
+            dict[SwingKey, list[Swing]],
+        ],
+    ) -> None:
+        """Restore a checkpoint after a failed pre-commit operation."""
+        with self._lock:
+            self._strategies, self._sequences = checkpoint
 
     def _build_swing(self, point: SwingPoint, sequence: SwingSequence) -> Swing:
         last = sequence.last()

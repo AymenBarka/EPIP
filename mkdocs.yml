@@ -34,6 +34,12 @@ nav:
       - System Architecture: project/ARCHITECTURE.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
+      - Concurrency Contracts: architecture/ConcurrencyContracts.md
+      - EventBus Concurrency: architecture/EventBusConcurrency.md
+      - Engine Atomicity: architecture/EngineAtomicity.md
+      - Replay Atomicity: architecture/ReplayAtomicity.md
+      - Kernel Atomicity: architecture/KernelAtomicity.md
+      - External Boundaries: architecture/ExternalBoundaries.md
       - Dependency Graph: project/DEPENDENCY_GRAPH.md
       - Statistics: project/ARCHITECTURE_STATISTICS.md
   - Modules: project/MODULES.md
@@ -44,6 +50,27 @@ nav:
       - Validation Policy: project/VALIDATION_POLICY.md
       - Integrity Compliance: project/DATA_INTEGRITY_COMPLIANCE.md
       - Data Integrity Migration: project/DATA_INTEGRITY_MIGRATION.md
+      - Concurrency Model: project/ConcurrencyModel.md
+      - Thread Ownership: project/ThreadOwnership.md
+      - Thread Safety Matrix: project/ThreadSafetyMatrix.md
+      - Lock Ordering: project/LockOrdering.md
+      - Deadlock Prevention: project/DeadlockPrevention.md
+      - EventBus Stress Tests: project/EventBusStressTests.md
+      - EventBus Performance: project/EventBusPerformance.md
+      - Production Stress: project/ProductionStress.md
+      - Scalability: project/Scalability.md
+      - Fairness: project/Fairness.md
+      - Performance Baseline: project/PerformanceBaseline.md
+      - Memory Profile: project/MemoryProfile.md
+      - Transaction Boundaries: project/TransactionBoundaries.md
+      - Commit Model: project/CommitModel.md
+      - Replay Transaction Model: project/ReplayTransactionModel.md
+      - Replay Checkpointing: project/ReplayCheckpointing.md
+      - Plugin Isolation: project/PluginIsolation.md
+      - Pipeline Execution Model: project/PipelineExecutionModel.md
+      - External Effect Contracts: project/ExternalEffectContracts.md
+      - External Failure Model: project/FailureModel.md
+      - Idempotency Policy: project/IdempotencyPolicy.md
   - API Guide:
       - Public API: project/API_GUIDE.md
       - Object Catalog: project/OBJECT_CATALOG.md

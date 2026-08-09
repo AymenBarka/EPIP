@@ -17,6 +17,7 @@ timeline
     v1.5.6 : Hardening-002 release metadata correction
     v1.5.7 : Hardening-003 Financial Correctness
     v1.5.8 : Hardening-003 release metadata correction
+    v1.5.9 : Hardening-004 Thread Safety and Concurrency
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -50,6 +51,9 @@ timeline
   and fill validation, and enforced portfolio financial identities.
 - **v1.5.8:** aligns all release metadata for the Hardening-003 delivery while preserving the
   already-published v1.5.7 tag.
+- **v1.5.9:** delivers Hardening-004 concurrency contracts, EventBus safety, engine and Replay
+  atomicity, Kernel and plugin isolation, external-boundary contracts, and production stress
+  validation.
 
 ## Planned releases
 

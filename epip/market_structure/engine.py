@@ -6,6 +6,7 @@ import logging
 import tracemalloc
 from threading import RLock
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -130,13 +131,19 @@ class MarketStructureEngine:
                 current_choch=result.choch,
                 current_range=result.range_regime,
             )
-            self._structures[key] = snapshot
-            history = self._histories.get(key, StructureHistory()).append(snapshot)
-            self._histories[key] = history
-            self._publish(result=result, snapshot=snapshot)
-            if self._observer_registry is not None:
-                self._observer_registry.notify(snapshot)
-            return snapshot
+            structures = {**self._structures, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, StructureHistory()).append(snapshot),
+            }
+            transaction = EngineTransaction(self)
+            transaction.stage("_structures", structures)
+            transaction.stage("_histories", histories)
+            transaction.commit()
+        self._publish(result=result, snapshot=snapshot)
+        if self._observer_registry is not None:
+            self._observer_registry.notify(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> MarketStructureSnapshot | None:
         key = (symbol, timeframe)
@@ -261,8 +268,13 @@ class MarketStructureEngine:
     def _emit_once(self, event: object) -> None:
         event_id = getattr(event, "id", "")
         if isinstance(event_id, str) and event_id:
-            if event_id in self._emitted_event_ids:
+            with self._lock:
+                if event_id in self._emitted_event_ids:
+                    duplicate = True
+                else:
+                    self._emitted_event_ids.add(event_id)
+                    duplicate = False
+            if duplicate:
                 self._statistics.record_duplicate_event()
                 return
-            self._emitted_event_ids.add(event_id)
         self._event_bus.publish(event)
