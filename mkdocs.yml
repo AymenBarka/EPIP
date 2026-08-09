@@ -42,6 +42,16 @@ nav:
       - Memory Recovery: architecture/MemoryRecovery.md
       - Memory Audit: architecture/MemoryAudit.md
       - Memory Validation: architecture/MemoryValidation.md
+      - Reliability Contracts: architecture/ReliabilityContracts.md
+      - Reliability Architecture: architecture/ReliabilityArchitecture.md
+      - Exception Taxonomy: architecture/ExceptionTaxonomy.md
+      - Exception Hierarchy: architecture/ExceptionHierarchy.md
+      - Exception Boundaries: architecture/ExceptionBoundaries.md
+      - Retry Policies: architecture/RetryPolicies.md
+      - Circuit Breakers: architecture/CircuitBreakers.md
+      - Graceful Degradation: architecture/GracefulDegradation.md
+      - Reliability Audit: architecture/ReliabilityAudit.md
+      - Reliability Validation: architecture/ReliabilityValidation.md
       - EventBus Concurrency: architecture/EventBusConcurrency.md
       - Engine Atomicity: architecture/EngineAtomicity.md
       - Replay Atomicity: architecture/ReplayAtomicity.md
@@ -100,6 +110,30 @@ nav:
       - Pipeline Execution Model: project/PipelineExecutionModel.md
       - External Effect Contracts: project/ExternalEffectContracts.md
       - External Failure Model: project/FailureModel.md
+      - Failure Classification: project/FailureClassification.md
+      - Failure Responsibilities: project/FailureResponsibilities.md
+      - Public Error Model: project/PublicErrorModel.md
+      - Failure Propagation: project/FailurePropagation.md
+      - Retry Contracts: project/RetryContracts.md
+      - Retry Strategies: project/RetryStrategies.md
+      - Retry Classification: project/RetryClassification.md
+      - Retry Timing: project/RetryTiming.md
+      - Circuit Breaker Model: project/CircuitBreakerModel.md
+      - Failure Isolation: project/FailureIsolation.md
+      - Circuit Breaker States: project/CircuitBreakerStates.md
+      - Half-Open Policy: project/HalfOpenPolicy.md
+      - Fallback Strategies: project/FallbackStrategies.md
+      - Degradation Policies: project/DegradationPolicies.md
+      - Service Availability: project/ServiceAvailability.md
+      - Fallback Classification: project/FallbackClassification.md
+      - Reliability Diagnostics: project/ReliabilityDiagnostics.md
+      - Failure Observability: project/FailureObservability.md
+      - Reliability Reporting: project/ReliabilityReporting.md
+      - Failure Metrics: project/FailureMetrics.md
+      - Fault Injection: project/FaultInjection.md
+      - Reliability Stress Campaign: project/ReliabilityStressCampaign.md
+      - Reliability Benchmarks: project/ReliabilityBenchmarks.md
+      - Reliability Validation Matrix: project/ReliabilityValidationMatrix.md
       - Idempotency Policy: project/IdempotencyPolicy.md
   - API Guide:
       - Public API: project/API_GUIDE.md
