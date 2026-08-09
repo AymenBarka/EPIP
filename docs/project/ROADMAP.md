@@ -18,6 +18,8 @@ timeline
     v1.5.7 : Hardening-003 Financial Correctness
     v1.5.8 : Hardening-003 release metadata correction
     v1.5.9 : Hardening-004 Thread Safety and Concurrency
+    v1.5.10 : Hardening-005 Memory Safety and Resource Management
+    v1.5.11 : Hardening-005 release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -54,6 +56,10 @@ timeline
 - **v1.5.9:** delivers Hardening-004 concurrency contracts, EventBus safety, engine and Replay
   atomicity, Kernel and plugin isolation, external-boundary contracts, and production stress
   validation.
+- **v1.5.10:** delivered Hardening-005 memory contracts, bounded retention, deterministic resource
+  lifecycles, recovery policies, memory audits, and institutional validation.
+- **v1.5.11:** aligns all release metadata for the Hardening-005 delivery while preserving the
+  already-published v1.5.10 tag.
 
 ## Planned releases
 
