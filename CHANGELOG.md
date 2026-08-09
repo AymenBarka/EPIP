@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.5.11
+
+### Fixed
+
+- Added complete release metadata for Hardening-005 Memory Safety & Resource Management
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.10 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.10
+
+### Added
+
+- Hardening-005 Programme A: Memory Contracts
+- Programme B: Resource Lifecycle
+- Programme C: Memory Retention
+- Programme D: Runtime Retention Adoption
+- Programme E: Memory Recovery
+- Programme F: Memory Audit
+- Programme G: Institutional Validation
+- Programme H: Final Institutional Certification
+
+### Compatibility
+
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+- Full compatibility with Hardening-001 through Hardening-005
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+
 ## v1.5.9
 
 ### Added
