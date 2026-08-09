@@ -1,5 +1,9 @@
 # External Failure Model
 
+This document now forms part of the wider Hardening-006 reliability model. External-effect rules
+remain unchanged; `epip.core.reliability` makes their ownership and recovery expectations
+machine-readable.
+
 | Failure | Local state rule | Rollback | Compensation | Retry |
 | --- | --- | --- | --- | --- |
 | Provider unavailable | Do not commit dependent state | Local preparation only | No | Adapter policy |
@@ -14,3 +18,15 @@
 
 Failure propagation never proves that a remote write did not occur. Adapters preserve this
 uncertainty instead of reporting a distributed rollback.
+
+## Framework failure rules
+
+- Programming errors fail fast and are never retried.
+- Invalid data and configuration are corrected by the caller or user.
+- Permanent failures prohibit retry until their cause is corrected.
+- Interruptions abort the active operation and remain observable.
+- Cancellation remains an explicit caller-controlled outcome.
+- External retries are allowed only when the operation is explicitly safe and idempotent.
+- Resource exhaustion is not converted into partial success.
+
+The contracts describe these rules; they do not execute retries, compensation, or recovery.
