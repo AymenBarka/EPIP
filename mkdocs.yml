@@ -35,6 +35,13 @@ nav:
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md
+      - Memory Contracts: architecture/MemoryContracts.md
+      - Resource Lifecycle: architecture/ResourceLifecycle.md
+      - Memory Retention: architecture/MemoryRetention.md
+      - Runtime Retention: architecture/RuntimeRetention.md
+      - Memory Recovery: architecture/MemoryRecovery.md
+      - Memory Audit: architecture/MemoryAudit.md
+      - Memory Validation: architecture/MemoryValidation.md
       - EventBus Concurrency: architecture/EventBusConcurrency.md
       - Engine Atomicity: architecture/EngineAtomicity.md
       - Replay Atomicity: architecture/ReplayAtomicity.md
@@ -62,6 +69,29 @@ nav:
       - Fairness: project/Fairness.md
       - Performance Baseline: project/PerformanceBaseline.md
       - Memory Profile: project/MemoryProfile.md
+      - Memory Lifecycle: project/MemoryLifecycle.md
+      - Memory Ownership: project/MemoryOwnership.md
+      - Memory Classification Matrix: project/MemoryClassificationMatrix.md
+      - Resource Cleanup: project/ResourceCleanup.md
+      - Resource Ownership Transfers: project/ResourceOwnershipTransfers.md
+      - Resource State Machine: project/ResourceStateMachine.md
+      - Cache Policy: project/CachePolicy.md
+      - History Retention: project/HistoryRetention.md
+      - Eviction Policies: project/EvictionPolicies.md
+      - Memory Growth Model: project/MemoryGrowthModel.md
+      - Retention Adoption Guide: project/RetentionAdoptionGuide.md
+      - Runtime Memory Policies: project/RuntimeMemoryPolicies.md
+      - Runtime Retention Migration: project/MigrationRuntimeRetention.md
+      - Recovery Model: project/RecoveryModel.md
+      - Recovery Lifecycle: project/RecoveryLifecycle.md
+      - Cleanup Guarantees: project/CleanupGuarantees.md
+      - Memory Diagnostics: project/MemoryDiagnostics.md
+      - Memory Observability: project/MemoryObservability.md
+      - Leak Detection: project/LeakDetection.md
+      - Resource Audit Model: project/ResourceAuditModel.md
+      - Memory Stress Campaign: project/MemoryStressCampaign.md
+      - Memory Benchmark: project/MemoryBenchmark.md
+      - Endurance Validation: project/EnduranceValidation.md
       - Transaction Boundaries: project/TransactionBoundaries.md
       - Commit Model: project/CommitModel.md
       - Replay Transaction Model: project/ReplayTransactionModel.md
