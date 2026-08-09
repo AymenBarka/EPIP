@@ -5,6 +5,7 @@ from threading import RLock
 from time import perf_counter
 
 from epip.context import MarketContextSnapshot
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -72,13 +73,21 @@ class ElliottWaveEngine:
                 self._analyzer.analyze(context),
                 self._config.engine_version,
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, WaveHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, WaveGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, WaveHistory()).append(snapshot),
+            }
+            graphs = {**self._graphs, key: self._graphs.get(key, WaveGraph()).append(snapshot)}
             self._statistics.record(snapshot, perf_counter() - started)
-            self._publish(snapshot)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("Elliott v%d created for %s", snapshot.version, key)
-            return snapshot
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> WaveSnapshot | None:
         with self._lock:

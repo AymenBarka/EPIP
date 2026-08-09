@@ -5,6 +5,7 @@ from threading import RLock
 from time import perf_counter
 from typing import Any
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -70,13 +71,21 @@ class RiskEngine:
                 plan,
                 self._config.engine_version,
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, RiskHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, RiskGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, RiskHistory()).append(snapshot),
+            }
+            graphs = {**self._graphs, key: self._graphs.get(key, RiskGraph()).append(snapshot)}
             self._statistics.record(plan, perf_counter() - started)
-            self._publish(snapshot)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("risk plan v%d created for %s", snapshot.version, key)
-            return snapshot
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> RiskSnapshot | None:
         with self._lock:

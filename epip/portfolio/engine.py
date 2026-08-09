@@ -4,6 +4,7 @@ import logging
 from threading import RLock
 from time import perf_counter
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -72,6 +73,7 @@ class PortfolioEngine:
         validate_execution(execution)
         with self._lock:
             started = perf_counter()
+            next_positions = dict(self._positions)
             report = execution.report
             assert report.average_fill_price is not None
             side = report.order.side
@@ -80,25 +82,26 @@ class PortfolioEngine:
                 if side in (OrderSide.LONG, OrderSide.BUY)
                 else -report.filled_quantity
             )
-            realized = self._apply_fill(execution.symbol, signed, report.average_fill_price)
-            self._realized += realized
-            self._commission += report.commission
-            positions = tuple(sorted(self._positions.values(), key=lambda item: item.symbol))
-            pnl = calculate_pnl(positions, self._realized, self._commission)
+            realized_delta = self._apply_fill_to(
+                next_positions, execution.symbol, signed, report.average_fill_price
+            )
+            next_realized = self._realized + realized_delta
+            next_commission = self._commission + report.commission
+            positions = tuple(sorted(next_positions.values(), key=lambda item: item.symbol))
+            pnl = calculate_pnl(positions, next_realized, next_commission)
             margin = used_margin(positions, self._config.margin_rate)
             cash = available_cash(
-                self._config.initial_capital, self._realized, self._commission, margin
+                self._config.initial_capital, next_realized, next_commission, margin
             )
             equity = calculate_equity(
                 self._config.initial_capital,
-                self._realized,
+                next_realized,
                 pnl.unrealized,
-                self._commission,
+                next_commission,
                 self._peak,
                 cash,
                 margin,
             )
-            self._peak = equity.peak
             exposure = calculate_exposure(positions, equity.current)
             allocations = calculate_allocations(positions, self._config.correlation_groups)
             correlations = correlation_exposure(allocations)
@@ -116,13 +119,21 @@ class PortfolioEngine:
                 self._config.engine_version,
             )
             previous = self._snapshot
-            self._snapshot = snapshot
-            self._history = self._history.append(snapshot)
-            self._graph = self._graph.append(snapshot)
+            history = self._history.append(snapshot)
+            graph = self._graph.append(snapshot)
             self._statistics.record(snapshot, perf_counter() - started)
-            self._publish(snapshot, previous)
+            transaction = EngineTransaction(self)
+            transaction.stage("_positions", next_positions)
+            transaction.stage("_realized", next_realized)
+            transaction.stage("_commission", next_commission)
+            transaction.stage("_peak", equity.peak)
+            transaction.stage("_snapshot", snapshot)
+            transaction.stage("_history", history)
+            transaction.stage("_graph", graph)
+            transaction.commit()
             self._logger.debug("portfolio v%d updated by %s", version, execution.position_plan_id)
-            return snapshot
+        self._publish(snapshot, previous)
+        return snapshot
 
     def snapshot(self) -> PortfolioSnapshot | None:
         with self._lock:
@@ -143,33 +154,45 @@ class PortfolioEngine:
         with self._lock:
             if self._snapshot is None:
                 return ()
+            snapshot = self._snapshot
             instructions = recommend_rebalance(
-                self._snapshot.state.allocations, self._config.max_symbol_allocation
+                snapshot.state.allocations, self._config.max_symbol_allocation
             )
-            if instructions:
-                self._bus.publish(
-                    PortfolioRebalanced(
-                        clock=self._clock,
-                        id_generator=self._id_generator,
-                        id=f"rebalance-{self._snapshot.version}",
-                        timestamp=self._snapshot.timestamp,
-                        version=self._snapshot.version,
-                        execution_plan_id=self._snapshot.execution_plan_id,
-                        symbols=tuple(item.symbol for item in instructions),
-                    )
+        if instructions:
+            self._bus.publish(
+                PortfolioRebalanced(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
+                    id=f"rebalance-{snapshot.version}",
+                    timestamp=snapshot.timestamp,
+                    version=snapshot.version,
+                    execution_plan_id=snapshot.execution_plan_id,
+                    symbols=tuple(item.symbol for item in instructions),
                 )
-            return instructions
+            )
+        return instructions
 
     def _apply_fill(self, symbol: str, signed: float, price: float) -> float:
-        current = self._positions.get(symbol)
+        """Apply a fill to live state (retained for internal compatibility)."""
+        return self._apply_fill_to(self._positions, symbol, signed, price)
+
+    @classmethod
+    def _apply_fill_to(
+        cls,
+        positions: dict[str, PortfolioPosition],
+        symbol: str,
+        signed: float,
+        price: float,
+    ) -> float:
+        current = positions.get(symbol)
         if current is None:
-            self._positions[symbol] = self._new_position(symbol, signed, price, 0.0)
+            positions[symbol] = cls._new_position(symbol, signed, price, 0.0)
             return 0.0
         existing = current.signed_quantity
         if existing * signed > 0:
             quantity = abs(existing) + abs(signed)
             average = (current.average_price * abs(existing) + price * abs(signed)) / quantity
-            self._positions[symbol] = self._new_position(
+            positions[symbol] = cls._new_position(
                 symbol, existing + signed, average, current.realized_pnl
             )
             return 0.0
@@ -178,10 +201,10 @@ class PortfolioEngine:
         remaining = existing + signed
         cumulative = current.realized_pnl + realized
         if abs(remaining) < 1e-12:
-            self._positions.pop(symbol)
+            positions.pop(symbol)
         else:
             average = current.average_price if existing * remaining > 0 else price
-            self._positions[symbol] = self._new_position(symbol, remaining, average, cumulative)
+            positions[symbol] = cls._new_position(symbol, remaining, average, cumulative)
         return realized
 
     @staticmethod

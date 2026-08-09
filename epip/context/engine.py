@@ -20,6 +20,7 @@ from epip.context.metrics import MarketContextMetrics
 from epip.context.snapshot import MarketContextSnapshot, MarketContextVersion
 from epip.context.statistics import MarketContextStatistics
 from epip.context.validators import MarketContextValidator
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -83,9 +84,15 @@ class MarketContextEngine:
                 context,
                 self._config.engine_version,
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, MarketContextHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, MarketContextGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, MarketContextHistory()).append(snapshot),
+            }
+            graphs = {
+                **self._graphs,
+                key: self._graphs.get(key, MarketContextGraph()).append(snapshot),
+            }
             bias_changed = previous is not None and previous.context.bias != context.bias
             phase_changed = previous is not None and previous.context.phase != context.phase
             self._statistics.record(
@@ -94,9 +101,14 @@ class MarketContextEngine:
                 bias_changed=bias_changed,
                 phase_changed=phase_changed,
             )
-            self._publish(snapshot, previous, bias_changed, phase_changed)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("market context v%d created for %s", version, key)
-            return snapshot
+        self._publish(snapshot, previous, bias_changed, phase_changed)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> MarketContextSnapshot | None:
         with self._lock:

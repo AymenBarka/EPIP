@@ -4,6 +4,7 @@ import logging
 from threading import RLock
 from time import perf_counter
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -69,9 +70,15 @@ class LiquidityEngine:
             previous = self._snapshots.get(key)
             version = previous.version + 1 if previous else 1
             snapshot = self._analyzer.analyze(structure, sequence, version)
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, LiquidityHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, LiquidityGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, LiquidityHistory()).append(snapshot),
+            }
+            graphs = {
+                **self._graphs,
+                key: self._graphs.get(key, LiquidityGraph()).append(snapshot),
+            }
             elapsed = perf_counter() - started
             self._stats.record(
                 pools=len(snapshot.pools),
@@ -81,8 +88,13 @@ class LiquidityEngine:
                 stop_hunts=sum(x.stop_hunt for x in snapshot.sweeps),
                 elapsed=elapsed,
             )
-            self._publish(snapshot)
-            return snapshot
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> LiquiditySnapshot | None:
         with self._lock:

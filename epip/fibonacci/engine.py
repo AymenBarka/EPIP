@@ -4,6 +4,7 @@ import logging
 from threading import RLock
 from time import perf_counter
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
 from epip.core.identity import (
     ClockProtocol,
@@ -71,15 +72,26 @@ class FibonacciEngine:
             snapshot = self._analyzer.analyze(
                 swings, structure, liquidity, previous.version + 1 if previous else 1
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, FibonacciHistory()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, FibonacciHistory()).append(snapshot),
+            }
             indices = tuple(x.point.index for x in swings.swings[-2:])
-            self._graphs[key] = self._graphs.get(key, FibonacciGraph()).append(snapshot, indices)
+            graphs = {
+                **self._graphs,
+                key: self._graphs.get(key, FibonacciGraph()).append(snapshot, indices),
+            }
             self._stats.record(
                 perf_counter() - started, snapshot.confluence_score, snapshot.probability
             )
-            self._publish(snapshot)
-            return snapshot
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> FibonacciSnapshot | None:
         with self._lock:

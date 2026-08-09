@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Mapping
+from dataclasses import dataclass
 from threading import RLock
 
 from epip.core.candle import Candle
@@ -14,6 +15,13 @@ from epip.replay.replay_config import ReplayConfig
 from epip.replay.replay_scheduler import ReplayScheduler
 from epip.replay.replay_state import ReplayState
 from epip.replay.replay_statistics import ReplayStatistics
+
+
+@dataclass(frozen=True, slots=True)
+class ReplaySessionCheckpoint:
+    state: ReplayState
+    contexts: dict[tuple[str, str], MarketContext]
+    candle_windows: dict[tuple[str, str], deque[Candle]]
 
 
 class ReplaySession:
@@ -72,3 +80,18 @@ class ReplaySession:
     def contexts(self) -> Mapping[tuple[str, str], MarketContext]:
         with self._lock:
             return dict(self._contexts)
+
+    def _checkpoint(self) -> ReplaySessionCheckpoint:
+        return ReplaySessionCheckpoint(
+            self._state,
+            dict(self._contexts),
+            {key: deque(value, maxlen=value.maxlen) for key, value in self._candle_windows.items()},
+        )
+
+    def _restore(self, checkpoint: ReplaySessionCheckpoint) -> None:
+        self._state = checkpoint.state
+        self._contexts = dict(checkpoint.contexts)
+        self._candle_windows = {
+            key: deque(value, maxlen=value.maxlen)
+            for key, value in checkpoint.candle_windows.items()
+        }

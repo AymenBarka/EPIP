@@ -51,30 +51,35 @@ class SwingEngine:
     def process_candle(self, candle: Candle) -> tuple[Swing, ...]:
         """Process one candle and emit swing events."""
         with self._lock:
-            swings = self._detector.process(candle)
-            for swing in swings:
-                self._publish_swing_events(swing)
-                self._statistics.record_swing(
-                    classification=swing.classification,
-                    distance_from_previous=swing.distance_from_previous,
-                    duration_bars=swing.distance_from_previous,
-                    detection_latency_bars=swing.detection_latency_bars,
-                )
-            return swings
+            checkpoint = self._detector._checkpoint()
+            try:
+                swings = self._detector.process(candle)
+                for swing in swings:
+                    self._statistics.record_swing(
+                        classification=swing.classification,
+                        distance_from_previous=swing.distance_from_previous,
+                        duration_bars=swing.distance_from_previous,
+                        detection_latency_bars=swing.detection_latency_bars,
+                    )
+            except BaseException:
+                self._detector._restore(checkpoint)
+                raise
+        for swing in swings:
+            self._publish_swing_events(swing)
+        return swings
 
     def run(self, candles: Iterable[Candle]) -> SwingMetrics:
         """Run full swing detection on a candle stream."""
-        with self._lock:
-            self._statistics.mark_started()
-            tracemalloc.start()
-            try:
-                for candle in candles:
-                    self.process_candle(candle)
-            finally:
-                peak_memory = tracemalloc.get_traced_memory()[1]
-                tracemalloc.stop()
-                self._statistics.observe_peak_memory(peak_memory)
-                self._statistics.mark_finished()
+        self._statistics.mark_started()
+        tracemalloc.start()
+        try:
+            for candle in candles:
+                self.process_candle(candle)
+        finally:
+            peak_memory = tracemalloc.get_traced_memory()[1]
+            tracemalloc.stop()
+            self._statistics.observe_peak_memory(peak_memory)
+            self._statistics.mark_finished()
         metrics = self._statistics.snapshot_metrics()
         self._logger.info(
             "swing-run complete swings=%d rate=%.2f/s",

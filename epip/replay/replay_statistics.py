@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from threading import RLock
 from time import perf_counter
 
 from epip.replay.replay_metrics import ReplayMetrics
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayStatisticsCheckpoint:
+    started_at: float | None
+    elapsed_override: float
+    processed_candles: int
+    processed_events: int
+    processed_features: int
+    total_latency: float
+    max_latency: float
+    peak_memory: int
 
 
 class ReplayStatistics:
@@ -85,3 +98,25 @@ class ReplayStatistics:
         if self._started_at is None:
             return self._elapsed_override
         return perf_counter() - self._started_at
+
+    def _checkpoint(self) -> ReplayStatisticsCheckpoint:
+        return ReplayStatisticsCheckpoint(
+            self._started_at,
+            self._elapsed_override,
+            self._processed_candles,
+            self._processed_events,
+            self._processed_features,
+            self._total_latency,
+            self._max_latency,
+            self._peak_memory,
+        )
+
+    def _restore(self, checkpoint: ReplayStatisticsCheckpoint) -> None:
+        self._started_at = checkpoint.started_at
+        self._elapsed_override = checkpoint.elapsed_override
+        self._processed_candles = checkpoint.processed_candles
+        self._processed_events = checkpoint.processed_events
+        self._processed_features = checkpoint.processed_features
+        self._total_latency = checkpoint.total_latency
+        self._max_latency = checkpoint.max_latency
+        self._peak_memory = checkpoint.peak_memory

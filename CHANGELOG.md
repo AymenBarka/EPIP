@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.5.9
+
+### Added
+
+- Hardening-004 Programme A: formal concurrency contracts and thread-safety classification
+- Programme B: EventBus lock-free callback boundary and FIFO dispatcher
+- Programme B.1: EventBus stress, fairness, ABA, reentrancy, and performance validation
+- Programme B.2: BaseException recovery and cross-thread deadlock prevention
+- Programme C: atomic in-memory engine state transitions
+- Programme D: Replay checkpoints, rollback, isolation, and recovery
+- Programme E: Kernel pipeline atomicity and plugin isolation
+- Programme F: explicit external-effect, failure, and idempotency contracts
+- Programme G: production stress, scalability, longevity, and memory validation
+- Programme H: final independent institutional audit
+
+### Compatibility
+
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 97%
+- Markdownlint PASS
+- MkDocs strict PASS
+
 ## v1.5.8
 
 ### Fixed

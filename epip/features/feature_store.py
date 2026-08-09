@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
@@ -12,6 +13,12 @@ from epip.features.feature_set import FeatureSet
 from epip.features.providers.base_provider import BaseFeatureProvider
 from epip.features.providers.ohlc_provider import OHLCProvider
 from epip.features.providers.session_provider import SessionProvider
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureStoreCheckpoint:
+    cache: dict[tuple[str, str, str], FeatureSet]
+    history: tuple[FeatureSet, ...]
 
 
 class FeatureStore:
@@ -125,3 +132,10 @@ class FeatureStore:
         if isinstance(provider_or_name, str):
             return provider_or_name
         return getattr(provider_or_name, "name", provider_or_name.__class__.__name__)
+
+    def _checkpoint(self) -> FeatureStoreCheckpoint:
+        return FeatureStoreCheckpoint(dict(self._cache), tuple(self._history))
+
+    def _restore(self, checkpoint: FeatureStoreCheckpoint) -> None:
+        self._cache = dict(checkpoint.cache)
+        self._history = list(checkpoint.history)
