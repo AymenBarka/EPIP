@@ -22,6 +22,8 @@ timeline
     v1.5.11 : Hardening-005 release metadata correction
     v1.5.12 : Hardening-006 Reliability and Fault Tolerance
     v1.5.13 : Hardening-006 release metadata correction
+    v1.5.14 : Hardening-007 Security and Defensive Programming
+    v1.5.15 : Hardening-007 release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -66,6 +68,10 @@ timeline
   circuit breakers, graceful degradation, reliability auditing, and institutional validation.
 - **v1.5.13:** aligns all release metadata for the Hardening-006 delivery while preserving the
   already-published v1.5.12 tag.
+- **v1.5.14:** delivered Hardening-007 security contracts, trust boundaries, input validation,
+  runtime security policies, secure failure handling, auditability, and institutional validation.
+- **v1.5.15:** aligns all release metadata for the Hardening-007 delivery while preserving the
+  already-published v1.5.14 tag.
 
 ## Planned releases
 

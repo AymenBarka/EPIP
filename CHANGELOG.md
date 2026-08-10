@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.5.15
+
+### Fixed
+
+- Added complete release metadata for Hardening-007 Security & Defensive Programming
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.14 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.14
+
+### Added
+
+- Hardening-007 Programme A: Security Contracts
+- Programme B: Security Boundaries and Trust Model
+- Programme C: Input Validation Contracts
+- Programme D: Runtime Security Policies
+- Programme E: Secure Failure Handling
+- Programme F: Security Audit and Observability
+- Programme G: Security Validation and Stress Campaign
+- Programme H: Final Institutional Audit
+
+### Compatibility
+
+- Full compatibility with Hardening-001 through Hardening-007
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+- CodeQL PASS
+
 ## v1.5.13
 
 ### Fixed
