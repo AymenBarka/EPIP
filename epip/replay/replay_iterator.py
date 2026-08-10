@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from threading import RLock
 from typing import TypeVar, cast
 
@@ -12,6 +12,17 @@ from epip.marketdata.datasource_models import HistoryRequest, HistoryResponse
 from epip.marketdata.datasource_protocol import DataSourceProtocol
 
 T = TypeVar("T")
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayIteratorCheckpoint[T]:
+    page: int
+    buffer: tuple[T, ...]
+    index: int
+    current: T | None
+    previous: T | None
+    finished: bool
+    has_next_page: bool
 
 
 class ReplayIterator[T]:
@@ -100,6 +111,26 @@ class ReplayIterator[T]:
         if item is None:
             raise StopIteration
         return item
+
+    def _checkpoint(self) -> ReplayIteratorCheckpoint[T]:
+        return ReplayIteratorCheckpoint(
+            self._page,
+            self._buffer,
+            self._index,
+            self._current,
+            self._previous,
+            self._finished,
+            self._has_next_page,
+        )
+
+    def _restore(self, checkpoint: ReplayIteratorCheckpoint[T]) -> None:
+        self._page = checkpoint.page
+        self._buffer = checkpoint.buffer
+        self._index = checkpoint.index
+        self._current = checkpoint.current
+        self._previous = checkpoint.previous
+        self._finished = checkpoint.finished
+        self._has_next_page = checkpoint.has_next_page
 
 
 def _default_extractor(response: HistoryResponse) -> tuple[Candle, ...]:

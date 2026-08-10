@@ -20,7 +20,15 @@ from epip.context.metrics import MarketContextMetrics
 from epip.context.snapshot import MarketContextSnapshot, MarketContextVersion
 from epip.context.statistics import MarketContextStatistics
 from epip.context.validators import MarketContextValidator
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
+from epip.core.integrity import integrity_boundary
 from epip.fibonacci.models import FibonacciSnapshot
 from epip.liquidity.models import LiquiditySnapshot
 from epip.market_structure.models import MarketStructureSnapshot
@@ -34,6 +42,8 @@ class MarketContextEngine:
         config: MarketContextConfig,
         event_bus: EventBus,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._config = config
         self._bus = event_bus
@@ -45,7 +55,10 @@ class MarketContextEngine:
         self._histories: dict[tuple[str, str], MarketContextHistory] = {}
         self._graphs: dict[tuple[str, str], MarketContextGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(
         self,
         swings: SwingSequence,
@@ -71,9 +84,15 @@ class MarketContextEngine:
                 context,
                 self._config.engine_version,
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, MarketContextHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, MarketContextGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, MarketContextHistory()).append(snapshot),
+            }
+            graphs = {
+                **self._graphs,
+                key: self._graphs.get(key, MarketContextGraph()).append(snapshot),
+            }
             bias_changed = previous is not None and previous.context.bias != context.bias
             phase_changed = previous is not None and previous.context.phase != context.phase
             self._statistics.record(
@@ -82,9 +101,14 @@ class MarketContextEngine:
                 bias_changed=bias_changed,
                 phase_changed=phase_changed,
             )
-            self._publish(snapshot, previous, bias_changed, phase_changed)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("market context v%d created for %s", version, key)
-            return snapshot
+        self._publish(snapshot, previous, bias_changed, phase_changed)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> MarketContextSnapshot | None:
         with self._lock:
@@ -111,6 +135,8 @@ class MarketContextEngine:
         event_type = ContextUpdated if previous else ContextCreated
         self._bus.publish(
             event_type(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"context-{snapshot.symbol}-{snapshot.version.context}",
                 symbol=snapshot.symbol,
                 timeframe=snapshot.timeframe,
@@ -121,6 +147,8 @@ class MarketContextEngine:
         if bias_changed and previous is not None:
             self._bus.publish(
                 BiasChanged(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"bias-{snapshot.symbol}-{snapshot.version.context}",
                     previous=previous.context.institutional_bias,
                     current=snapshot.context.institutional_bias,
@@ -133,6 +161,8 @@ class MarketContextEngine:
         if phase_changed and previous is not None:
             self._bus.publish(
                 PhaseChanged(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=f"phase-{snapshot.symbol}-{snapshot.version.context}",
                     previous=previous.context.phase,
                     current=snapshot.context.phase,
@@ -144,6 +174,8 @@ class MarketContextEngine:
             )
         self._bus.publish(
             ConfluenceUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"context-confluence-{snapshot.symbol}-{snapshot.version.context}",
                 score=snapshot.context.confluence_score,
                 symbol=snapshot.symbol,

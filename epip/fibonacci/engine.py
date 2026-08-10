@@ -4,7 +4,15 @@ import logging
 from threading import RLock
 from time import perf_counter
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
+from epip.core.integrity import integrity_boundary
 from epip.fibonacci.analyzer import FibonacciAnalyzer
 from epip.fibonacci.config import FibonacciConfig
 from epip.fibonacci.events import (
@@ -28,7 +36,13 @@ from epip.swing.models import SwingSequence
 
 class FibonacciEngine:
     def __init__(
-        self, *, config: FibonacciConfig, event_bus: EventBus, logger: logging.Logger | None = None
+        self,
+        *,
+        config: FibonacciConfig,
+        event_bus: EventBus,
+        logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._analyzer = FibonacciAnalyzer(config)
         self._bus = event_bus
@@ -39,7 +53,10 @@ class FibonacciEngine:
         self._histories: dict[tuple[str, str], FibonacciHistory] = {}
         self._graphs: dict[tuple[str, str], FibonacciGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(
         self,
         swings: SwingSequence,
@@ -55,15 +72,26 @@ class FibonacciEngine:
             snapshot = self._analyzer.analyze(
                 swings, structure, liquidity, previous.version + 1 if previous else 1
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, FibonacciHistory()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, FibonacciHistory()).append(snapshot),
+            }
             indices = tuple(x.point.index for x in swings.swings[-2:])
-            self._graphs[key] = self._graphs.get(key, FibonacciGraph()).append(snapshot, indices)
+            graphs = {
+                **self._graphs,
+                key: self._graphs.get(key, FibonacciGraph()).append(snapshot, indices),
+            }
             self._stats.record(
                 perf_counter() - started, snapshot.confluence_score, snapshot.probability
             )
-            self._publish(snapshot)
-            return snapshot
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> FibonacciSnapshot | None:
         with self._lock:
@@ -83,6 +111,8 @@ class FibonacciEngine:
     def _publish(self, s: FibonacciSnapshot) -> None:
         self._bus.publish(
             FibonacciComputed(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"fib-{s.symbol}-{s.timeframe}-{s.version}",
                 version=s.version,
                 symbol=s.symbol,
@@ -94,6 +124,8 @@ class FibonacciEngine:
         ote = s.zones[2]
         self._bus.publish(
             GoldenZoneDetected(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"golden-{s.version}",
                 low=golden.low,
                 high=golden.high,
@@ -104,6 +136,8 @@ class FibonacciEngine:
         )
         self._bus.publish(
             OTEFound(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"ote-{s.version}",
                 low=ote.low,
                 high=ote.high,
@@ -114,6 +148,8 @@ class FibonacciEngine:
         )
         self._bus.publish(
             ExtensionComputed(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"ext-{s.version}",
                 level_count=len(s.extension.levels),
                 symbol=s.symbol,
@@ -123,6 +159,8 @@ class FibonacciEngine:
         )
         self._bus.publish(
             ConfluenceUpdated(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=f"conf-{s.version}",
                 score=s.confluence_score,
                 symbol=s.symbol,

@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.liquidity.exceptions import LiquidityHistoryError, LiquidityVersionError
 from epip.liquidity.models import LiquiditySnapshot
 
@@ -42,6 +43,7 @@ class LiquidityHistory:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> LiquidityHistory:
         return cls(tuple(LiquiditySnapshot.from_dict(x) for x in data.get("snapshots", ())))
 

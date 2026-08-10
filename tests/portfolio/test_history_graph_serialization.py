@@ -1,6 +1,7 @@
 import pytest
 
 from epip.core.event_bus import EventBus
+from epip.core.integrity import RelationshipIntegrityError
 from epip.portfolio import PortfolioEngine, PortfolioGraph, PortfolioHistory, PortfolioSnapshot
 from epip.portfolio.exceptions import PortfolioVersionError
 from tests.portfolio.helpers import execution
@@ -38,5 +39,5 @@ def test_graph() -> None:
     assert graph.children("portfolio:v1") == (graph.node("portfolio:v2"),)
     assert graph.linked_execution("portfolio:v1") == "p-1"
     assert graph.node("missing") is None and graph.next("missing") is None
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         graph.append(second, "missing")

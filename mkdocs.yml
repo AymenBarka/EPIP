@@ -33,6 +33,38 @@ nav:
   - Architecture:
       - System Architecture: project/ARCHITECTURE.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
+      - Data Integrity: architecture/DataIntegrity.md
+      - Concurrency Contracts: architecture/ConcurrencyContracts.md
+      - Memory Contracts: architecture/MemoryContracts.md
+      - Resource Lifecycle: architecture/ResourceLifecycle.md
+      - Memory Retention: architecture/MemoryRetention.md
+      - Runtime Retention: architecture/RuntimeRetention.md
+      - Memory Recovery: architecture/MemoryRecovery.md
+      - Memory Audit: architecture/MemoryAudit.md
+      - Memory Validation: architecture/MemoryValidation.md
+      - Reliability Contracts: architecture/ReliabilityContracts.md
+      - Reliability Architecture: architecture/ReliabilityArchitecture.md
+      - Exception Taxonomy: architecture/ExceptionTaxonomy.md
+      - Exception Hierarchy: architecture/ExceptionHierarchy.md
+      - Exception Boundaries: architecture/ExceptionBoundaries.md
+      - Retry Policies: architecture/RetryPolicies.md
+      - Circuit Breakers: architecture/CircuitBreakers.md
+      - Graceful Degradation: architecture/GracefulDegradation.md
+      - Reliability Audit: architecture/ReliabilityAudit.md
+      - Reliability Validation: architecture/ReliabilityValidation.md
+      - Security Contracts: architecture/SecurityContracts.md
+      - Security Boundaries: architecture/SecurityBoundaries.md
+      - Trust Model: architecture/TrustModel.md
+      - Input Validation Contracts: architecture/InputValidationContracts.md
+      - Runtime Security: architecture/RuntimeSecurity.md
+      - Secure Failure Handling: architecture/SecureFailureHandling.md
+      - Security Audit: architecture/SecurityAudit.md
+      - Security Validation: architecture/SecurityValidation.md
+      - EventBus Concurrency: architecture/EventBusConcurrency.md
+      - Engine Atomicity: architecture/EngineAtomicity.md
+      - Replay Atomicity: architecture/ReplayAtomicity.md
+      - Kernel Atomicity: architecture/KernelAtomicity.md
+      - External Boundaries: architecture/ExternalBoundaries.md
       - Dependency Graph: project/DEPENDENCY_GRAPH.md
       - Statistics: project/ARCHITECTURE_STATISTICS.md
   - Modules: project/MODULES.md
@@ -40,6 +72,103 @@ nav:
   - Developer Guide:
       - Contributing: project/DEVELOPER_GUIDE.md
       - Quality: project/QUALITY.md
+      - Validation Policy: project/VALIDATION_POLICY.md
+      - Integrity Compliance: project/DATA_INTEGRITY_COMPLIANCE.md
+      - Data Integrity Migration: project/DATA_INTEGRITY_MIGRATION.md
+      - Concurrency Model: project/ConcurrencyModel.md
+      - Thread Ownership: project/ThreadOwnership.md
+      - Thread Safety Matrix: project/ThreadSafetyMatrix.md
+      - Lock Ordering: project/LockOrdering.md
+      - Deadlock Prevention: project/DeadlockPrevention.md
+      - EventBus Stress Tests: project/EventBusStressTests.md
+      - EventBus Performance: project/EventBusPerformance.md
+      - Production Stress: project/ProductionStress.md
+      - Scalability: project/Scalability.md
+      - Fairness: project/Fairness.md
+      - Performance Baseline: project/PerformanceBaseline.md
+      - Memory Profile: project/MemoryProfile.md
+      - Memory Lifecycle: project/MemoryLifecycle.md
+      - Memory Ownership: project/MemoryOwnership.md
+      - Memory Classification Matrix: project/MemoryClassificationMatrix.md
+      - Resource Cleanup: project/ResourceCleanup.md
+      - Resource Ownership Transfers: project/ResourceOwnershipTransfers.md
+      - Resource State Machine: project/ResourceStateMachine.md
+      - Cache Policy: project/CachePolicy.md
+      - History Retention: project/HistoryRetention.md
+      - Eviction Policies: project/EvictionPolicies.md
+      - Memory Growth Model: project/MemoryGrowthModel.md
+      - Retention Adoption Guide: project/RetentionAdoptionGuide.md
+      - Runtime Memory Policies: project/RuntimeMemoryPolicies.md
+      - Runtime Retention Migration: project/MigrationRuntimeRetention.md
+      - Recovery Model: project/RecoveryModel.md
+      - Recovery Lifecycle: project/RecoveryLifecycle.md
+      - Cleanup Guarantees: project/CleanupGuarantees.md
+      - Memory Diagnostics: project/MemoryDiagnostics.md
+      - Memory Observability: project/MemoryObservability.md
+      - Leak Detection: project/LeakDetection.md
+      - Resource Audit Model: project/ResourceAuditModel.md
+      - Memory Stress Campaign: project/MemoryStressCampaign.md
+      - Memory Benchmark: project/MemoryBenchmark.md
+      - Endurance Validation: project/EnduranceValidation.md
+      - Transaction Boundaries: project/TransactionBoundaries.md
+      - Commit Model: project/CommitModel.md
+      - Replay Transaction Model: project/ReplayTransactionModel.md
+      - Replay Checkpointing: project/ReplayCheckpointing.md
+      - Plugin Isolation: project/PluginIsolation.md
+      - Pipeline Execution Model: project/PipelineExecutionModel.md
+      - External Effect Contracts: project/ExternalEffectContracts.md
+      - External Failure Model: project/FailureModel.md
+      - Failure Classification: project/FailureClassification.md
+      - Failure Responsibilities: project/FailureResponsibilities.md
+      - Public Error Model: project/PublicErrorModel.md
+      - Failure Propagation: project/FailurePropagation.md
+      - Retry Contracts: project/RetryContracts.md
+      - Retry Strategies: project/RetryStrategies.md
+      - Retry Classification: project/RetryClassification.md
+      - Retry Timing: project/RetryTiming.md
+      - Circuit Breaker Model: project/CircuitBreakerModel.md
+      - Failure Isolation: project/FailureIsolation.md
+      - Circuit Breaker States: project/CircuitBreakerStates.md
+      - Half-Open Policy: project/HalfOpenPolicy.md
+      - Fallback Strategies: project/FallbackStrategies.md
+      - Degradation Policies: project/DegradationPolicies.md
+      - Service Availability: project/ServiceAvailability.md
+      - Fallback Classification: project/FallbackClassification.md
+      - Reliability Diagnostics: project/ReliabilityDiagnostics.md
+      - Failure Observability: project/FailureObservability.md
+      - Reliability Reporting: project/ReliabilityReporting.md
+      - Failure Metrics: project/FailureMetrics.md
+      - Fault Injection: project/FaultInjection.md
+      - Reliability Stress Campaign: project/ReliabilityStressCampaign.md
+      - Reliability Benchmarks: project/ReliabilityBenchmarks.md
+      - Reliability Validation Matrix: project/ReliabilityValidationMatrix.md
+      - Idempotency Policy: project/IdempotencyPolicy.md
+      - Security Model: project/SecurityModel.md
+      - Security Responsibilities: project/SecurityResponsibilities.md
+      - Security Classification: project/SecurityClassification.md
+      - Security Zones: project/SecurityZones.md
+      - Boundary Ownership: project/BoundaryOwnership.md
+      - Trust Transitions: project/TrustTransitions.md
+      - Input Validation Model: project/InputValidationModel.md
+      - Input Validation Classification: project/InputValidationClassification.md
+      - Input Validation Responsibilities: project/InputValidationResponsibilities.md
+      - Input Validation Boundaries: project/InputValidationBoundaries.md
+      - Runtime Security Policies: project/RuntimeSecurityPolicies.md
+      - Security Policy Adoption: project/SecurityPolicyAdoption.md
+      - Security Runtime Model: project/SecurityRuntimeModel.md
+      - Security Policy Lifecycle: project/SecurityPolicyLifecycle.md
+      - Secure Failure Model: project/SecureFailureModel.md
+      - Security Incident Classification: project/SecurityIncidentClassification.md
+      - Failure Containment: project/FailureContainment.md
+      - Secure Recovery Policies: project/SecureRecoveryPolicies.md
+      - Security Diagnostics: project/SecurityDiagnostics.md
+      - Security Observability: project/SecurityObservability.md
+      - Security Reporting: project/SecurityReporting.md
+      - Security Metrics: project/SecurityMetrics.md
+      - Security Stress Campaign: project/SecurityStressCampaign.md
+      - Security Benchmarks: project/SecurityBenchmarks.md
+      - Security Validation Matrix: project/SecurityValidationMatrix.md
+      - Security Determinism: project/SecurityDeterminism.md
   - API Guide:
       - Public API: project/API_GUIDE.md
       - Object Catalog: project/OBJECT_CATALOG.md

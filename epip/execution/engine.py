@@ -5,7 +5,15 @@ from dataclasses import replace
 from threading import RLock
 from time import perf_counter
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
+from epip.core.integrity import integrity_boundary
 from epip.execution.config import ExecutionConfig
 from epip.execution.events import (
     ExecutionCompleted,
@@ -44,6 +52,8 @@ class ExecutionEngine:
         config: ExecutionConfig | None = None,
         broker: BrokerAdapterProtocol | None = None,
         logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         self._bus = event_bus
         self._config = config or ExecutionConfig()
@@ -58,7 +68,10 @@ class ExecutionEngine:
         self._histories: dict[str, ExecutionHistory] = {}
         self._graphs: dict[str, ExecutionGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def execute(
         self, plan: PositionPlan, *, timestamp: str, **observations: float
     ) -> ExecutionSnapshot:
@@ -68,10 +81,10 @@ class ExecutionEngine:
             previous = self._snapshots.get(plan.symbol)
             order = self._orders.create(plan, self._config)
             validate_order(order)
-            self._publish(OrderCreated, timestamp, order)
+            created_event = self._event(OrderCreated, timestamp, order)
             order = self._states.transition(order, OrderState.VALIDATED)
             order = self._states.transition(order, OrderState.SUBMITTED)
-            self._publish(OrderSubmitted, timestamp, order)
+            submitted_event = self._event(OrderSubmitted, timestamp, order)
             response, retries = self._retry.submit(self._broker, order, self._config)
             reasons: tuple[ExecutionReason, ...]
             if response.accepted:
@@ -102,18 +115,26 @@ class ExecutionEngine:
                 report,
                 self._config.engine_version,
             )
-            self._snapshots[plan.symbol] = snapshot
-            self._histories[plan.symbol] = self._histories.get(
-                plan.symbol, ExecutionHistory()
-            ).append(snapshot)
-            self._graphs[plan.symbol] = self._graphs.get(plan.symbol, ExecutionGraph()).append(
-                snapshot
-            )
+            snapshots = {**self._snapshots, plan.symbol: snapshot}
+            histories = {
+                **self._histories,
+                plan.symbol: self._histories.get(plan.symbol, ExecutionHistory()).append(snapshot),
+            }
+            graphs = {
+                **self._graphs,
+                plan.symbol: self._graphs.get(plan.symbol, ExecutionGraph()).append(snapshot),
+            }
             self._statistics.record(report, perf_counter() - started, retries)
-            self._publish_result(snapshot)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("execution v%d completed for %s", snapshot.version, plan.symbol)
-            return snapshot
+        self._bus.publish_many((created_event, submitted_event, *self._result_events(snapshot)))
+        return snapshot
 
+    @integrity_boundary
     def cancel(self, symbol: str, *, timestamp: str) -> ExecutionSnapshot:
         with self._lock:
             current = self._snapshots[symbol]
@@ -126,11 +147,17 @@ class ExecutionEngine:
             snapshot = replace(
                 current, timestamp=timestamp, version=current.version + 1, report=report
             )
-            self._snapshots[symbol] = snapshot
-            self._histories[symbol] = self._histories[symbol].append(snapshot)
-            self._graphs[symbol] = self._graphs[symbol].append(snapshot)
-            self._publish(OrderCancelled, timestamp, order)
-            return snapshot
+            snapshots = {**self._snapshots, symbol: snapshot}
+            histories = {**self._histories, symbol: self._histories[symbol].append(snapshot)}
+            graphs = {**self._graphs, symbol: self._graphs[symbol].append(snapshot)}
+            event = self._event(OrderCancelled, timestamp, order)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
+        self._bus.publish(event)
+        return snapshot
 
     def snapshot(self, symbol: str) -> ExecutionSnapshot | None:
         with self._lock:
@@ -147,55 +174,62 @@ class ExecutionEngine:
     def metrics(self) -> ExecutionStatistics:
         return self._statistics.snapshot()
 
-    def _publish(
+    def _event(
         self,
         event_type: type[OrderCreated] | type[OrderSubmitted] | type[OrderCancelled],
         timestamp: str,
         order: Order,
-    ) -> None:
-        self._bus.publish(
-            event_type(
-                id=f"{event_type.__name__}-{order.order_id}",
-                timestamp=timestamp,
-                symbol=order.symbol,
-                order_id=order.order_id,
-                plan_id=order.plan_id,
-            )
+    ) -> OrderCreated | OrderSubmitted | OrderCancelled:
+        return event_type(
+            clock=self._clock,
+            id_generator=self._id_generator,
+            id=f"{event_type.__name__}-{order.order_id}",
+            timestamp=timestamp,
+            symbol=order.symbol,
+            order_id=order.order_id,
+            plan_id=order.plan_id,
         )
 
-    def _publish_result(self, snapshot: ExecutionSnapshot) -> None:
+    def _result_events(
+        self, snapshot: ExecutionSnapshot
+    ) -> tuple[OrderFilled | ExecutionCompleted | OrderRejected, ...]:
         report = snapshot.report
         order = report.order
         event_id = f"result-{order.order_id}"
         if report.completed:
-            self._bus.publish(
+            return (
                 OrderFilled(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
                     order_id=order.order_id,
                     plan_id=order.plan_id,
                     quantity=report.filled_quantity,
-                )
-            )
-            self._bus.publish(
+                ),
                 ExecutionCompleted(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
                     order_id=order.order_id,
                     plan_id=order.plan_id,
                     commission=report.commission,
-                )
+                ),
             )
         elif order.state == OrderState.REJECTED:
-            self._bus.publish(
+            return (
                 OrderRejected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
                     order_id=order.order_id,
                     plan_id=order.plan_id,
                     reason=report.reasons[0].message,
-                )
+                ),
             )
+        return ()

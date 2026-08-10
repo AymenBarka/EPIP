@@ -1,5 +1,255 @@
 # Changelog
 
+## v1.5.15
+
+### Fixed
+
+- Added complete release metadata for Hardening-007 Security & Defensive Programming
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.14 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.14
+
+### Added
+
+- Hardening-007 Programme A: Security Contracts
+- Programme B: Security Boundaries and Trust Model
+- Programme C: Input Validation Contracts
+- Programme D: Runtime Security Policies
+- Programme E: Secure Failure Handling
+- Programme F: Security Audit and Observability
+- Programme G: Security Validation and Stress Campaign
+- Programme H: Final Institutional Audit
+
+### Compatibility
+
+- Full compatibility with Hardening-001 through Hardening-007
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+- CodeQL PASS
+
+## v1.5.13
+
+### Fixed
+
+- Added complete release metadata for Hardening-006 Reliability & Fault Tolerance
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.12 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.12
+
+### Added
+
+- Hardening-006 Programme A: Reliability Contracts
+- Programme B: Exception Taxonomy
+- Programme C: Retry Policies
+- Programme D: Circuit Breakers
+- Programme E: Graceful Degradation
+- Programme F: Reliability Audit
+- Programme G: Reliability Validation
+- Programme H: Final Institutional Certification
+
+### Compatibility
+
+- Additive architecture
+- Full compatibility with Hardening-001 through Hardening-006
+- No breaking public API change
+- No financial calculation change
+- Determinism preserved
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+- CodeQL PASS
+
+## v1.5.11
+
+### Fixed
+
+- Added complete release metadata for Hardening-005 Memory Safety & Resource Management
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.10 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.10
+
+### Added
+
+- Hardening-005 Programme A: Memory Contracts
+- Programme B: Resource Lifecycle
+- Programme C: Memory Retention
+- Programme D: Runtime Retention Adoption
+- Programme E: Memory Recovery
+- Programme F: Memory Audit
+- Programme G: Institutional Validation
+- Programme H: Final Institutional Certification
+
+### Compatibility
+
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+- Full compatibility with Hardening-001 through Hardening-005
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 96%
+- Markdownlint PASS
+- MkDocs strict PASS
+
+## v1.5.9
+
+### Added
+
+- Hardening-004 Programme A: formal concurrency contracts and thread-safety classification
+- Programme B: EventBus lock-free callback boundary and FIFO dispatcher
+- Programme B.1: EventBus stress, fairness, ABA, reentrancy, and performance validation
+- Programme B.2: BaseException recovery and cross-thread deadlock prevention
+- Programme C: atomic in-memory engine state transitions
+- Programme D: Replay checkpoints, rollback, isolation, and recovery
+- Programme E: Kernel pipeline atomicity and plugin isolation
+- Programme F: explicit external-effect, failure, and idempotency contracts
+- Programme G: production stress, scalability, longevity, and memory validation
+- Programme H: final independent institutional audit
+
+### Compatibility
+
+- No breaking public API change
+- No financial calculation change
+- No serialization format change
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 97%
+- Markdownlint PASS
+- MkDocs strict PASS
+
+## v1.5.8
+
+### Fixed
+
+- Added complete release metadata for Hardening-003 Financial Correctness
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.7 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.7
+
+### Added
+
+- Hardening-003 Financial Correctness
+- Explicit unavailable semantics for unsupported periodic PnL
+- Formal average-cost accounting policy
+- Commission, weighted-fill, exposure, margin, equity, drawdown, and allocation validation
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Coverage 97%
+
+## v1.5.6
+
+### Fixed
+
+- Added complete release metadata for Hardening-002
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.5 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.5
+
+### Added
+
+- Hardening-002 Data Integrity
+- Fail-fast validation across official engine boundaries
+- Domain-specific integrity exceptions
+- Immutable metadata and payload protection
+- Automated immutable-dataclass compliance inventory
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy PASS
+- Pytest PASS
+- Coverage 97%
+
+## v1.5.4
+
+### Fixed
+
+- Explicitly fetch the pushed tag before validating that it is annotated
+- Make release validation independent of the checkout runner's local tag references
+
+### Quality
+
+- Release workflow correction only
+- No framework implementation changes
+
+## v1.5.3
+
+### Fixed
+
+- Corrected Markdown structure in the Core Domain and Replay architecture documentation
+- Added complete release metadata for Hardening-001
+- Synchronized the package version, roadmap, changelog, and release notes
+
+### Quality
+
+- Documentation workflow validation
+- Release workflow validation
+- No framework implementation changes
+
 ## Repository Foundation Hardening
 
 ### Governance

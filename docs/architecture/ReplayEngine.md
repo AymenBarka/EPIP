@@ -78,3 +78,14 @@ sequenceDiagram
 - Market data access uses DataSourceProtocol only.
 - Feature construction uses FeatureStore only.
 - Analysis execution remains delegated to Kernel.
+
+## Reproducible Replay
+
+Replay session IDs, event metadata, and context metadata use injected identity services.
+With identical inputs, a reset deterministic clock, and the same deterministic ID seed,
+Replay emits byte-identical sorted JSON. See the
+[migration guide](../project/DETERMINISM_MIGRATION.md).
+
+In deterministic mode, runtime duration, throughput, latency, and peak-memory fields are
+normalized to zero. Deterministic counters remain intact. This prevents `perf_counter()`
+and allocator timing from affecting serialized validation output.

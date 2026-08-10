@@ -1,6 +1,7 @@
 import pytest
 
 from epip.core.event_bus import EventBus
+from epip.core.integrity import RelationshipIntegrityError
 from epip.execution import ExecutionEngine, ExecutionGraph, ExecutionHistory, ExecutionSnapshot
 from epip.execution.exceptions import ExecutionVersionError
 from tests.execution.helpers import position_plan
@@ -40,5 +41,5 @@ def test_graph() -> None:
     assert graph.children("EURUSD:v1") == (graph.node("EURUSD:v2"),)
     assert graph.linked_position_plan("EURUSD:v1") == "p-1"
     assert graph.node("none") is None and graph.next("none") is None
-    with pytest.raises(KeyError):
+    with pytest.raises(RelationshipIntegrityError):
         graph.append(second, "none")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from epip.core.integrity import RelationshipIntegrityError
 from epip.fibonacci.models import FibonacciSnapshot
 
 
@@ -41,7 +42,7 @@ class FibonacciGraph:
             edges.append(FibonacciEdge(self.nodes[-1].node_id, node.node_id))
         if parent_id:
             if self.node(parent_id) is None:
-                raise KeyError(parent_id)
+                raise RelationshipIntegrityError(f"unknown parent node: {parent_id}")
             edges.append(FibonacciEdge(parent_id, node.node_id, "CHILD"))
         return FibonacciGraph((*self.nodes, node), tuple(edges))
 

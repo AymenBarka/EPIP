@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, IdGeneratorProtocol
 from epip.marketdata.datasource_models import (
     HistoryChunk,
     HistoryMetadata,
@@ -25,11 +26,15 @@ class FakeProvider(BaseProvider):
         candles_per_series: int = 2_000,
         cache_expiration_seconds: float = 60.0,
         cache_max_entries: int = 1024,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         super().__init__(
             name="fake",
             cache_expiration_seconds=cache_expiration_seconds,
             cache_max_entries=cache_max_entries,
+            clock=clock,
+            id_generator=id_generator,
         )
         self._symbols = symbols
         self._timeframes = timeframes
@@ -89,6 +94,8 @@ class FakeProvider(BaseProvider):
             low_price = min(open_price, close_price) - 0.00004
             candles.append(
                 Candle(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     timestamp=(base + timedelta(minutes=index)).isoformat(),
                     symbol=symbol,
                     timeframe=timeframe,

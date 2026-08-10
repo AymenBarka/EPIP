@@ -101,3 +101,11 @@ The core domain depends only on:
 4. Hypotheses are derived from the scenarios.
 5. Decisions are emitted with probability and risk metadata.
 6. Domain events are raised for accepted or rejected outcomes.
+
+## Deterministic Metadata
+
+Core domain objects accept optional `ClockProtocol` and `IdGeneratorProtocol` services.
+Their business equality excludes technical timestamps, schema versions, and opaque UUIDs.
+Serialization preserves those fields exactly; see
+[Determinism and Identity](Determinism.md) and
+[ADR-H001](../adr/ADR-H001-DeterministicIdentity.md).

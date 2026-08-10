@@ -5,6 +5,7 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any, TypeVar, cast
 
+from epip.core.integrity import integrity_deserializer, validate_object
 from epip.liquidity.clusters import LiquidityCluster
 from epip.liquidity.fvg import BearishFVG, BullishFVG, FairValueGap
 from epip.liquidity.models import LiquidityScope, LiquiditySnapshot
@@ -36,6 +37,7 @@ def to_json(value: object) -> str:
     return json.dumps(to_dict(value), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_dict(cls: type[T], data: dict[str, Any]) -> T:  # noqa: UP047
     if cls is LiquidityStrength:
         data = {**data, "strength_level": LiquidityRanking(data["strength_level"])}
@@ -61,8 +63,11 @@ def from_dict(cls: type[T], data: dict[str, Any]) -> T:  # noqa: UP047
             "fair_value_gaps": tuple(data.get("fair_value_gaps", ())),
             "voids": tuple(data.get("voids", ())),
         }
-    return cls(**data)
+    result = cls(**data)
+    validate_object(result, cls.__name__)
+    return result
 
 
+@integrity_deserializer
 def from_json(cls: type[T], payload: str) -> T:  # noqa: UP047
     return from_dict(cls, json.loads(payload))

@@ -15,12 +15,12 @@ class PluginResult:
     """Immutable outcome of a single plugin execution."""
 
     plugin: str
-    execution_time: float
+    execution_time: float = field(compare=False)
     success: bool
     errors: tuple[str, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
     generated_evidence: tuple[Evidence, ...] = field(default_factory=tuple)
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
         """Normalize tuple and mapping fields for immutability."""

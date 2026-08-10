@@ -5,7 +5,15 @@ from threading import RLock
 from time import perf_counter
 from typing import Any
 
+from epip.core.atomicity import EngineTransaction
 from epip.core.event_bus import EventBus
+from epip.core.identity import (
+    ClockProtocol,
+    IdGeneratorProtocol,
+    resolve_clock,
+    resolve_id_generator,
+)
+from epip.core.integrity import integrity_boundary
 from epip.decision.models import DecisionSnapshot
 from epip.risk.analyzer import RiskAnalyzer
 from epip.risk.config import RiskConfig
@@ -25,7 +33,13 @@ from epip.risk.validators import validate_config, validate_decision
 
 class RiskEngine:
     def __init__(
-        self, *, config: RiskConfig, event_bus: EventBus, logger: logging.Logger | None = None
+        self,
+        *,
+        config: RiskConfig,
+        event_bus: EventBus,
+        logger: logging.Logger | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
     ) -> None:
         validate_config(config)
         self._config = config
@@ -37,7 +51,10 @@ class RiskEngine:
         self._histories: dict[tuple[str, str], RiskHistory] = {}
         self._graphs: dict[tuple[str, str], RiskGraph] = {}
         self._lock = RLock()
+        self._clock = resolve_clock(clock)
+        self._id_generator = resolve_id_generator(id_generator)
 
+    @integrity_boundary
     def process(self, decision: DecisionSnapshot, **market_data: Any) -> RiskSnapshot:
         validate_decision(decision)
         key = (decision.symbol, decision.timeframe)
@@ -54,13 +71,21 @@ class RiskEngine:
                 plan,
                 self._config.engine_version,
             )
-            self._snapshots[key] = snapshot
-            self._histories[key] = self._histories.get(key, RiskHistory()).append(snapshot)
-            self._graphs[key] = self._graphs.get(key, RiskGraph()).append(snapshot)
+            snapshots = {**self._snapshots, key: snapshot}
+            histories = {
+                **self._histories,
+                key: self._histories.get(key, RiskHistory()).append(snapshot),
+            }
+            graphs = {**self._graphs, key: self._graphs.get(key, RiskGraph()).append(snapshot)}
             self._statistics.record(plan, perf_counter() - started)
-            self._publish(snapshot)
+            transaction = EngineTransaction(self)
+            transaction.stage("_snapshots", snapshots)
+            transaction.stage("_histories", histories)
+            transaction.stage("_graphs", graphs)
+            transaction.commit()
             self._logger.debug("risk plan v%d created for %s", snapshot.version, key)
-            return snapshot
+        self._publish(snapshot)
+        return snapshot
 
     def snapshot(self, symbol: str, timeframe: str) -> RiskSnapshot | None:
         with self._lock:
@@ -82,6 +107,8 @@ class RiskEngine:
         event_id = f"risk-{snapshot.symbol}-{snapshot.version}"
         self._bus.publish(
             PositionPlanned(
+                clock=self._clock,
+                id_generator=self._id_generator,
                 id=event_id,
                 timestamp=snapshot.timestamp,
                 symbol=snapshot.symbol,
@@ -93,6 +120,8 @@ class RiskEngine:
         if plan.accepted:
             self._bus.publish(
                 RiskAccepted(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -104,6 +133,8 @@ class RiskEngine:
             failed = ",".join(reason.code for reason in plan.reasons if not reason.accepted)
             self._bus.publish(
                 RiskRejected(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -115,6 +146,8 @@ class RiskEngine:
         if any(not reason.accepted and "EXPOSURE" in reason.code for reason in plan.reasons):
             self._bus.publish(
                 ExposureExceeded(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,
@@ -126,6 +159,8 @@ class RiskEngine:
         if any(not reason.accepted and reason.code == "DRAWDOWN" for reason in plan.reasons):
             self._bus.publish(
                 DrawdownExceeded(
+                    clock=self._clock,
+                    id_generator=self._id_generator,
                     id=event_id,
                     timestamp=snapshot.timestamp,
                     symbol=snapshot.symbol,

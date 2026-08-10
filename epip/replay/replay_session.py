@@ -4,15 +4,24 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Mapping
+from dataclasses import dataclass
 from threading import RLock
 
 from epip.core.candle import Candle
 from epip.core.context import MarketContext
+from epip.core.identity import IdGeneratorProtocol, resolve_id_generator
 from epip.replay.replay_clock import ReplayClock
 from epip.replay.replay_config import ReplayConfig
 from epip.replay.replay_scheduler import ReplayScheduler
 from epip.replay.replay_state import ReplayState
 from epip.replay.replay_statistics import ReplayStatistics
+
+
+@dataclass(frozen=True, slots=True)
+class ReplaySessionCheckpoint:
+    state: ReplayState
+    contexts: dict[tuple[str, str], MarketContext]
+    candle_windows: dict[tuple[str, str], deque[Candle]]
 
 
 class ReplaySession:
@@ -25,6 +34,8 @@ class ReplaySession:
         clock: ReplayClock,
         statistics: ReplayStatistics,
         scheduler: ReplayScheduler,
+        id_generator: IdGeneratorProtocol | None = None,
+        session_id: str = "",
     ) -> None:
         self.config = config
         self.clock = clock
@@ -34,7 +45,9 @@ class ReplaySession:
         self._state = ReplayState.CREATED
         self._contexts: dict[tuple[str, str], MarketContext] = {}
         self._candle_windows: dict[tuple[str, str], deque[Candle]] = {}
-        self._session_id = f"replay-{id(self)}"
+        self._session_id = session_id or resolve_id_generator(id_generator).generate(
+            "replay-session"
+        )
 
     @property
     def session_id(self) -> str:
@@ -67,3 +80,18 @@ class ReplaySession:
     def contexts(self) -> Mapping[tuple[str, str], MarketContext]:
         with self._lock:
             return dict(self._contexts)
+
+    def _checkpoint(self) -> ReplaySessionCheckpoint:
+        return ReplaySessionCheckpoint(
+            self._state,
+            dict(self._contexts),
+            {key: deque(value, maxlen=value.maxlen) for key, value in self._candle_windows.items()},
+        )
+
+    def _restore(self, checkpoint: ReplaySessionCheckpoint) -> None:
+        self._state = checkpoint.state
+        self._contexts = dict(checkpoint.contexts)
+        self._candle_windows = {
+            key: deque(value, maxlen=value.maxlen)
+            for key, value in checkpoint.candle_windows.items()
+        }

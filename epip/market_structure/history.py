@@ -6,6 +6,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from epip.core.integrity import integrity_deserializer
 from epip.market_structure.exceptions import HistoryError, StructureVersionError
 from epip.market_structure.models import MarketStructureSnapshot
 from epip.market_structure.serialization import deterministic_json, load_json
@@ -59,6 +60,7 @@ class StructureHistory:
         return {"snapshots": [snapshot.to_dict() for snapshot in self.snapshots]}
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> StructureHistory:
         values = payload.get("snapshots", [])
         if not isinstance(values, list):

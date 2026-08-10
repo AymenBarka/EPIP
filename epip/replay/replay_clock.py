@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from threading import RLock
 
+from epip.core.integrity import NumericIntegrityError
 from epip.replay.replay_state import ReplayState
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayClockCheckpoint:
+    timestamp: str | None
+    state: ReplayState
+    step: int
+    speed: float
 
 
 class ReplayClock:
@@ -67,7 +77,7 @@ class ReplayClock:
         with self._lock:
             if value is not None:
                 if value <= 0:
-                    raise ValueError("replay speed must be greater than zero")
+                    raise NumericIntegrityError("replay speed must be greater than zero")
                 self._speed = value
             return self._speed
 
@@ -90,3 +100,12 @@ class ReplayClock:
     def step(self) -> int:
         with self._lock:
             return self._step
+
+    def _checkpoint(self) -> ReplayClockCheckpoint:
+        return ReplayClockCheckpoint(self._timestamp, self._state, self._step, self._speed)
+
+    def _restore(self, checkpoint: ReplayClockCheckpoint) -> None:
+        self._timestamp = checkpoint.timestamp
+        self._state = checkpoint.state
+        self._step = checkpoint.step
+        self._speed = checkpoint.speed

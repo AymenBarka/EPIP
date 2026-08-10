@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from epip.core.integrity import DataIntegrityError
+
 
 @dataclass(frozen=True, slots=True)
 class LiquidityConfig:
@@ -15,8 +17,8 @@ class LiquidityConfig:
 
     def __post_init__(self) -> None:
         if self.equal_threshold < 0 or self.minimum_distance < 0:
-            raise ValueError("thresholds must be non-negative")
+            raise DataIntegrityError("thresholds must be non-negative")
         if self.minimum_pool_size < 1 or self.minimum_touches < 2:
-            raise ValueError("pool size must be positive and touches >= 2")
+            raise DataIntegrityError("pool size must be positive and touches >= 2")
         if self.internal_only and self.external_only:
-            raise ValueError("internal_only and external_only are mutually exclusive")
+            raise DataIntegrityError("internal_only and external_only are mutually exclusive")

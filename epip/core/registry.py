@@ -74,6 +74,16 @@ class Registry:
         with self._lock:
             return {name: self._priorities[name] for name in self._order}
 
+    def _isolated_copy(self) -> Registry:
+        """Return a structural snapshot for one isolated plugin execution."""
+        isolated = Registry()
+        with self._lock:
+            isolated._plugins = dict(self._plugins)
+            isolated._enabled = dict(self._enabled)
+            isolated._priorities = dict(self._priorities)
+            isolated._order = list(self._order)
+        return isolated
+
     def _resolve_name(self, plugin_or_name: PluginProtocol | str) -> str:
         if isinstance(plugin_or_name, str):
             return plugin_or_name

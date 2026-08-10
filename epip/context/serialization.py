@@ -16,6 +16,7 @@ from epip.context.snapshot import (
     MarketPhase,
     TrendContext,
 )
+from epip.core.integrity import integrity_deserializer
 from epip.fibonacci.models import (
     DiscountZone,
     FibonacciSnapshot,
@@ -64,6 +65,7 @@ def to_dict(snapshot: MarketContextSnapshot) -> dict[str, Any]:
     }
 
 
+@integrity_deserializer
 def from_dict(data: dict[str, Any]) -> MarketContextSnapshot:
     raw = data["context"]
     structure = MarketStructureSnapshot.from_dict(raw["structure"])
@@ -126,5 +128,6 @@ def to_json(snapshot: MarketContextSnapshot) -> str:
     return json.dumps(to_dict(snapshot), sort_keys=True, separators=(",", ":"))
 
 
+@integrity_deserializer
 def from_json(payload: str) -> MarketContextSnapshot:
     return from_dict(json.loads(payload))

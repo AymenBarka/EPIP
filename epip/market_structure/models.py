@@ -8,6 +8,14 @@ from enum import StrEnum
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from epip.core.integrity import (
+    RelationshipIntegrityError,
+    integrity_deserializer,
+    require_non_negative,
+    require_text,
+    require_unit_interval,
+    require_version,
+)
 from epip.market_structure.serialization import (
     deterministic_json,
     load_json,
@@ -75,6 +83,7 @@ class Trend:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> Trend:
         return cls(
             direction=TrendDirection(str(payload["direction"])),
@@ -123,6 +132,7 @@ class BreakOfStructure:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> BreakOfStructure:
         return cls(
             symbol=str(payload["symbol"]),
@@ -173,6 +183,7 @@ class ChangeOfCharacter:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> ChangeOfCharacter:
         return cls(
             symbol=str(payload["symbol"]),
@@ -222,6 +233,7 @@ class Range:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> Range:
         return cls(
             symbol=str(payload["symbol"]),
@@ -274,6 +286,16 @@ class MarketStructure:
         object.__setattr__(self, "uuid", identity)
         object.__setattr__(self, "created_at", created_at)
         object.__setattr__(self, "updated_at", updated_at)
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        require_text(self.symbol, "market_structure.symbol")
+        require_text(self.timeframe, "market_structure.timeframe")
+        require_non_negative(self.processed_swings, "market_structure.processed_swings")
+        require_unit_interval(self.confidence, "market_structure.confidence")
+        require_text(self.uuid, "market_structure.uuid")
+        require_text(self.created_at, "market_structure.created_at")
+        require_text(self.updated_at, "market_structure.updated_at")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -294,6 +316,7 @@ class MarketStructure:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> MarketStructure:
         trend_payload = payload["trend"]
         if not isinstance(trend_payload, Mapping):
@@ -372,12 +395,24 @@ class MarketStructureSnapshot:
         object.__setattr__(self, "symbol", symbol)
         object.__setattr__(self, "timeframe", timeframe)
         object.__setattr__(self, "trend", trend)
-        object.__setattr__(self, "confidence", max(0.0, min(1.0, confidence)))
+        object.__setattr__(self, "confidence", confidence)
         object.__setattr__(self, "quality", quality)
         object.__setattr__(self, "current_bos", current_bos)
         object.__setattr__(self, "current_choch", current_choch)
         object.__setattr__(self, "current_range", current_range)
         object.__setattr__(self, "created_at", self.created_at or self.timestamp)
+        self.validate_integrity()
+
+    def validate_integrity(self) -> None:
+        require_text(self.timestamp, "market_structure_snapshot.timestamp")
+        require_version(self.version, "market_structure_snapshot.version")
+        require_text(self.symbol, "market_structure_snapshot.symbol")
+        require_text(self.timeframe, "market_structure_snapshot.timeframe")
+        require_unit_interval(self.confidence, "market_structure_snapshot.confidence")
+        require_text(self.created_at, "market_structure_snapshot.created_at")
+        require_text(self.engine_version, "market_structure_snapshot.engine_version")
+        if self.symbol != self.structure.symbol or self.timeframe != self.structure.timeframe:
+            raise RelationshipIntegrityError("snapshot and market structure streams differ")
 
     @property
     def structure_version(self) -> int:
@@ -402,6 +437,7 @@ class MarketStructureSnapshot:
         }
 
     @classmethod
+    @integrity_deserializer
     def from_dict(cls, payload: Mapping[str, Any]) -> MarketStructureSnapshot:
         structure_payload = payload["structure"]
         if not isinstance(structure_payload, Mapping):

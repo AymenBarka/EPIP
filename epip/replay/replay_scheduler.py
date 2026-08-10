@@ -10,7 +10,7 @@ from epip.core.candle import Candle
 from epip.marketdata.datasource_models import HistoryRequest
 from epip.marketdata.datasource_protocol import DataSourceProtocol
 from epip.replay.replay_config import ReplayConfig
-from epip.replay.replay_iterator import ReplayIterator
+from epip.replay.replay_iterator import ReplayIterator, ReplayIteratorCheckpoint
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +20,14 @@ class ScheduledCandle:
     symbol: str
     timeframe: str
     candle: Candle
+
+
+@dataclass(frozen=True, slots=True)
+class ReplaySchedulerCheckpoint:
+    heap: tuple[tuple[str, int, str, str, ReplayIterator[Candle], Candle], ...]
+    counter: int
+    initialized: bool
+    iterators: tuple[tuple[ReplayIterator[Candle], ReplayIteratorCheckpoint[Candle]], ...]
 
 
 class ReplayScheduler:
@@ -86,3 +94,21 @@ class ReplayScheduler:
     ) -> None:
         heappush(self._heap, (candle.timestamp, self._counter, symbol, timeframe, iterator, candle))
         self._counter += 1
+
+    def _checkpoint(self) -> ReplaySchedulerCheckpoint:
+        iterators: dict[int, ReplayIterator[Candle]] = {}
+        for _, _, _, _, iterator, _ in self._heap:
+            iterators[id(iterator)] = iterator
+        return ReplaySchedulerCheckpoint(
+            tuple(self._heap),
+            self._counter,
+            self._initialized,
+            tuple((iterator, iterator._checkpoint()) for iterator in iterators.values()),
+        )
+
+    def _restore(self, checkpoint: ReplaySchedulerCheckpoint) -> None:
+        for iterator, state in checkpoint.iterators:
+            iterator._restore(state)
+        self._heap = list(checkpoint.heap)
+        self._counter = checkpoint.counter
+        self._initialized = checkpoint.initialized

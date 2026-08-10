@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from epip.core.candle import Candle
+from epip.core.identity import ClockProtocol, IdGeneratorProtocol
 from epip.marketdata.adapters.mt5_adapter import MT5Adapter, NullMT5Adapter
 from epip.marketdata.datasource_models import (
     ConnectionState,
@@ -20,8 +21,14 @@ from epip.marketdata.providers.base_provider import BaseProvider
 class MT5Provider(BaseProvider):
     """Adapter-backed provider prepared for future MT5 integration."""
 
-    def __init__(self, *, adapter: MT5Adapter | None = None) -> None:
-        super().__init__(name="mt5")
+    def __init__(
+        self,
+        *,
+        adapter: MT5Adapter | None = None,
+        clock: ClockProtocol | None = None,
+        id_generator: IdGeneratorProtocol | None = None,
+    ) -> None:
+        super().__init__(name="mt5", clock=clock, id_generator=id_generator)
         self._adapter = adapter or NullMT5Adapter()
 
     def _connect_impl(self) -> None:
@@ -65,4 +72,5 @@ class MT5Provider(BaseProvider):
                 status=HealthState.DEGRADED,
                 connection=ConnectionState.CONNECTED,
                 message="architecture-only provider",
+                clock=self._clock,
             )
