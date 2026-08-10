@@ -41,5 +41,5 @@ def inputs(
     m = MarketStructureSnapshot(
         "2", MarketStructure(symbol, timeframe, t, StructureState.UPTREND, None, None, None, 2)
     )
-    l = LiquiditySnapshot("2", symbol, timeframe, 1)
-    return swings, m, l
+    liquidity = LiquiditySnapshot("2", symbol, timeframe, 1)
+    return swings, m, liquidity

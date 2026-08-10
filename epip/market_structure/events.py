@@ -20,7 +20,7 @@ class MarketStructureEvent(BaseEvent):
     def __post_init__(
         self, clock: ClockProtocol | None, id_generator: IdGeneratorProtocol | None
     ) -> None:
-        super().__post_init__(clock, id_generator)
+        BaseEvent.__post_init__(self, clock, id_generator)
         object.__setattr__(self, "event_id", self.event_id or self.id)
 
 

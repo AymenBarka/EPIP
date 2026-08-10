@@ -52,6 +52,14 @@ nav:
       - Graceful Degradation: architecture/GracefulDegradation.md
       - Reliability Audit: architecture/ReliabilityAudit.md
       - Reliability Validation: architecture/ReliabilityValidation.md
+      - Security Contracts: architecture/SecurityContracts.md
+      - Security Boundaries: architecture/SecurityBoundaries.md
+      - Trust Model: architecture/TrustModel.md
+      - Input Validation Contracts: architecture/InputValidationContracts.md
+      - Runtime Security: architecture/RuntimeSecurity.md
+      - Secure Failure Handling: architecture/SecureFailureHandling.md
+      - Security Audit: architecture/SecurityAudit.md
+      - Security Validation: architecture/SecurityValidation.md
       - EventBus Concurrency: architecture/EventBusConcurrency.md
       - Engine Atomicity: architecture/EngineAtomicity.md
       - Replay Atomicity: architecture/ReplayAtomicity.md
@@ -135,6 +143,32 @@ nav:
       - Reliability Benchmarks: project/ReliabilityBenchmarks.md
       - Reliability Validation Matrix: project/ReliabilityValidationMatrix.md
       - Idempotency Policy: project/IdempotencyPolicy.md
+      - Security Model: project/SecurityModel.md
+      - Security Responsibilities: project/SecurityResponsibilities.md
+      - Security Classification: project/SecurityClassification.md
+      - Security Zones: project/SecurityZones.md
+      - Boundary Ownership: project/BoundaryOwnership.md
+      - Trust Transitions: project/TrustTransitions.md
+      - Input Validation Model: project/InputValidationModel.md
+      - Input Validation Classification: project/InputValidationClassification.md
+      - Input Validation Responsibilities: project/InputValidationResponsibilities.md
+      - Input Validation Boundaries: project/InputValidationBoundaries.md
+      - Runtime Security Policies: project/RuntimeSecurityPolicies.md
+      - Security Policy Adoption: project/SecurityPolicyAdoption.md
+      - Security Runtime Model: project/SecurityRuntimeModel.md
+      - Security Policy Lifecycle: project/SecurityPolicyLifecycle.md
+      - Secure Failure Model: project/SecureFailureModel.md
+      - Security Incident Classification: project/SecurityIncidentClassification.md
+      - Failure Containment: project/FailureContainment.md
+      - Secure Recovery Policies: project/SecureRecoveryPolicies.md
+      - Security Diagnostics: project/SecurityDiagnostics.md
+      - Security Observability: project/SecurityObservability.md
+      - Security Reporting: project/SecurityReporting.md
+      - Security Metrics: project/SecurityMetrics.md
+      - Security Stress Campaign: project/SecurityStressCampaign.md
+      - Security Benchmarks: project/SecurityBenchmarks.md
+      - Security Validation Matrix: project/SecurityValidationMatrix.md
+      - Security Determinism: project/SecurityDeterminism.md
   - API Guide:
       - Public API: project/API_GUIDE.md
       - Object Catalog: project/OBJECT_CATALOG.md

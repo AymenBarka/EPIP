@@ -11,11 +11,11 @@ LOGGER = logging.getLogger(__name__)
 
 def run_case(count: int) -> None:
     engine = FibonacciEngine(config=FibonacciConfig(), event_bus=EventBus())
-    s, m, l = inputs()
+    swings, market_structure, liquidity = inputs()
     tracemalloc.start()
     start = perf_counter()
     for _ in range(count):
-        engine.process(s, m, l)
+        engine.process(swings, market_structure, liquidity)
     elapsed = perf_counter() - start
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()

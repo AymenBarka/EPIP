@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from enum import Enum
 
 import pytest
@@ -280,8 +279,8 @@ def test_fault_campaign_never_reads_wall_clock(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr("time.time", forbidden)
     monkeypatch.setattr("time.monotonic", forbidden)
-    campaign: Callable[[], tuple[str, ...]] = lambda: _capture(
-        DeterministicFaultInjector(FaultTarget.PROVIDER_INTERMITTENT, period=2), 20
-    )
+
+    def campaign() -> tuple[str, ...]:
+        return _capture(DeterministicFaultInjector(FaultTarget.PROVIDER_INTERMITTENT, period=2), 20)
 
     assert campaign() == campaign()
