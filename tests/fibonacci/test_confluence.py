@@ -3,5 +3,5 @@ from tests.fibonacci.helpers import inputs
 
 
 def test_liquidity_confluence_bounded() -> None:
-    s, m, l = inputs()
-    assert 0 <= confluence_score(m, l, s) <= 1
+    swings, market_structure, liquidity = inputs()
+    assert 0 <= confluence_score(market_structure, liquidity, swings) <= 1

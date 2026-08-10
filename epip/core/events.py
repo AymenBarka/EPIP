@@ -109,7 +109,7 @@ class EvidenceCreated(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["evidence_id"] = self.evidence_id
         return payload
 
@@ -122,7 +122,7 @@ class ScenarioCreated(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["scenario_id"] = self.scenario_id
         return payload
 
@@ -135,7 +135,7 @@ class DecisionCreated(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["decision_id"] = self.decision_id
         return payload
 
@@ -149,7 +149,7 @@ class EvidenceRejected(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["evidence_id"] = self.evidence_id
         payload["reason"] = self.reason
         return payload
@@ -164,7 +164,7 @@ class ScenarioRejected(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["scenario_id"] = self.scenario_id
         payload["reason"] = self.reason
         return payload
@@ -179,7 +179,7 @@ class DecisionRejected(BaseEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the event to a dictionary."""
-        payload = super().to_dict()
+        payload = BaseEvent.to_dict(self)
         payload["decision_id"] = self.decision_id
         payload["reason"] = self.reason
         return payload

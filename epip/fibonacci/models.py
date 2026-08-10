@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
@@ -135,7 +134,9 @@ class FibonacciSnapshot:
     @classmethod
     @integrity_deserializer
     def from_dict(cls, d: dict[str, Any]) -> FibonacciSnapshot:
-        level: Callable[[dict[str, Any]], FibonacciLevel] = lambda x: FibonacciLevel(**x)
+        def level(value: dict[str, Any]) -> FibonacciLevel:
+            return FibonacciLevel(**value)
+
         ret = d["retracement"]
         ext = d["extension"]
         retr = FibonacciRetracement(

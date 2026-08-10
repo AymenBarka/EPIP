@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
@@ -174,28 +173,32 @@ class LiquiditySnapshot:
     @classmethod
     @integrity_deserializer
     def from_dict(cls, data: dict[str, Any]) -> LiquiditySnapshot:
-        level: Callable[[dict[str, Any]], LiquidityLevel] = lambda x: LiquidityLevel(
-            **{
-                **x,
-                "side": LiquiditySide(x["side"]),
-                "scope": LiquidityScope(x["scope"]),
-                "status": LiquidityStatus(x["status"]),
-            }
-        )
-        pool: Callable[[dict[str, Any]], LiquidityPool] = lambda x: LiquidityPool(
-            **{
-                **x,
-                "side": LiquiditySide(x["side"]),
-                "scope": LiquidityScope(x["scope"]),
-                "level_indices": tuple(x["level_indices"]),
-            }
-        )
-        sweep: Callable[[dict[str, Any]], LiquiditySweep] = lambda x: LiquiditySweep(
-            **{**x, "side": LiquiditySide(x["side"])}
-        )
-        zone: Callable[[dict[str, Any]], LiquidityZone] = lambda x: LiquidityZone(
-            **{**x, "side": LiquiditySide(x["side"])}
-        )
+        def level(value: dict[str, Any]) -> LiquidityLevel:
+            return LiquidityLevel(
+                **{
+                    **value,
+                    "side": LiquiditySide(value["side"]),
+                    "scope": LiquidityScope(value["scope"]),
+                    "status": LiquidityStatus(value["status"]),
+                }
+            )
+
+        def pool(value: dict[str, Any]) -> LiquidityPool:
+            return LiquidityPool(
+                **{
+                    **value,
+                    "side": LiquiditySide(value["side"]),
+                    "scope": LiquidityScope(value["scope"]),
+                    "level_indices": tuple(value["level_indices"]),
+                }
+            )
+
+        def sweep(value: dict[str, Any]) -> LiquiditySweep:
+            return LiquiditySweep(**{**value, "side": LiquiditySide(value["side"])})
+
+        def zone(value: dict[str, Any]) -> LiquidityZone:
+            return LiquidityZone(**{**value, "side": LiquiditySide(value["side"])})
+
         return cls(
             timestamp=data["timestamp"],
             symbol=data["symbol"],
