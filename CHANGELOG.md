@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.5.17
+
+### Fixed
+
+- Added complete release metadata for EPIP-016 Decision Theory Framework
+- Synchronized package version, roadmap, changelog, and release notes
+- Preserved the published v1.5.16 tag while providing a validated corrective release
+
+### Quality
+
+- Release metadata correction only
+- No framework implementation changes
+
+## v1.5.16
+
+### Added
+
+- Programme A: Decision Domain
+- Programme B: Evidence Engine
+- Programme C: Inference Engine
+- Programme D: Decision Graph
+- Programme E: Candidate Engine
+- Programme F: Confidence Engine
+- Programme G: Decision Engine
+- Programme H: Validation and Certification
+- Programme H.1: Institutional Certification Remediation
+
+### Compatibility
+
+- Kernel, Replay, EventBus, financial engines, execution, and serialization preserved
+- Existing public APIs and legacy compatibility preserved
+
+### Quality
+
+- Black PASS
+- Ruff PASS
+- MyPy strict PASS
+- Pytest PASS
+- Markdownlint PASS
+- MkDocs strict PASS
+- CodeQL PASS
+
 ## v1.5.15
 
 ### Fixed
