@@ -24,6 +24,8 @@ timeline
     v1.5.13 : Hardening-006 release metadata correction
     v1.5.14 : Hardening-007 Security and Defensive Programming
     v1.5.15 : Hardening-007 release metadata correction
+    v1.5.16 : EPIP-016 Decision Theory Framework
+    v1.5.17 : EPIP-016 release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
@@ -72,6 +74,10 @@ timeline
   runtime security policies, secure failure handling, auditability, and institutional validation.
 - **v1.5.15:** aligns all release metadata for the Hardening-007 delivery while preserving the
   already-published v1.5.14 tag.
+- **v1.5.16:** delivered EPIP-016 Decision Domain, Evidence Engine, Inference Engine, Decision
+  Graph, Candidate Engine, Confidence Engine, Decision Engine, and institutional certification.
+- **v1.5.17:** aligns all release metadata for the EPIP-016 delivery while preserving the
+  already-published v1.5.16 tag.
 
 ## Planned releases
 
