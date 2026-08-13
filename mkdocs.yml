@@ -31,6 +31,14 @@ nav:
       - Project Overview: project/PROJECT_OVERVIEW.md
       - FAQ: project/FAQ.md
   - Architecture:
+      - Decision Domain Model: architecture/DecisionDomainModel.md
+      - Evidence Engine: architecture/EvidenceEngine.md
+      - Inference Engine: architecture/InferenceEngine.md
+      - Decision Graph: architecture/DecisionGraph.md
+      - Candidate Engine: architecture/CandidateEngine.md
+      - Confidence Engine: architecture/ConfidenceEngine.md
+      - Decision Engine: architecture/DecisionEngine.md
+      - Decision Validation: architecture/DecisionValidation.md
       - System Architecture: project/ARCHITECTURE.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
@@ -70,6 +78,30 @@ nav:
   - Modules: project/MODULES.md
   - Pipeline: project/PIPELINE.md
   - Developer Guide:
+      - Decision Vocabulary: project/DecisionVocabulary.md
+      - Evidence Lifecycle: project/EvidenceLifecycle.md
+      - Evidence Model: project/EvidenceModel.md
+      - Hypothesis Model: project/HypothesisModel.md
+      - Scenario Model: project/ScenarioModel.md
+      - Inference Lifecycle: project/InferenceLifecycle.md
+      - Decision Graph Execution: project/DecisionGraphExecution.md
+      - Decision Dependencies: project/DecisionDependencies.md
+      - Decision Topology: project/DecisionTopology.md
+      - Candidate Model: project/CandidateModel.md
+      - Candidate Lifecycle: project/CandidateLifecycle.md
+      - Candidate Generation: project/CandidateGeneration.md
+      - Confidence Model: project/ConfidenceModel.md
+      - Confidence Propagation: project/ConfidencePropagation.md
+      - Confidence Assessment: project/ConfidenceAssessment.md
+      - Decision Selection: project/DecisionSelection.md
+      - Decision Constraints: project/DecisionConstraints.md
+      - Decision Lifecycle: project/DecisionLifecycle.md
+      - Decision Explainability: project/DecisionExplainability.md
+      - Decision Stress Campaign: project/DecisionStressCampaign.md
+      - Decision Benchmarks: project/DecisionBenchmarks.md
+      - Decision Validation Matrix: project/DecisionValidationMatrix.md
+      - Decision Determinism: project/DecisionDeterminism.md
+      - Decision Certification: project/DecisionCertification.md
       - Contributing: project/DEVELOPER_GUIDE.md
       - Quality: project/QUALITY.md
       - Validation Policy: project/VALIDATION_POLICY.md
@@ -181,7 +213,10 @@ nav:
       - Roadmap: project/ROADMAP.md
       - Future: project/FUTURE.md
       - Changelog Summary: project/CHANGELOG_SUMMARY.md
-  - ADR: project/DECISIONS.md
+  - ADR:
+      - Decision Record Index: project/DECISIONS.md
+      - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
+      - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md
   - Releases:
       - v1.0.0-pre: project/releases/v1.0.0-pre.md

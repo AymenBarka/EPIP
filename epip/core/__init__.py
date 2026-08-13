@@ -1,5 +1,7 @@
 """Core domain exports for EPIP."""
 
+from typing import Any
+
 from epip.core.candle import Candle
 from epip.core.circuit_breaker import (
     CIRCUIT_BREAKER_CONTRACTS,
@@ -394,6 +396,44 @@ from epip.core.security_boundaries import (
 )
 from epip.core.value_objects import Confidence, Price, Probability, RiskScore
 
+
+def __getattr__(name: str) -> Any:
+    """Load optional cross-domain exports without creating import cycles."""
+    if name == "decision_domain":
+        from epip.decision import domain
+
+        return domain
+    if name == "evidence_engine":
+        from epip.decision import evidence
+
+        return evidence
+    if name == "inference_engine":
+        from epip.decision import inference
+
+        return inference
+    if name == "decision_graph":
+        from epip.decision import graph
+
+        return graph
+    if name == "candidate_engine":
+        from epip.decision import candidate
+
+        return candidate
+    if name == "confidence_engine":
+        from epip.decision import confidence
+
+        return confidence
+    if name == "decision_engine":
+        from epip.decision import decision_engine as module
+
+        return module
+    if name == "decision_validation":
+        from epip.decision import validation
+
+        return validation
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "CIRCUIT_BREAKER_CONTRACTS",
     "CONCURRENCY_CONTRACTS",
@@ -723,7 +763,13 @@ __all__ = [
     "adopt_runtime_retention",
     "audit_contract_coverage",
     "audit_exception_hierarchy",
+    "candidate_engine",
     "concurrency_contract_for",
+    "confidence_engine",
+    "decision_domain",
+    "decision_engine",
+    "decision_graph",
+    "decision_validation",
     "declared_circuit_breakers",
     "declared_concurrency_contracts",
     "declared_exception_boundaries",
@@ -738,6 +784,7 @@ __all__ = [
     "declared_security_audits",
     "declared_security_boundaries",
     "declared_security_contracts",
+    "evidence_engine",
     "get_circuit_breaker_contract",
     "get_exception_contract",
     "get_fallback_contract",
@@ -750,6 +797,7 @@ __all__ = [
     "get_security_audit",
     "get_security_boundary_contract",
     "get_security_contract",
+    "inference_engine",
     "resource_managed_components",
     "transition_availability",
 ]
