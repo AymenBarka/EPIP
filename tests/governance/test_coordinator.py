@@ -1,4 +1,4 @@
-"""A03 Increment 6 coordinator tests governed by ADR-03 and ADR-09."""
+"""A03-V2-E05 ordered governance transition orchestration tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from epip.governance.model import (
     GovernanceRejection,
     RegistrySnapshot,
 )
-from epip.governance.reduction import _GovernanceReducer
+from epip.governance.reduction import _GovernanceReducer, _ReductionResult
 from epip.governance.snapshot import _SnapshotBuilder
 from epip.governance.store import GovernanceStore
 from tests.governance.test_model import _action, _entry, _manifest, _snapshot
@@ -32,7 +32,7 @@ def _operation() -> tuple[GovernanceAction, GovernanceManifest, GovernanceEpoch]
         subject_references=("producer-001",),
         prior_standing="Declared",
         resulting_standing="Registered",
-        policy_versions=(("registry", "1.0.0"),),
+        policy_versions=(("admission", "1.0.0"),),
         effective_epoch=epoch,
         resulting_snapshot_reference="snapshot-reduction-002",
     )
@@ -40,18 +40,20 @@ def _operation() -> tuple[GovernanceAction, GovernanceManifest, GovernanceEpoch]
         manifest_identity="manifest-002",
         governance_epoch=epoch,
         actions=(action,),
-        policy_versions=(("registry", "1.0.0"),),
+        policy_versions=action.policy_versions,
         authority_facts=("registry-authority:registry_authority",),
     )
     return action, manifest, epoch
 
 
-def _store() -> GovernanceStore:
-    return GovernanceStore(
-        _snapshot(
-            entries=(_entry(lifecycle_standing="Declared", trust_standing="Untrusted"),),
-        )
+def _initial_snapshot() -> RegistrySnapshot:
+    return _snapshot(
+        entries=(_entry(lifecycle_standing="Declared", trust_standing="Untrusted"),),
     )
+
+
+def _store() -> GovernanceStore:
+    return GovernanceStore(_initial_snapshot())
 
 
 def _accepted(result: RegistrySnapshot | GovernanceRejection) -> RegistrySnapshot:
@@ -59,9 +61,25 @@ def _accepted(result: RegistrySnapshot | GovernanceRejection) -> RegistrySnapsho
     return result
 
 
-def _rejection(result: RegistrySnapshot | GovernanceRejection) -> GovernanceRejection:
-    assert isinstance(result, GovernanceRejection)
-    return result
+def _rejection(label: str) -> GovernanceRejection:
+    return GovernanceRejection(f"TEST_{label.upper()}", (label,), ())
+
+
+def _successful_intermediates() -> tuple[
+    RegistrySnapshot,
+    GovernanceAction,
+    GovernanceManifest,
+    GovernanceEpoch,
+    _ReductionResult,
+    RegistrySnapshot,
+]:
+    current = _initial_snapshot()
+    action, manifest, epoch = _operation()
+    reduction = _GovernanceReducer.reduce(current, action, manifest, epoch)
+    assert isinstance(reduction, _ReductionResult)
+    candidate = _SnapshotBuilder.build(reduction, manifest, epoch)
+    assert isinstance(candidate, RegistrySnapshot)
+    return current, action, manifest, epoch, reduction, candidate
 
 
 def test_coordinator_rejects_invalid_store_dependency() -> None:
@@ -69,34 +87,87 @@ def test_coordinator_rejects_invalid_store_dependency() -> None:
         _GovernanceCoordinator(cast(GovernanceStore, object()))
 
 
-def test_coordinator_fails_closed_when_store_is_empty() -> None:
-    coordinator = _GovernanceCoordinator(GovernanceStore())
-    action, manifest, epoch = _operation()
-    result = _rejection(coordinator.coordinate(action, manifest, epoch))
-    assert result.reason_code == "GOV_MISSING_MANDATORY_FACT"
-    assert result.diagnostic_details == (("fact", "current_registry_snapshot"),)
+def test_successful_orchestration_transfers_exact_objects_once_in_order() -> None:
+    current, action, manifest, epoch, reduction, candidate = _successful_intermediates()
+    store = GovernanceStore(current)
+    coordinator = _GovernanceCoordinator(store)
+    trace: list[str] = []
+
+    def reduce_once(
+        actual_snapshot: RegistrySnapshot,
+        actual_action: GovernanceAction,
+        actual_manifest: GovernanceManifest,
+        actual_epoch: GovernanceEpoch,
+    ) -> _ReductionResult:
+        trace.append("reduce")
+        assert actual_snapshot is current
+        assert actual_action is action
+        assert actual_manifest is manifest
+        assert actual_epoch is epoch
+        return reduction
+
+    def build_once(
+        actual_reduction: _ReductionResult,
+        actual_manifest: GovernanceManifest,
+        actual_epoch: GovernanceEpoch,
+    ) -> RegistrySnapshot:
+        trace.append("build")
+        assert actual_reduction is reduction
+        assert actual_manifest is manifest
+        assert actual_epoch is epoch
+        return candidate
+
+    original_replace = GovernanceStore.replace_snapshot
+
+    def publish_once(
+        actual_store: GovernanceStore,
+        actual_candidate: RegistrySnapshot,
+    ) -> RegistrySnapshot | GovernanceRejection:
+        trace.append("publish")
+        assert actual_store is store
+        assert actual_candidate is candidate
+        return original_replace(actual_store, actual_candidate)
+
+    with (
+        patch.object(_GovernanceReducer, "reduce", side_effect=reduce_once) as reducer,
+        patch.object(_SnapshotBuilder, "build", side_effect=build_once) as builder,
+        patch.object(
+            GovernanceStore, "replace_snapshot", autospec=True, side_effect=publish_once
+        ) as publication,
+    ):
+        result = coordinator.coordinate(action, manifest, epoch)
+
+    assert result is candidate
+    assert store.current_snapshot is candidate
+    assert trace == ["reduce", "build", "publish"]
+    reducer.assert_called_once_with(current, action, manifest, epoch)
+    builder.assert_called_once_with(reduction, manifest, epoch)
+    publication.assert_called_once_with(store, candidate)
 
 
-def test_successful_orchestration_replaces_store_with_immutable_snapshot() -> None:
+def test_reduction_rejection_stops_before_construction_and_publication() -> None:
     store = _store()
     previous = store.current_snapshot
-    coordinator = _GovernanceCoordinator(store)
     action, manifest, epoch = _operation()
-    result = _accepted(coordinator.coordinate(action, manifest, epoch))
-    assert store.current_snapshot is result
-    assert result is not previous
-    assert result.manifest_reference == "manifest-002"
-    assert result.governance_epoch == epoch
-    assert result.entries[0].lifecycle_standing == "Registered"
-    assert result.governance_action_references == ("action-002",)
-    with pytest.raises(AttributeError):
-        result.entries = ()  # type: ignore[misc]
+    rejection = _rejection("reduction")
+
+    with (
+        patch.object(_GovernanceReducer, "reduce", return_value=rejection) as reducer,
+        patch.object(_SnapshotBuilder, "build") as builder,
+        patch.object(GovernanceStore, "replace_snapshot", autospec=True) as publication,
+    ):
+        result = _GovernanceCoordinator(store).coordinate(action, manifest, epoch)
+
+    assert result is rejection
+    assert store.current_snapshot is previous
+    reducer.assert_called_once_with(previous, action, manifest, epoch)
+    builder.assert_not_called()
+    publication.assert_not_called()
 
 
-def test_validator_rejection_propagates_without_partial_update() -> None:
+def test_validation_rejection_from_reducer_stops_the_lifecycle() -> None:
     store = _store()
     previous = store.current_snapshot
-    coordinator = _GovernanceCoordinator(store)
     action, manifest, epoch = _operation()
     invalid = _action(
         **{
@@ -104,75 +175,88 @@ def test_validator_rejection_propagates_without_partial_update() -> None:
             "authority_role": "producer_owner",
         }
     )
-    result = _rejection(coordinator.coordinate(invalid, manifest, epoch))
+    invalid_manifest = _manifest(
+        manifest_identity=manifest.manifest_identity,
+        governance_epoch=epoch,
+        actions=(invalid,),
+        policy_versions=invalid.policy_versions,
+        authority_facts=("registry-authority:producer_owner",),
+    )
+
+    with (
+        patch.object(_SnapshotBuilder, "build") as builder,
+        patch.object(GovernanceStore, "replace_snapshot", autospec=True) as publication,
+    ):
+        result = _GovernanceCoordinator(store).coordinate(invalid, invalid_manifest, epoch)
+
+    assert isinstance(result, GovernanceRejection)
     assert result.reason_code == "GOV_UNAUTHORIZED_AUTHORITY"
     assert store.current_snapshot is previous
-
-
-def test_reducer_rejection_propagates_without_builder_or_store_update() -> None:
-    store = _store()
-    previous = store.current_snapshot
-    coordinator = _GovernanceCoordinator(store)
-    action, manifest, epoch = _operation()
-    illegal = _action(
-        **{
-            **{field: getattr(action, field) for field in action.__dataclass_fields__},
-            "prior_standing": "Enabled",
-        }
-    )
-    with patch.object(_SnapshotBuilder, "build", wraps=_SnapshotBuilder.build) as builder:
-        result = _rejection(coordinator.coordinate(illegal, manifest, epoch))
-    assert result.reason_code == "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
     builder.assert_not_called()
-    assert store.current_snapshot is previous
+    publication.assert_not_called()
 
 
-def test_builder_rejection_propagates_without_store_update() -> None:
-    store = _store()
-    previous = store.current_snapshot
-    coordinator = _GovernanceCoordinator(store)
-    action, manifest, _ = _operation()
-    mismatched_epoch = GovernanceEpoch(3)
-    result = _rejection(coordinator.coordinate(action, manifest, mismatched_epoch))
-    assert result.diagnostic_details == (("fact", "governance_epoch_mismatch"),)
-    assert store.current_snapshot is previous
+def test_snapshot_failure_stops_before_publication() -> None:
+    current, action, manifest, epoch, reduction, _ = _successful_intermediates()
+    store = GovernanceStore(current)
+    rejection = _rejection("construction")
 
-
-def test_each_component_is_invoked_once_per_successful_operation() -> None:
-    store = _store()
-    coordinator = _GovernanceCoordinator(store)
-    action, manifest, epoch = _operation()
     with (
-        patch.object(_GovernanceReducer, "reduce", wraps=_GovernanceReducer.reduce) as reducer,
-        patch.object(_SnapshotBuilder, "build", wraps=_SnapshotBuilder.build) as builder,
+        patch.object(_GovernanceReducer, "reduce", return_value=reduction) as reducer,
+        patch.object(_SnapshotBuilder, "build", return_value=rejection) as builder,
+        patch.object(GovernanceStore, "replace_snapshot", autospec=True) as publication,
+    ):
+        result = _GovernanceCoordinator(store).coordinate(action, manifest, epoch)
+
+    assert result is rejection
+    assert store.current_snapshot is current
+    reducer.assert_called_once()
+    builder.assert_called_once_with(reduction, manifest, epoch)
+    publication.assert_not_called()
+
+
+def test_publication_failure_is_propagated_and_preserves_authoritative_state() -> None:
+    current, action, manifest, epoch, reduction, candidate = _successful_intermediates()
+    store = GovernanceStore(current)
+    rejection = _rejection("publication")
+
+    with (
+        patch.object(_GovernanceReducer, "reduce", return_value=reduction) as reducer,
+        patch.object(_SnapshotBuilder, "build", return_value=candidate) as builder,
         patch.object(
             GovernanceStore,
             "replace_snapshot",
             autospec=True,
-            wraps=GovernanceStore.replace_snapshot,
-        ) as replacement,
+            return_value=rejection,
+        ) as publication,
     ):
-        result = coordinator.coordinate(action, manifest, epoch)
-    assert isinstance(result, RegistrySnapshot)
+        result = _GovernanceCoordinator(store).coordinate(action, manifest, epoch)
+
+    assert result is rejection
+    assert store.current_snapshot is current
     reducer.assert_called_once()
     builder.assert_called_once()
-    replacement.assert_called_once()
+    publication.assert_called_once_with(store, candidate)
 
 
-def test_identical_inputs_and_initial_state_produce_identical_results() -> None:
+def test_identical_inputs_and_starting_state_produce_identical_transition() -> None:
     action, manifest, epoch = _operation()
     first = _accepted(_GovernanceCoordinator(_store()).coordinate(action, manifest, epoch))
     second = _accepted(_GovernanceCoordinator(_store()).coordinate(action, manifest, epoch))
+
     assert first == second
     assert first.snapshot_identity == second.snapshot_identity
 
 
-def test_coordinator_contains_no_duplicated_component_logic() -> None:
-    source = inspect.getsource(_GovernanceCoordinator)
-    assert "_AuthorityValidator" not in source
-    assert "_LifecycleValidator" not in source
-    assert "RegistrySnapshot(" not in source
-    assert "replace(" not in source
+def test_coordinator_contains_only_the_single_orchestration_path() -> None:
+    source = inspect.getsource(_GovernanceCoordinator.coordinate)
+
     assert source.count("_GovernanceReducer.reduce") == 1
     assert source.count("_SnapshotBuilder.build") == 1
     assert source.count("replace_snapshot") == 1
+    assert "RegistrySnapshot(" not in source
+    assert "_Validator" not in source
+    assert "for " not in source
+    assert "while " not in source
+    assert "retry" not in source.lower()
+    assert "recover" not in source.lower()

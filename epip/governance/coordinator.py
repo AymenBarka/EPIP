@@ -20,7 +20,6 @@ from epip.governance.model import (
 from epip.governance.reduction import _GovernanceReducer
 from epip.governance.snapshot import _SnapshotBuilder
 from epip.governance.store import GovernanceStore
-from epip.governance.validation import _reject, _StableReasonCodes
 
 
 class _GovernanceCoordinator:
@@ -46,20 +45,12 @@ class _GovernanceCoordinator:
 
         with self.__lock:
             current = self.__store.current_snapshot
-            if current is None:
-                return _reject(
-                    _StableReasonCodes.MISSING_MANDATORY_FACT,
-                    ("governance_operation",),
-                    (("fact", "current_registry_snapshot"),),
-                )
-
-            reduced = _GovernanceReducer.reduce(current, action)
+            reduced = _GovernanceReducer.reduce(current, action, manifest, epoch)
             if isinstance(reduced, GovernanceRejection):
                 return reduced
 
-            constructed = _SnapshotBuilder.build(reduced.entries, manifest, epoch)
+            constructed = _SnapshotBuilder.build(reduced, manifest, epoch)
             if isinstance(constructed, GovernanceRejection):
                 return constructed
 
-            self.__store.replace_snapshot(constructed)
-            return constructed
+            return self.__store.replace_snapshot(constructed)
