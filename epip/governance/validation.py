@@ -281,7 +281,10 @@ class _AdmissionValidator:
         invalid = _invalid_context(snapshot, action, manifest, epoch, "admission")
         if invalid is not None:
             return invalid
-        if action.action_type != "admission_requested":
+        if action.action_type not in {
+            "admission_requested",
+            "structural_admission_approved",
+        }:
             return _reject(
                 _StableReasonCodes.INCOMPLETE_DECLARATION,
                 (action.action_identity,),
@@ -295,6 +298,15 @@ class _AdmissionValidator:
             )
         request = manifest.admission_requests[0]
         contract = manifest.producer_contracts[0]
+        if action.action_type == "structural_admission_approved":
+            return _AdmissionValidator._validate_structural_admission(
+                snapshot,
+                action,
+                manifest,
+                epoch,
+                request,
+                contract,
+            )
         if not {
             request.request_identity,
             request.producer_identity,
@@ -321,6 +333,141 @@ class _AdmissionValidator:
         rejection = _AdmissionValidator.validate(request, contract, snapshot.entries)
         if rejection is not None:
             return rejection
+        return _accept("admission", snapshot, action, manifest, epoch)
+
+    @staticmethod
+    def _validate_structural_admission(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+        request: AdmissionRequest,
+        contract: ProducerContract,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate one explicit Registry Authority structural-admission decision."""
+
+        if len(manifest.proposed_registry_entries) != 1:
+            return _reject(
+                _StableReasonCodes.MISSING_MANDATORY_FACT,
+                (action.action_identity,),
+                (("fact", "proposed_registry_entry"),),
+            )
+        proposed = manifest.proposed_registry_entries[0]
+        if proposed.producer_identity not in action.subject_references:
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, proposed.producer_identity),
+                (("fact", "action_to_proposed_entry"),),
+            )
+        reference_rejection = _validate_fact_references(
+            manifest,
+            (
+                (request.request_identity, "admission_request", "admission_input"),
+                (
+                    contract.producer_identity,
+                    "producer_contract",
+                    "producer_contract_input",
+                ),
+                (proposed.producer_identity, "registry_entry", "proposed_entry"),
+            ),
+            action.action_identity,
+        )
+        if reference_rejection is not None:
+            return reference_rejection
+
+        rejection = _AdmissionValidator.validate(request, contract, snapshot.entries)
+        if rejection is not None:
+            return rejection
+        if (
+            proposed.producer_identity,
+            proposed.producer_version,
+            proposed.owner_identity,
+            proposed.producer_contract_version,
+            proposed.implementation_identity,
+            proposed.capability_references,
+        ) != (
+            request.producer_identity,
+            request.producer_version,
+            request.owner_identity,
+            request.producer_contract_version,
+            request.implementation_identity,
+            request.capability_references,
+        ):
+            return _reject(
+                _StableReasonCodes.INVALID_IDENTITY,
+                (action.action_identity, proposed.producer_identity),
+                (("fact", "proposed_entry_correspondence"),),
+            )
+        if (
+            proposed.lifecycle_standing != "Registered"
+            or proposed.trust_standing != "Untrusted"
+            or proposed.certification_records
+            or proposed.compatibility_decisions
+        ):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, proposed.producer_identity),
+                (("fact", "structural_admission_scope"),),
+            )
+
+        registry_authority_fact = f"{action.authority_identity}:registry_authority"
+        owner_fact = f"{request.owner_identity}:producer_owner"
+        architectural_facts = tuple(
+            fact for fact in manifest.authority_facts if fact.endswith(":architectural_authority")
+        )
+        if (
+            action.authority_role != "registry_authority"
+            or registry_authority_fact not in manifest.authority_facts
+        ):
+            return _reject(
+                _StableReasonCodes.UNAUTHORIZED_AUTHORITY,
+                (action.action_identity, action.authority_identity),
+                (("fact", "registry_authority_scope"),),
+            )
+        if (
+            len(architectural_facts) != 1
+            or architectural_facts[0] not in action.approval_references
+        ):
+            return _reject(
+                _StableReasonCodes.MISSING_MANDATORY_FACT,
+                (action.action_identity,),
+                (("fact", "architectural_conformity"),),
+            )
+        if owner_fact not in manifest.authority_facts:
+            return _reject(
+                _StableReasonCodes.DUPLICATE_OWNERSHIP,
+                (request.producer_identity, request.producer_version),
+                (("fact", "authoritative_owner"),),
+            )
+        authority_identities = {
+            action.authority_identity,
+            request.owner_identity,
+            architectural_facts[0].removesuffix(":architectural_authority"),
+        }
+        if len(authority_identities) != 3:
+            return _reject(
+                _StableReasonCodes.UNAUTHORIZED_AUTHORITY,
+                (action.action_identity,),
+                (("fact", "authority_separation"),),
+            )
+        if (
+            action.effective_epoch != epoch
+            or manifest.governance_epoch != epoch
+            or snapshot.governance_epoch.sequence >= epoch.sequence
+        ):
+            return _reject(
+                _StableReasonCodes.ILLEGAL_LIFECYCLE_TRANSITION,
+                (action.action_identity, manifest.manifest_identity),
+                (("fact", "governance_epoch"),),
+            )
+        if not set(action.policy_versions) <= set(manifest.policy_versions) or not set(
+            action.policy_versions
+        ) <= set(snapshot.policy_versions):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, manifest.manifest_identity),
+                (("fact", "policy_versions"),),
+            )
         return _accept("admission", snapshot, action, manifest, epoch)
 
 

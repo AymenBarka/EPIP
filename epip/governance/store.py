@@ -1,16 +1,17 @@
-"""Atomic in-memory ownership of one immutable A03 registry snapshot.
+"""Atomic publication of one authoritative immutable A03 registry snapshot.
 
-Implementation architecture: Programme A A03, Increment 5.
+Execution package: Programme A A03-V2-E04.
 Governing contracts: ADR-EPIP017-03 and ADR-EPIP017-09.
-This state holder contains no registry, governance, validation, reduction,
-snapshot-construction, persistence, publication, or orchestration logic.
+This state holder owns publication only; it contains no governance validation,
+reduction, snapshot construction, persistence, or orchestration logic.
 """
 
 from __future__ import annotations
 
 from threading import RLock
 
-from epip.governance.model import RegistrySnapshot
+from epip.governance.model import GovernanceRejection, RegistrySnapshot
+from epip.governance.validation import _reject, _StableReasonCodes
 
 
 def _require_snapshot(snapshot: object) -> RegistrySnapshot:
@@ -22,35 +23,60 @@ def _require_snapshot(snapshot: object) -> RegistrySnapshot:
 
 
 class GovernanceStore:
-    """Own exactly one optional current snapshot and replace it atomically.
+    """Own and atomically publish exactly one authoritative snapshot.
 
-    Implementation owner: Programme A A03, Increment 5.
+    Implementation owner: Programme A A03-V2-E04.
     Governing ADRs: ADR-EPIP017-03 and ADR-EPIP017-09.
     Responsibility: in-memory snapshot state ownership only.
     """
 
     __slots__ = ("__current_snapshot", "__lock")
 
-    def __init__(self, initial_snapshot: RegistrySnapshot | None = None) -> None:
-        """Create an empty store or retain one immutable initial snapshot."""
+    def __init__(self, initial_snapshot: RegistrySnapshot) -> None:
+        """Initialize with exactly one immutable authoritative snapshot."""
 
-        if initial_snapshot is not None:
-            _require_snapshot(initial_snapshot)
+        initial = _require_snapshot(initial_snapshot)
         self.__lock = RLock()
-        self.__current_snapshot = initial_snapshot
+        self.__current_snapshot = initial
 
     @property
-    def current_snapshot(self) -> RegistrySnapshot | None:
+    def current_snapshot(self) -> RegistrySnapshot:
         """Return the immutable snapshot held at one atomic read boundary."""
 
         with self.__lock:
             return self.__current_snapshot
 
-    def replace_snapshot(self, snapshot: RegistrySnapshot) -> RegistrySnapshot | None:
-        """Atomically replace the current snapshot and return its prior value."""
+    def replace_snapshot(
+        self,
+        snapshot: RegistrySnapshot,
+    ) -> RegistrySnapshot | GovernanceRejection:
+        """Atomically publish one complete candidate or fail closed."""
 
-        replacement = _require_snapshot(snapshot)
+        if not isinstance(snapshot, RegistrySnapshot):
+            return _reject(_StableReasonCodes.INVALID_MODEL, ("snapshot_publication",))
         with self.__lock:
-            previous = self.__current_snapshot
-            self.__current_snapshot = replacement
-            return previous
+            current = self.__current_snapshot
+            if snapshot.snapshot_identity == current.snapshot_identity:
+                return _reject(
+                    _StableReasonCodes.INVALID_IDENTITY,
+                    (snapshot.snapshot_identity,),
+                    (("fact", "duplicate_snapshot_publication"),),
+                )
+            if snapshot.governance_epoch.sequence <= current.governance_epoch.sequence:
+                return _reject(
+                    _StableReasonCodes.ILLEGAL_LIFECYCLE_TRANSITION,
+                    (snapshot.snapshot_identity, current.snapshot_identity),
+                    (("fact", "stale_snapshot_publication"),),
+                )
+            if len(snapshot.governance_action_references) != len(
+                current.governance_action_references
+            ) + 1 or snapshot.governance_action_references[:-1] != (
+                current.governance_action_references
+            ):
+                return _reject(
+                    _StableReasonCodes.INCOMPLETE_DECLARATION,
+                    (snapshot.snapshot_identity, current.snapshot_identity),
+                    (("fact", "append_only_publication_history"),),
+                )
+            self.__current_snapshot = snapshot
+            return snapshot

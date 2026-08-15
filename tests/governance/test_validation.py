@@ -96,6 +96,71 @@ def _starting_snapshot(**overrides: object) -> RegistrySnapshot:
     return _snapshot(**values)
 
 
+def _structural_admission_context() -> tuple[
+    RegistrySnapshot,
+    GovernanceAction,
+    GovernanceManifest,
+    GovernanceEpoch,
+]:
+    epoch = GovernanceEpoch(2)
+    request = _admission()
+    contract = _matching_contract()
+    proposed = _entry(
+        trust_standing="Untrusted",
+        certification_records=(),
+        compatibility_decisions=(),
+        lifecycle_standing="Registered",
+        governance_provenance=("structural-admission-evidence",),
+    )
+    architectural_fact = "architecture-001:architectural_authority"
+    action = _action(
+        action_identity="action-structural-admission-002",
+        action_type="structural_admission_approved",
+        authority_identity="registry-001",
+        authority_role="registry_authority",
+        subject_references=(proposed.producer_identity,),
+        resulting_standing="Registered",
+        effective_epoch=epoch,
+        approval_references=(architectural_fact,),
+        separation_attestations=("admission-authority-separation",),
+    )
+    manifest = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        proposed_registry_entries=(proposed,),
+        fact_references=(
+            _reference_for(
+                "producer",
+                request.request_identity,
+                request.producer_version,
+                "admission_request",
+                "admission_input",
+            ),
+            _reference_for(
+                "producer",
+                contract.producer_identity,
+                contract.producer_version,
+                "producer_contract",
+                "producer_contract_input",
+            ),
+            _reference_for(
+                "producer",
+                proposed.producer_identity,
+                proposed.producer_version,
+                "registry_entry",
+                "proposed_entry",
+            ),
+        ),
+        authority_facts=(
+            "registry-001:registry_authority",
+            "owner-001:producer_owner",
+            architectural_fact,
+        ),
+    )
+    return _starting_snapshot(entries=()), action, manifest, epoch
+
+
 def _code(
     result: _ValidationAcceptance | GovernanceRejection | None,
 ) -> str:
@@ -635,6 +700,203 @@ def test_admission_context_rejects_duplicate_authoritative_ownership() -> None:
     snapshot = _starting_snapshot(entries=(_entry(owner_identity="other"),))
     assert _code(_AdmissionValidator.validate_context(snapshot, action, manifest, epoch)) == (
         "GOV_DUPLICATE_OWNERSHIP"
+    )
+
+
+def test_structural_admission_acceptance_is_exact_immutable_and_deterministic() -> None:
+    snapshot, action, manifest, epoch = _structural_admission_context()
+    before = (snapshot, action, manifest, epoch)
+
+    first = _AdmissionValidator.validate_context(snapshot, action, manifest, epoch)
+    second = _AdmissionValidator.validate_context(snapshot, action, manifest, epoch)
+
+    assert isinstance(first, _ValidationAcceptance)
+    assert first == second
+    assert first.validator_identity == "admission"
+    assert (first.snapshot, first.action, first.manifest, first.epoch) == before
+    assert (snapshot, action, manifest, epoch) == before
+
+
+def test_structural_admission_validates_ownership_and_authority_dependencies() -> None:
+    snapshot, action, manifest, epoch = _structural_admission_context()
+    conflicting = replace(
+        snapshot,
+        entries=(_entry(owner_identity="other-owner"),),
+    )
+    assert (
+        _code(_AdmissionValidator.validate_context(conflicting, action, manifest, epoch))
+        == "GOV_DUPLICATE_OWNERSHIP"
+    )
+
+    no_architectural_approval = replace(action, approval_references=())
+    no_approval_manifest = replace(manifest, actions=(no_architectural_approval,))
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                no_architectural_approval,
+                no_approval_manifest,
+                epoch,
+            )
+        )
+        == "GOV_MISSING_MANDATORY_FACT"
+    )
+
+    wrong_registry_scope = replace(action, authority_role="producer_owner")
+    wrong_scope_manifest = replace(manifest, actions=(wrong_registry_scope,))
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                wrong_registry_scope,
+                wrong_scope_manifest,
+                epoch,
+            )
+        )
+        == "GOV_UNAUTHORIZED_AUTHORITY"
+    )
+
+
+def test_structural_admission_validates_entry_correspondence_and_policies() -> None:
+    snapshot, action, manifest, epoch = _structural_admission_context()
+    mismatched_entry = replace(
+        manifest.proposed_registry_entries[0],
+        implementation_identity="other-build",
+    )
+    mismatched_reference = replace(
+        manifest.fact_references[2],
+        relationship_role="proposed_entry",
+    )
+    mismatched_manifest = replace(
+        manifest,
+        proposed_registry_entries=(mismatched_entry,),
+        fact_references=(
+            manifest.fact_references[0],
+            manifest.fact_references[1],
+            mismatched_reference,
+        ),
+    )
+    assert (
+        _code(_AdmissionValidator.validate_context(snapshot, action, mismatched_manifest, epoch))
+        == "GOV_INVALID_IDENTITY"
+    )
+
+    incorrect_role = replace(
+        manifest.fact_references[2],
+        relationship_role="unrelated_entry",
+    )
+    incorrect_reference_manifest = replace(
+        manifest,
+        fact_references=(
+            manifest.fact_references[0],
+            manifest.fact_references[1],
+            incorrect_role,
+        ),
+    )
+    first = _AdmissionValidator.validate_context(
+        snapshot,
+        action,
+        incorrect_reference_manifest,
+        epoch,
+    )
+    second = _AdmissionValidator.validate_context(
+        snapshot,
+        action,
+        incorrect_reference_manifest,
+        epoch,
+    )
+    assert _code(first) == "GOV_INCOMPLETE_DECLARATION"
+    assert first == second
+
+    incompatible_policy_snapshot = replace(
+        snapshot,
+        policy_versions=(("admission", "2.0.0"),),
+    )
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                incompatible_policy_snapshot,
+                action,
+                manifest,
+                epoch,
+            )
+        )
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+
+def test_structural_admission_fails_closed_at_every_semantic_boundary() -> None:
+    snapshot, action, manifest, epoch = _structural_admission_context()
+
+    missing_entry = replace(
+        manifest,
+        proposed_registry_entries=(),
+        fact_references=manifest.fact_references[:2],
+    )
+    assert (
+        _code(_AdmissionValidator.validate_context(snapshot, action, missing_entry, epoch))
+        == "GOV_MISSING_MANDATORY_FACT"
+    )
+
+    unrelated_action = replace(action, subject_references=("other-producer",))
+    unrelated_manifest = replace(manifest, actions=(unrelated_action,))
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                unrelated_action,
+                unrelated_manifest,
+                epoch,
+            )
+        )
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+    trusted_entry = replace(manifest.proposed_registry_entries[0], trust_standing="Trusted")
+    trusted_manifest = replace(manifest, proposed_registry_entries=(trusted_entry,))
+    assert (
+        _code(_AdmissionValidator.validate_context(snapshot, action, trusted_manifest, epoch))
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+    missing_owner = replace(
+        manifest,
+        authority_facts=tuple(
+            fact for fact in manifest.authority_facts if fact != "owner-001:producer_owner"
+        ),
+    )
+    assert (
+        _code(_AdmissionValidator.validate_context(snapshot, action, missing_owner, epoch))
+        == "GOV_DUPLICATE_OWNERSHIP"
+    )
+
+    owner_architecture_fact = "owner-001:architectural_authority"
+    unseparated_action = replace(action, approval_references=(owner_architecture_fact,))
+    unseparated_manifest = replace(
+        manifest,
+        actions=(unseparated_action,),
+        authority_facts=(
+            "registry-001:registry_authority",
+            "owner-001:producer_owner",
+            owner_architecture_fact,
+        ),
+    )
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                unseparated_action,
+                unseparated_manifest,
+                epoch,
+            )
+        )
+        == "GOV_UNAUTHORIZED_AUTHORITY"
+    )
+
+    stale_snapshot = replace(snapshot, governance_epoch=epoch)
+    assert (
+        _code(_AdmissionValidator.validate_context(stale_snapshot, action, manifest, epoch))
+        == "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
     )
 
 

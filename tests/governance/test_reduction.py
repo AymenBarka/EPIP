@@ -1,17 +1,38 @@
-"""A03 Increment 3 immutable reducer tests governed by ADR-03 and ADR-09."""
+"""A03-V2-E02 manifest-aware immutable reduction tests."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import cast
+from unittest.mock import patch
+
+import pytest
 
 from epip.governance.model import (
     GovernanceAction,
     GovernanceEpoch,
+    GovernanceManifest,
     GovernanceRejection,
     RegistrySnapshot,
 )
-from epip.governance.reduction import _GovernanceReducer
-from tests.governance.test_model import _action, _entry, _snapshot
+from epip.governance.reduction import _GovernanceReducer, _ReductionResult
+from epip.governance.validation import (
+    _AdmissionValidator,
+    _AuthorityValidator,
+    _ValidationAcceptance,
+)
+from tests.governance.test_model import (
+    _action,
+    _admission,
+    _certification,
+    _compatibility,
+    _entry,
+    _fact_reference,
+    _manifest,
+    _profile,
+    _snapshot,
+)
+from tests.producer.test_contract import _contract
 
 
 def _reduction_action(**overrides: object) -> GovernanceAction:
@@ -38,200 +59,446 @@ def _base_snapshot(**overrides: object) -> RegistrySnapshot:
     return _snapshot(**values)
 
 
-def _rejection(result: RegistrySnapshot | GovernanceRejection) -> GovernanceRejection:
+def _operation_manifest(action: GovernanceAction, **overrides: object) -> GovernanceManifest:
+    values: dict[str, object] = {
+        "manifest_identity": "manifest-002",
+        "governance_epoch": action.effective_epoch,
+        "actions": (action,),
+        "policy_versions": action.policy_versions,
+        "authority_facts": (f"{action.authority_identity}:{action.authority_role}",),
+    }
+    values.update(overrides)
+    return _manifest(**values)
+
+
+def _reduce(
+    snapshot: RegistrySnapshot,
+    action: GovernanceAction,
+    manifest: GovernanceManifest | None = None,
+) -> _ReductionResult | GovernanceRejection:
+    operation = manifest if manifest is not None else _operation_manifest(action)
+    return _GovernanceReducer.reduce(snapshot, action, operation, action.effective_epoch)
+
+
+def _accepted(result: _ReductionResult | GovernanceRejection) -> _ReductionResult:
+    assert isinstance(result, _ReductionResult)
+    return result
+
+
+def _rejection(result: object) -> GovernanceRejection:
     assert isinstance(result, GovernanceRejection)
     return result
 
 
-def _accepted(result: RegistrySnapshot | GovernanceRejection) -> RegistrySnapshot:
-    assert isinstance(result, RegistrySnapshot)
-    return result
-
-
-def test_reduction_is_deterministic_pure_immutable_and_append_only() -> None:
-    snapshot = _base_snapshot()
-    action = _reduction_action()
-    before_snapshot = snapshot
-    before_entry = snapshot.entries[0]
-    first = _accepted(_GovernanceReducer.reduce(snapshot, action))
-    second = _accepted(_GovernanceReducer.reduce(snapshot, action))
-    assert first == second
-    assert snapshot == before_snapshot
-    assert snapshot.entries[0] is before_entry
-    assert first is not snapshot
-    assert first.entries[0] is not before_entry
-    assert first.entries[0].lifecycle_standing == "Registered"
-    assert first.entries[0].governance_provenance == ("action-001", "action-002")
-    assert first.governance_action_references == ("action-001", "action-002")
-    assert first.governance_epoch == GovernanceEpoch(2)
-    assert first.snapshot_identity == "snapshot-002"
-
-
-def test_reduction_preserves_canonical_entry_and_policy_ordering() -> None:
-    later = _entry(
-        producer_identity="producer-z",
-        producer_version="2.0.0",
-        lifecycle_standing="Declared",
-    )
-    earlier = _entry(
-        producer_identity="producer-a",
-        producer_version="1.0.0",
-        lifecycle_standing="Declared",
-    )
-    snapshot = _base_snapshot(
-        entries=(later, earlier),
-        policy_versions=(("z-policy", "1.0.0"), ("a-policy", "1.0.0")),
+def _certification_operation(
+    snapshot: RegistrySnapshot,
+    *,
+    action_type: str = "certification_issued",
+    verdict: str = "passed",
+    record_identity: str = "certification-new",
+    relationship: str | None = None,
+) -> tuple[GovernanceAction, GovernanceManifest]:
+    epoch = GovernanceEpoch(2)
+    profile = _profile()
+    record = _certification(
+        record_identity=record_identity,
+        verdict=verdict,
+        effective_epoch=epoch,
+        status_relationship_reference=relationship,
     )
     action = _reduction_action(
-        subject_references=("producer-z",),
-        policy_versions=(("m-policy", "1.0.0"),),
+        action_type=action_type,
+        authority_identity="certification-authority",
+        authority_role="certification_authority",
+        subject_references=(record.record_identity,),
     )
-    result = _accepted(_GovernanceReducer.reduce(snapshot, action))
-    assert tuple(entry.producer_identity for entry in result.entries) == (
-        "producer-a",
-        "producer-z",
+    manifest = _operation_manifest(
+        action,
+        certification_profiles=(profile,),
+        certification_records=(record,),
+        fact_references=(
+            _fact_reference(
+                identity_domain="certification",
+                artifact_identity=profile.profile_identity,
+                artifact_version=profile.profile_version,
+                fact_type="certification_profile",
+                relationship_role="certification_profile_input",
+            ),
+            _fact_reference(
+                identity_domain="certification",
+                artifact_identity=record.record_identity,
+                artifact_version=record.certification_suite_version,
+                fact_type="certification_record",
+                relationship_role="certification_record_input",
+            ),
+        ),
     )
-    assert result.policy_versions == (
-        ("a-policy", "1.0.0"),
-        ("m-policy", "1.0.0"),
-        ("z-policy", "1.0.0"),
-    )
+    assert snapshot.entries
+    return action, manifest
 
 
-def test_reducer_rejects_invalid_models_authority_and_preconditions() -> None:
+def _compatibility_operation(
+    *,
+    action_type: str = "compatibility_approved",
+    decision_identity: str = "compatibility-new",
+    revocation_reference: str | None = None,
+) -> tuple[GovernanceAction, GovernanceManifest]:
+    epoch = GovernanceEpoch(2)
+    decision = _compatibility(
+        decision_identity=decision_identity,
+        effective_epoch=epoch,
+        revocation_reference=revocation_reference,
+    )
+    action = _reduction_action(
+        action_type=action_type,
+        authority_identity="compatibility-authority",
+        authority_role="compatibility_authority",
+        subject_references=(decision.decision_identity,),
+    )
+    manifest = _operation_manifest(
+        action,
+        compatibility_decisions=(decision,),
+        fact_references=(
+            _fact_reference(
+                identity_domain="validation",
+                artifact_identity=decision.decision_identity,
+                artifact_version=decision.policy_version,
+                fact_type="compatibility_decision",
+                relationship_role="compatibility_input",
+            ),
+        ),
+    )
+    return action, manifest
+
+
+def _structural_admission_operation() -> tuple[
+    RegistrySnapshot,
+    GovernanceAction,
+    GovernanceManifest,
+]:
+    epoch = GovernanceEpoch(2)
+    request = _admission(
+        request_identity="request-new",
+        producer_identity="producer-new",
+    )
+    contract = _contract(
+        producer_identity=request.producer_identity,
+        producer_version=request.producer_version,
+        owner=request.owner_identity,
+        contract_version=request.producer_contract_version,
+        implementation_identity=request.implementation_identity,
+    )
+    proposed = _entry(
+        producer_identity=request.producer_identity,
+        producer_version=request.producer_version,
+        owner_identity=request.owner_identity,
+        producer_contract_version=request.producer_contract_version,
+        implementation_identity=request.implementation_identity,
+        capability_references=request.capability_references,
+        trust_standing="Untrusted",
+        certification_records=(),
+        compatibility_decisions=(),
+        lifecycle_standing="Registered",
+        governance_provenance=("admission-evidence",),
+    )
+    architectural_fact = "architecture-001:architectural_authority"
+    action = _reduction_action(
+        action_type="structural_admission_approved",
+        authority_identity="registry-authority",
+        authority_role="registry_authority",
+        subject_references=(proposed.producer_identity,),
+        prior_standing=None,
+        resulting_standing="Registered",
+        effective_epoch=epoch,
+        approval_references=(architectural_fact,),
+        separation_attestations=("admission-authority-separation",),
+    )
+    manifest = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        proposed_registry_entries=(proposed,),
+        fact_references=(
+            _fact_reference(
+                artifact_identity=request.request_identity,
+                artifact_version=request.producer_version,
+                fact_type="admission_request",
+                relationship_role="admission_input",
+            ),
+            _fact_reference(
+                artifact_identity=contract.producer_identity,
+                artifact_version=contract.producer_version,
+                fact_type="producer_contract",
+                relationship_role="producer_contract_input",
+            ),
+            _fact_reference(
+                artifact_identity=proposed.producer_identity,
+                artifact_version=proposed.producer_version,
+                fact_type="registry_entry",
+                relationship_role="proposed_entry",
+            ),
+        ),
+        authority_facts=(
+            "registry-authority:registry_authority",
+            f"{request.owner_identity}:producer_owner",
+            architectural_fact,
+        ),
+    )
+    return _base_snapshot(entries=()), action, manifest
+
+
+def test_complete_input_contract_is_mandatory_and_bound() -> None:
     snapshot = _base_snapshot()
     action = _reduction_action()
-    assert (
-        _rejection(_GovernanceReducer.reduce(cast(RegistrySnapshot, object()), action)).reason_code
-        == "GOV_INVALID_MODEL"
-    )
-    assert (
-        _rejection(
-            _GovernanceReducer.reduce(snapshot, cast(GovernanceAction, object()))
-        ).reason_code
-        == "GOV_INVALID_MODEL"
-    )
-    assert (
-        _rejection(
-            _GovernanceReducer.reduce(snapshot, _reduction_action(authority_role="producer_owner"))
-        ).reason_code
-        == "GOV_UNAUTHORIZED_AUTHORITY"
-    )
+    manifest = _operation_manifest(action)
     assert (
         _rejection(
             _GovernanceReducer.reduce(
-                snapshot, _reduction_action(resulting_snapshot_reference=None)
+                cast(RegistrySnapshot, object()), action, manifest, action.effective_epoch
             )
         ).reason_code
-        == "GOV_MISSING_MANDATORY_FACT"
+        == "GOV_INVALID_MODEL"
     )
+    other = replace(action, action_identity="other-action")
     assert _rejection(
-        _GovernanceReducer.reduce(snapshot, _reduction_action(action_identity="action-001"))
-    ).diagnostic_details == (("fact", "governance_action_reference"),)
-    assert _rejection(
-        _GovernanceReducer.reduce(snapshot, _reduction_action(effective_epoch=GovernanceEpoch(1)))
-    ).diagnostic_details == (("fact", "governance_epoch_order"),)
+        _GovernanceReducer.reduce(
+            snapshot, action, _operation_manifest(other), action.effective_epoch
+        )
+    ).diagnostic_details == (("fact", "complete_reducer_input_binding"),)
 
 
-def test_reducer_fails_closed_for_unknown_or_publication_action() -> None:
+def test_supported_action_handling_is_deterministic_and_fail_closed() -> None:
+    action = _reduction_action(action_type="unknown_action")
+    first = _reduce(_base_snapshot(), action)
+    second = _reduce(_base_snapshot(), action)
+    assert first == second
+    assert _rejection(first).reason_code == "GOV_UNKNOWN_ACTION"
+
+
+def test_validator_selection_is_complete_and_deterministic() -> None:
+    certification = tuple(
+        validator.__qualname__
+        for validator in _GovernanceReducer._applicable_validators("certification_revoked")
+    )
+    assert certification == (
+        "_AuthorityValidator.validate_context",
+        "_CertificationValidator.validate_context",
+        "_RevocationValidator.validate_context",
+    )
+    assert certification == tuple(
+        validator.__qualname__
+        for validator in _GovernanceReducer._applicable_validators("certification_revoked")
+    )
+    structural_admission = tuple(
+        validator.__qualname__
+        for validator in _GovernanceReducer._applicable_validators("structural_admission_approved")
+    )
+    assert structural_admission == (
+        "_AuthorityValidator.validate_context",
+        "_AdmissionValidator.validate_context",
+    )
+
+
+def test_reduction_requires_explicit_complete_acceptance() -> None:
     snapshot = _base_snapshot()
-    unknown = _reduction_action(action_type="unknown")
-    assert _rejection(_GovernanceReducer.reduce(snapshot, unknown)).reason_code == (
-        "GOV_UNKNOWN_ACTION"
-    )
-    publication = _reduction_action(action_type="snapshot_published")
-    assert _rejection(_GovernanceReducer.reduce(snapshot, publication)).reason_code == (
-        "GOV_UNKNOWN_ACTION"
-    )
+    action = _reduction_action()
+    manifest = _operation_manifest(action)
+    with patch.object(_AuthorityValidator, "validate_context", return_value=None):
+        result = _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+    assert _rejection(result).diagnostic_details == (("fact", "validator_acceptance_completion"),)
+
+    reduction_failure = GovernanceRejection("GOV_INVALID_MODEL", ("reduction",))
+    with patch.object(_GovernanceReducer, "_reduce_entries", return_value=reduction_failure):
+        result = _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+    assert result is reduction_failure
 
 
-def test_reducer_rejects_missing_or_ambiguous_subject_entry() -> None:
+def test_reduction_result_is_immutable_deterministic_and_append_only() -> None:
     snapshot = _base_snapshot()
-    missing = _reduction_action(subject_references=("unknown-producer",))
-    assert _rejection(_GovernanceReducer.reduce(snapshot, missing)).reason_code == (
-        "GOV_INVALID_IDENTITY"
+    action = _reduction_action()
+    manifest = _operation_manifest(action)
+    first = _accepted(_GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch))
+    second = _accepted(
+        _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
     )
-    duplicate = _entry(
-        producer_identity="producer-001",
-        producer_version="2.0.0",
-        lifecycle_standing="Declared",
-        trust_standing="Untrusted",
-    )
-    ambiguous_snapshot = _base_snapshot(entries=(*snapshot.entries, duplicate))
-    assert _rejection(
-        _GovernanceReducer.reduce(ambiguous_snapshot, _reduction_action())
-    ).reason_code == ("GOV_INVALID_IDENTITY")
+    assert first == second
+    assert first.starting_snapshot is snapshot
+    assert first.entries[0].lifecycle_standing == "Registered"
+    assert first.governance_action_references == ("action-001", "action-002")
+    assert first.entries[0].governance_provenance == ("action-001", "action-002")
+    with pytest.raises(AttributeError):
+        first.entries = ()  # type: ignore[misc]
 
 
-def test_reducer_rejects_illegal_lifecycle_and_prior_standing() -> None:
-    snapshot = _base_snapshot()
-    wrong_prior = _reduction_action(prior_standing="Enabled")
-    assert _rejection(_GovernanceReducer.reduce(snapshot, wrong_prior)).reason_code == (
-        "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
-    )
-    illegal = _reduction_action(resulting_standing="Enabled")
-    assert _rejection(_GovernanceReducer.reduce(snapshot, illegal)).reason_code == (
-        "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
+def test_admission_creates_only_the_selected_immutable_entry() -> None:
+    snapshot, action, manifest = _structural_admission_operation()
+    proposed = manifest.proposed_registry_entries[0]
+    result = _accepted(_reduce(snapshot, action, manifest))
+    assert result.entries == (proposed,)
+    assert result.entries[0] is proposed
+    assert tuple(item.validator_identity for item in result.validation_acceptances) == (
+        "authority",
+        "admission",
     )
 
 
-def test_reducer_accepts_activation_and_governed_revocation_lifecycle_actions() -> None:
-    certified = _base_snapshot(
-        entries=(
-            _entry(
-                lifecycle_standing="Certified",
-                trust_standing="Trusted",
+def test_structural_admission_requires_explicit_admission_acceptance() -> None:
+    snapshot, action, manifest = _structural_admission_operation()
+    with patch.object(_AdmissionValidator, "validate_context", return_value=None):
+        authority_only = _GovernanceReducer.reduce(
+            snapshot,
+            action,
+            manifest,
+            action.effective_epoch,
+        )
+    assert _rejection(authority_only).diagnostic_details == (
+        ("fact", "validator_acceptance_completion"),
+    )
+    assert snapshot.entries == ()
+
+    rejection = GovernanceRejection("GOV_INCOMPLETE_DECLARATION", (action.action_identity,))
+    with patch.object(_AdmissionValidator, "validate_context", return_value=rejection):
+        first = _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+    with patch.object(_AdmissionValidator, "validate_context", return_value=rejection):
+        second = _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+    assert first is rejection
+    assert second is rejection
+    assert snapshot.entries == ()
+
+
+def test_reducer_consumes_without_recreating_admission_acceptance() -> None:
+    snapshot, action, manifest = _structural_admission_operation()
+    admission = _ValidationAcceptance(
+        "admission", snapshot, action, manifest, action.effective_epoch
+    )
+    with patch.object(
+        _AdmissionValidator,
+        "validate_context",
+        return_value=admission,
+    ) as validator:
+        result = _accepted(
+            _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+        )
+    validator.assert_called_once_with(snapshot, action, manifest, action.effective_epoch)
+    assert result.validation_acceptances[1] is admission
+
+    wrong_identity = _ValidationAcceptance(
+        "authority",
+        snapshot,
+        action,
+        manifest,
+        action.effective_epoch,
+    )
+    with patch.object(
+        _AdmissionValidator,
+        "validate_context",
+        return_value=wrong_identity,
+    ):
+        rejected = _GovernanceReducer.reduce(
+            snapshot,
+            action,
+            manifest,
+            action.effective_epoch,
+        )
+    assert _rejection(rejected).diagnostic_details == (("fact", "validator_input_binding"),)
+
+
+def test_certification_issuance_appends_selected_fact_once() -> None:
+    snapshot = _base_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=()),)
+    )
+    action, manifest = _certification_operation(snapshot)
+    result = _accepted(_reduce(snapshot, action, manifest))
+    assert tuple(record.record_identity for record in result.entries[0].certification_records) == (
+        "certification-new",
+    )
+    assert snapshot.entries[0].certification_records == ()
+
+
+@pytest.mark.parametrize(
+    ("action_type", "verdict", "identity"),
+    [
+        ("certification_suspended", "suspended", "certification-suspension"),
+        ("certification_revoked", "revoked", "certification-revocation"),
+    ],
+)
+def test_certification_status_changes_preserve_history(
+    action_type: str,
+    verdict: str,
+    identity: str,
+) -> None:
+    prior = _certification()
+    snapshot = _base_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=(prior,)),)
+    )
+    action, manifest = _certification_operation(
+        snapshot,
+        action_type=action_type,
+        verdict=verdict,
+        record_identity=identity,
+        relationship=prior.record_identity,
+    )
+    result = _accepted(_reduce(snapshot, action, manifest))
+    assert result.entries[0].certification_records[0] is prior
+    assert tuple(record.verdict for record in result.entries[0].certification_records) == (
+        "passed",
+        verdict,
+    )
+
+
+def test_compatibility_approval_and_revocation_preserve_history() -> None:
+    producer = _entry(compatibility_decisions=())
+    consumer = _entry(producer_identity="consumer-001", compatibility_decisions=())
+    snapshot = _base_snapshot(entries=(producer, consumer))
+    action, manifest = _compatibility_operation()
+    approved = _accepted(_reduce(snapshot, action, manifest))
+    prior = approved.entries[1].compatibility_decisions[0]
+
+    revoked_snapshot = replace(
+        snapshot,
+        entries=approved.entries,
+        governance_epoch=GovernanceEpoch(2),
+        governance_action_references=approved.governance_action_references,
+    )
+    revoked_action, revoked_manifest = _compatibility_operation(
+        action_type="compatibility_revoked",
+        decision_identity="compatibility-revocation",
+        revocation_reference=prior.decision_identity,
+    )
+    revoked_action = replace(
+        revoked_action,
+        action_identity="action-003",
+        effective_epoch=GovernanceEpoch(3),
+    )
+    revoked_manifest = replace(
+        revoked_manifest,
+        governance_epoch=GovernanceEpoch(3),
+        actions=(revoked_action,),
+        compatibility_decisions=(
+            replace(
+                revoked_manifest.compatibility_decisions[0], effective_epoch=GovernanceEpoch(3)
             ),
+        ),
+    )
+    result = _accepted(
+        _GovernanceReducer.reduce(
+            revoked_snapshot,
+            revoked_action,
+            revoked_manifest,
+            GovernanceEpoch(3),
         )
     )
-    activation = _reduction_action(
-        action_type="activated",
-        prior_standing="Certified",
-        resulting_standing="Enabled",
-    )
-    assert (
-        _accepted(_GovernanceReducer.reduce(certified, activation)).entries[0].lifecycle_standing
-        == "Enabled"
-    )
-    enabled = _base_snapshot(entries=(_entry(lifecycle_standing="Enabled"),))
-    disabled = _reduction_action(
-        action_type="disabled",
-        prior_standing="Enabled",
-        resulting_standing="Disabled",
-    )
-    assert (
-        _accepted(_GovernanceReducer.reduce(enabled, disabled)).entries[0].lifecycle_standing
-        == "Disabled"
-    )
-    deprecated = _base_snapshot(entries=(_entry(lifecycle_standing="Deprecated"),))
-    retired = _reduction_action(
-        action_type="retired",
-        prior_standing="Deprecated",
-        resulting_standing="Retired",
-    )
-    assert (
-        _accepted(_GovernanceReducer.reduce(deprecated, retired)).entries[0].lifecycle_standing
-        == "Retired"
-    )
+    assert result.entries[1].compatibility_decisions[0] is prior
+    assert len(result.entries[1].compatibility_decisions) == 2
 
 
-def test_reducer_propagates_revocation_validator_failure() -> None:
-    snapshot = _base_snapshot(entries=(_entry(lifecycle_standing="Enabled"),))
-    action = _reduction_action(
-        action_type="disabled",
-        authority_identity="wrong",
-        authority_role="security_authority",
-        prior_standing="Enabled",
-        resulting_standing="Disabled",
-    )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, action)).reason_code == (
-        "GOV_UNAUTHORIZED_AUTHORITY"
-    )
+def test_lifecycle_and_trust_transform_only_selected_standing() -> None:
+    other = _entry(producer_identity="producer-other", lifecycle_standing="Declared")
+    snapshot = _base_snapshot(entries=(*_base_snapshot().entries, other))
+    lifecycle = _accepted(_reduce(snapshot, _reduction_action()))
+    assert lifecycle.entries[1] is other
 
-
-def test_reducer_accepts_trust_and_trust_revocation_actions() -> None:
-    snapshot = _base_snapshot()
-    granted = _reduction_action(
+    trust_action = _reduction_action(
         action_type="trust_granted",
         authority_identity="security-authority",
         authority_role="security_authority",
@@ -239,119 +506,230 @@ def test_reducer_accepts_trust_and_trust_revocation_actions() -> None:
         prior_standing="Untrusted",
         resulting_standing="Trusted",
     )
-    trusted = _accepted(_GovernanceReducer.reduce(snapshot, granted))
+    trusted = _accepted(_reduce(snapshot, trust_action))
     assert trusted.entries[0].trust_standing == "Trusted"
-    revoked = _reduction_action(
-        action_identity="action-003",
-        action_type="trust_revoked",
-        authority_identity="security-authority",
-        authority_role="security_authority",
-        subject_references=("producer-001", "capability-001"),
-        prior_standing="Trusted",
-        resulting_standing="Revoked",
-        effective_epoch=GovernanceEpoch(3),
-        resulting_snapshot_reference="snapshot-003",
+    assert trusted.entries[0].lifecycle_standing == "Declared"
+    assert trusted.entries[1] is other
+
+
+def test_unrelated_manifest_facts_are_rejected_before_reduction() -> None:
+    snapshot = _base_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=()),)
     )
-    result = _accepted(_GovernanceReducer.reduce(trusted, revoked))
-    assert result.entries[0].trust_standing == "Revoked"
+    action, manifest = _certification_operation(snapshot)
+    unrelated = _entry(producer_identity="unrelated")
+    manifest = replace(
+        manifest,
+        proposed_registry_entries=(unrelated,),
+        fact_references=(
+            *manifest.fact_references,
+            _fact_reference(
+                artifact_identity=unrelated.producer_identity,
+                artifact_version=unrelated.producer_version,
+                fact_type="registry_entry",
+                relationship_role="proposed_entry",
+            ),
+        ),
+    )
+    result = _reduce(snapshot, action, manifest)
+    assert _rejection(result).diagnostic_details == (("fact", "canonical_fact_selection"),)
+    assert snapshot.entries[0].certification_records == ()
 
 
-def test_reducer_rejects_invalid_trust_prior_and_validator_failure() -> None:
+def test_rejected_operation_produces_no_result_or_input_mutation() -> None:
     snapshot = _base_snapshot()
-    wrong_prior = _reduction_action(
-        action_type="trust_granted",
-        authority_role="security_authority",
-        subject_references=("producer-001", "capability-001"),
-        prior_standing="Trusted",
-        resulting_standing="Trusted",
-    )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, wrong_prior)).reason_code == (
-        "GOV_INVALID_TRUST_TRANSITION"
-    )
-    invalid_scope = _reduction_action(
-        action_type="trust_granted",
-        authority_role="security_authority",
-        prior_standing="Untrusted",
-        resulting_standing="Trusted",
-    )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, invalid_scope)).reason_code == (
-        "GOV_INVALID_TRUST_SCOPE"
-    )
-    missing_subject = _reduction_action(
-        action_type="trust_granted",
-        authority_role="security_authority",
-        subject_references=("unknown-producer", "capability-001"),
-        prior_standing="Untrusted",
-        resulting_standing="Trusted",
-    )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, missing_subject)).reason_code == (
-        "GOV_INVALID_IDENTITY"
-    )
+    action = _reduction_action(prior_standing="Enabled")
+    manifest = _operation_manifest(action)
+    before = (snapshot, action, manifest)
+    result = _reduce(snapshot, action, manifest)
+    assert isinstance(result, GovernanceRejection)
+    assert (snapshot, action, manifest) == before
 
 
-def test_reducer_rejects_duplicate_ownership() -> None:
+def test_no_identifier_authority_or_fact_is_invented() -> None:
     snapshot = _base_snapshot()
+    action = _reduction_action()
+    manifest = _operation_manifest(action)
+    result = _accepted(_reduce(snapshot, action, manifest))
+    assert result.action is action
+    assert result.manifest is manifest
+    assert result.authority_facts == manifest.authority_facts
+    assert result.governance_action_references[-1] == action.action_identity
+    assert all(isinstance(item, _ValidationAcceptance) for item in result.validation_acceptances)
+
+
+def test_admission_request_uses_complete_validator_set_without_state_change() -> None:
+    snapshot = _base_snapshot(entries=())
+    request = _admission()
+    contract = _contract(
+        producer_identity=request.producer_identity,
+        producer_version=request.producer_version,
+        owner=request.owner_identity,
+        contract_version=request.producer_contract_version,
+        implementation_identity=request.implementation_identity,
+    )
     action = _reduction_action(
         action_type="admission_requested",
-        authority_identity="different-owner",
+        authority_identity=request.owner_identity,
         authority_role="producer_owner",
+        subject_references=(request.producer_identity,),
         prior_standing=None,
         resulting_standing="Declared",
     )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, action)).reason_code == (
-        "GOV_DUPLICATE_OWNERSHIP"
+    manifest = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=(
+            _fact_reference(
+                artifact_identity=request.request_identity,
+                artifact_version=request.producer_version,
+                fact_type="admission_request",
+                relationship_role="admission_input",
+            ),
+            _fact_reference(
+                artifact_identity=contract.producer_identity,
+                artifact_version=contract.producer_version,
+                fact_type="producer_contract",
+                relationship_role="producer_contract_input",
+            ),
+        ),
+    )
+    result = _accepted(_reduce(snapshot, action, manifest))
+    assert result.entries == ()
+    assert tuple(item.validator_identity for item in result.validation_acceptances) == (
+        "authority",
+        "admission",
     )
 
 
-def test_reducer_accepts_audit_only_fact_without_changing_entries() -> None:
+def test_reducer_preconditions_and_acceptance_binding_fail_closed() -> None:
+    snapshot = _base_snapshot()
+    duplicate = _reduction_action(action_identity="action-001")
+    assert _rejection(_reduce(snapshot, duplicate)).diagnostic_details == (
+        ("fact", "governance_action_reference"),
+    )
+    stale = _reduction_action(effective_epoch=GovernanceEpoch(1))
+    assert _rejection(_reduce(snapshot, stale)).diagnostic_details == (
+        ("fact", "governance_epoch_order"),
+    )
+
+    action = _reduction_action()
+    manifest = _operation_manifest(action)
+    wrong = _ValidationAcceptance(
+        "authority",
+        snapshot,
+        action,
+        manifest,
+        GovernanceEpoch(3),
+    )
+    with patch.object(_AuthorityValidator, "validate_context", return_value=wrong):
+        result = _GovernanceReducer.reduce(snapshot, action, manifest, action.effective_epoch)
+    assert _rejection(result).diagnostic_details == (("fact", "validator_input_binding"),)
+
+
+def test_internal_state_reduction_guards_are_fail_closed() -> None:
     snapshot = _base_snapshot()
     action = _reduction_action(
-        action_type="admission_requested",
-        authority_identity="owner-001",
-        authority_role="producer_owner",
-        prior_standing=None,
-        resulting_standing="Declared",
+        action_type="structural_admission_approved",
+        subject_references=("missing",),
     )
-    result = _accepted(_GovernanceReducer.reduce(snapshot, action))
-    assert result.entries == snapshot.entries
-    assert result.entries[0] is snapshot.entries[0]
-    confirmation = _reduction_action(
-        action_identity="action-003",
-        action_type="architectural_conformity_confirmed",
-        authority_identity="architecture-authority",
-        authority_role="architectural_authority",
-        effective_epoch=GovernanceEpoch(3),
-        resulting_snapshot_reference="snapshot-003",
+    empty = _operation_manifest(action)
+    assert _rejection(
+        _GovernanceReducer._reduce_admission(snapshot, action, empty)
+    ).diagnostic_details == (("fact", "selected_proposed_registry_entry"),)
+
+    proposed = snapshot.entries[0]
+    admission_manifest = _operation_manifest(
+        replace(action, subject_references=(proposed.producer_identity,)),
+        proposed_registry_entries=(proposed,),
+        fact_references=(
+            _fact_reference(
+                artifact_identity=proposed.producer_identity,
+                artifact_version=proposed.producer_version,
+                fact_type="registry_entry",
+                relationship_role="proposed_entry",
+            ),
+        ),
     )
-    assert isinstance(_GovernanceReducer.reduce(result, confirmation), RegistrySnapshot)
+    reduced_without_semantic_revalidation = _GovernanceReducer._reduce_admission(
+        snapshot,
+        admission_manifest.actions[0],
+        admission_manifest,
+    )
+    assert not isinstance(reduced_without_semantic_revalidation, GovernanceRejection)
+    assert reduced_without_semantic_revalidation == (*snapshot.entries, proposed)
 
-
-def test_reducer_rejects_duplicate_or_missing_certification_fact() -> None:
-    snapshot = _base_snapshot()
-    duplicate = _reduction_action(
+    certification_action = _reduction_action(
         action_type="certification_issued",
         authority_role="certification_authority",
-        subject_references=("certification-001",),
     )
-    rejection = _rejection(_GovernanceReducer.reduce(snapshot, duplicate))
-    assert rejection.reason_code == "GOV_INVALID_CERTIFICATION_STATE"
-    assert rejection.diagnostic_details == (("fact", "duplicate_certification"),)
-    missing = _reduction_action(
-        action_type="certification_issued",
-        authority_role="certification_authority",
-        subject_references=("new-certification",),
+    assert _rejection(
+        _GovernanceReducer._reduce_certification(
+            snapshot,
+            _operation_manifest(certification_action),
+        )
+    ).diagnostic_details == (("fact", "selected_certification_record"),)
+    cert_snapshot = _base_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=()),)
     )
-    assert _rejection(_GovernanceReducer.reduce(snapshot, missing)).diagnostic_details == (
-        ("fact", "certification_record"),
+    _, certification_manifest = _certification_operation(cert_snapshot)
+    assert (
+        _rejection(
+            _GovernanceReducer._reduce_certification(
+                replace(cert_snapshot, entries=()),
+                certification_manifest,
+            )
+        ).reason_code
+        == "GOV_INVALID_CERTIFICATION_SCOPE"
     )
+    record = certification_manifest.certification_records[0]
+    assert _rejection(
+        _GovernanceReducer._reduce_certification(
+            replace(
+                cert_snapshot,
+                entries=(replace(cert_snapshot.entries[0], certification_records=(record,)),),
+            ),
+            certification_manifest,
+        )
+    ).diagnostic_details == (("fact", "exactly_once_certification"),)
 
-
-def test_reducer_rejects_missing_compatibility_fact() -> None:
-    action = _reduction_action(
+    compatibility_action = _reduction_action(
         action_type="compatibility_approved",
         authority_role="compatibility_authority",
-        subject_references=("compatibility-new",),
     )
-    assert _rejection(_GovernanceReducer.reduce(_base_snapshot(), action)).diagnostic_details == (
-        ("fact", "compatibility_decision"),
+    assert _rejection(
+        _GovernanceReducer._reduce_compatibility(
+            snapshot,
+            _operation_manifest(compatibility_action),
+        )
+    ).diagnostic_details == (("fact", "selected_compatibility_decision"),)
+    _, compatibility_manifest = _compatibility_operation()
+    assert (
+        _rejection(
+            _GovernanceReducer._reduce_compatibility(
+                replace(snapshot, entries=()),
+                compatibility_manifest,
+            )
+        ).reason_code
+        == "GOV_UNKNOWN_COMPATIBILITY"
     )
+    decision = compatibility_manifest.compatibility_decisions[0]
+    duplicate_snapshot = replace(
+        snapshot,
+        entries=(replace(snapshot.entries[0], compatibility_decisions=(decision,)),),
+    )
+    assert _rejection(
+        _GovernanceReducer._reduce_compatibility(
+            duplicate_snapshot,
+            compatibility_manifest,
+        )
+    ).diagnostic_details == (("fact", "exactly_once_compatibility"),)
+
+    assert _rejection(
+        _GovernanceReducer._reduce_standing(
+            replace(snapshot, entries=()),
+            _reduction_action(),
+            lifecycle=True,
+        )
+    ).diagnostic_details == (("fact", "unique_subject_entry"),)

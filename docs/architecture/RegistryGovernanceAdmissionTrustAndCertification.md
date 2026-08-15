@@ -272,6 +272,90 @@ current snapshot and explicit manifest facts:
 Validators do not mutate, reduce, construct, coordinate, publish, repair, infer, or perform external
 lookup. They return deterministic acceptance or an immutable `GovernanceRejection`.
 
+### Structural Admission
+
+`structural_admission_approved` is an explicit, immutable Registry Authority decision that one
+proposed producer entry satisfies the structural-admission requirements of ADR-EPIP017-03. It is
+not an admission request, an automatic consequence of a request, architectural-conformity approval
+itself, certification, trust, compatibility approval, activation, publication, or a decision
+inferred during reduction.
+
+The existing governance validation layer exclusively owns semantic validation of this action. The
+existing admission-validation path owns the structural-admission assertions below. The existing
+authority-validation path retains general authority authorization, scope, and separation. No new
+validator type, validation layer, or execution path is introduced.
+
+Before reduction may begin, validation must establish all of the following against the exact
+authoritative starting snapshot, selected action, complete manifest, and supplied governance epoch:
+
+1. The selected action is exactly one `structural_admission_approved` action and selects exactly one
+   proposed `RegistryEntry`.
+2. The proposed entry corresponds canonically to the selected admission request, producer contract,
+   and action-to-fact relationships.
+3. Producer identity and version agree across the action, admission request, producer contract,
+   proposed entry, and their canonical fact references.
+4. The proposed entry contains the complete structurally admitted declaration represented by the
+   selected immutable facts.
+5. No authoritative entry for the same producer identity and version conflicts with the proposed
+   entry.
+6. The proposed entry introduces neither duplicate nor conflicting ownership, and identifies
+   exactly one authoritative Producer Owner for the producer identity and version at the supplied
+   epoch.
+7. The required Architectural Authority conformity decision is explicit, selected, current for the
+   operation, and applicable to the proposed entry's producer, contract, capability, version, and
+   architectural scope.
+8. The acting authority is the Registry Authority authorized to approve structural admission for
+   the exact selected scope.
+9. Producer Owner, Architectural Authority, and Registry Authority responsibilities remain
+   distinct, and the Producer Owner does not approve its own structural admission.
+10. Every applicable governance-policy identity and version is explicit in
+    `GovernanceManifest.policy_versions` and has the identical identity and version in the
+    authoritative starting `RegistrySnapshot.policy_versions`.
+11. Every selected relationship has the correct identity domain, artifact identity, artifact
+    version, fact type, relationship role, and governed subject.
+12. No unrelated or non-selected fact participates in the decision.
+13. The action effective epoch, manifest governance epoch, supplied governance epoch, and
+    authoritative starting-state ordering are mutually consistent.
+
+Missing, ambiguous, conflicting, incorrectly scoped, incorrectly role-labelled, substituted,
+inferred, or reconstructed facts or policies cause deterministic immutable rejection. Absence of
+rejection is not acceptance. `GovernanceAction.subject_references` does not replace canonical
+validation through `GovernanceManifest.fact_references`.
+
+The exact authoritative starting `RegistrySnapshot` determines prior identity and version state,
+ownership consistency, applicable policy versions, governance-epoch ordering, and any existing
+state that makes structural admission invalid. A later, alternate, reconstructed, or partially
+derived snapshot must not be used. An acceptance remains valid only for the exact starting snapshot
+to which it is bound.
+
+Repository presence, contract validity, producer declaration, prior admission, or Registry
+Authority action does not substitute for explicit Architectural Authority conformity. Manifest
+policy declarations do not override the authoritative starting snapshot. Ownership uniqueness
+remains exclusively governance-semantic validation and must not be repeated by the reducer.
+
+### Structural Admission ValidationAcceptance
+
+The resulting immutable `ValidationAcceptance` uses the existing admission-validation acceptance
+identity `admission`. It binds without substitution or reconstruction:
+
+- validator identity `admission`;
+- the exact authoritative starting `RegistrySnapshot`;
+- the exact selected `structural_admission_approved` action;
+- the exact complete `GovernanceManifest`;
+- the exact supplied `GovernanceEpoch`;
+- the exact selected admission request, producer contract, and proposed `RegistryEntry`;
+- their selected canonical `GovernanceFactReference` values;
+- the explicit Architectural Authority conformity fact;
+- the explicit Registry Authority authority fact;
+- the applicable ownership facts;
+- every applicable governance-policy identity and version;
+- the canonical action-to-proposed-entry relationship.
+
+The acceptance covers only facts selected for the single structural-admission operation. An
+acceptance bound to different inputs does not satisfy validator-acceptance completion. The existing
+authority-validation acceptance remains independently required by the applicable-validator set;
+neither acceptance subsumes or substitutes for the other.
+
 ## GovernanceReducer
 
 `GovernanceReducer` is internal, stateless, deterministic, and pure. It owns:
@@ -284,6 +368,16 @@ lookup. They return deterministic acceptance or an immutable `GovernanceRejectio
 It consumes the exact immutable starting snapshot, selected action, complete manifest, governance
 epoch, and applicable validation outcomes. It produces exactly one complete immutable reduction
 result or one immutable rejection.
+
+For `structural_admission_approved`, the reducer must consume explicit completion of every
+applicable acceptance, including the structural-admission acceptance identified as `admission`,
+before immutable reduction begins. A missing, mismatched, incomplete, or differently bound
+acceptance terminates the operation with an immutable rejection and no reduction result.
+
+The reducer must not create that acceptance, infer admission eligibility, validate ownership
+uniqueness, validate Architectural Authority conformity, validate Registry Authority scope,
+validate policy applicability, establish action-to-proposed-entry correspondence, reconstruct a
+missing admission fact, or repeat or reinterpret any semantic assertion covered by the acceptance.
 
 The reducer does not own registry state, snapshot construction, publication, persistence,
 coordination, identity profiles, clocks, randomness, or external services.
@@ -394,6 +488,10 @@ One-operation manifest completeness                      Manifest
 Manifest identity consistency                            Manifest
 Admission eligibility                                    Validation layer
 Ownership and authority scope                            Validation layer
+Structural-admission semantics                           Validation layer
+Architectural-conformity dependency                      Validation layer
+Structural-admission policy consistency                  Validation layer
+Action-to-proposed-entry correspondence                  Validation layer
 Certification semantics                                  Validation layer
 Compatibility semantics                                  Validation layer
 Lifecycle and trust transitions                          Validation layer

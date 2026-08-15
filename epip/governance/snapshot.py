@@ -1,7 +1,8 @@
-"""Deterministic A03 registry snapshot construction.
+"""Reduction-result-aware deterministic A03 candidate construction.
 
-Implementation architecture: Programme A A03, Increment 4.
-Governing contracts: ADR-EPIP017-03 and ADR-EPIP017-09.
+Execution package: Programme A A03-V2-E03.
+Governing contracts: ADR-EPIP017-03, ADR-EPIP017-08, ADR-EPIP017-09,
+and the frozen A03 Architecture Amendment.
 This module constructs immutable snapshots only; it performs no governance
 validation, reduction, persistence, publication, coordination, or projection.
 """
@@ -14,13 +15,15 @@ from hashlib import sha256
 from typing import TypeAlias
 
 from epip.governance.model import (
+    GovernanceAction,
     GovernanceEpoch,
     GovernanceManifest,
     GovernanceRejection,
     RegistryEntry,
     RegistrySnapshot,
 )
-from epip.governance.validation import _reject, _StableReasonCodes
+from epip.governance.reduction import _ReductionResult
+from epip.governance.validation import _reject, _StableReasonCodes, _ValidationAcceptance
 
 _CanonicalScalar: TypeAlias = str | int | bool | None
 _CanonicalValue: TypeAlias = _CanonicalScalar | list["_CanonicalValue"]
@@ -29,6 +32,10 @@ _SNAPSHOT_DOMAIN_VERSION = "1"
 _SNAPSHOT_SCHEMA_VERSION = "1"
 _CANONICALIZATION_PROFILE = "epip-json-v1"
 _DIGEST_PROFILE = "sha256-v1"
+_MANIFEST_SCHEMA_VERSION = "1.0.0"
+_IDENTITY_DOMAIN_VERSION = "1.0.0"
+_MANIFEST_CANONICALIZATION_PROFILE = ("governance-manifest", "1.0.0")
+_MANIFEST_DIGEST_PROFILE = ("governance-manifest", "1.0.0")
 
 
 def _canonical_value(value: object) -> _CanonicalValue:
@@ -51,6 +58,7 @@ def _snapshot_identity(
     epoch: GovernanceEpoch,
     action_references: tuple[str, ...],
     policies: tuple[tuple[str, str], ...],
+    authority_facts: tuple[str, ...],
 ) -> str:
     """Derive one domain-qualified identity from canonical immutable facts."""
 
@@ -65,7 +73,7 @@ def _snapshot_identity(
         _canonical_value(entries),
         _canonical_value(action_references),
         _canonical_value(policies),
-        _canonical_value(tuple(sorted(manifest.authority_facts))),
+        _canonical_value(authority_facts),
     ]
     encoded = json.dumps(content, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
     digest = sha256(encoded).hexdigest()
@@ -81,21 +89,63 @@ class _SnapshotBuilder:
 
     @staticmethod
     def build(
-        entries: tuple[RegistryEntry, ...],
+        reduction: _ReductionResult,
         manifest: GovernanceManifest,
         epoch: GovernanceEpoch,
     ) -> RegistrySnapshot | GovernanceRejection:
         """Return one reproducible snapshot or deterministic fail-closed rejection."""
 
         if (
-            not isinstance(entries, tuple)
-            or any(not isinstance(entry, RegistryEntry) for entry in entries)
+            not isinstance(reduction, _ReductionResult)
             or not isinstance(manifest, GovernanceManifest)
             or not isinstance(epoch, GovernanceEpoch)
         ):
             return _reject(_StableReasonCodes.INVALID_MODEL, ("snapshot_construction",))
 
-        entry_keys = tuple((entry.producer_identity, entry.producer_version) for entry in entries)
+        if (
+            reduction.manifest != manifest
+            or reduction.epoch != epoch
+            or reduction.action != manifest.actions[0]
+            or manifest.governance_epoch != epoch
+        ):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (manifest.manifest_identity,),
+                (("fact", "reduction_manifest_epoch_binding"),),
+            )
+
+        if (
+            not isinstance(reduction.starting_snapshot, RegistrySnapshot)
+            or not isinstance(reduction.action, GovernanceAction)
+            or not isinstance(reduction.manifest, GovernanceManifest)
+            or not isinstance(reduction.epoch, GovernanceEpoch)
+            or not isinstance(reduction.validation_acceptances, tuple)
+            or any(
+                not isinstance(acceptance, _ValidationAcceptance)
+                for acceptance in reduction.validation_acceptances
+            )
+            or not isinstance(reduction.entries, tuple)
+            or any(not isinstance(entry, RegistryEntry) for entry in reduction.entries)
+            or not isinstance(reduction.governance_action_references, tuple)
+            or any(
+                not isinstance(reference, str) or not reference
+                for reference in reduction.governance_action_references
+            )
+            or not isinstance(reduction.policy_versions, tuple)
+            or any(
+                not isinstance(policy, tuple)
+                or len(policy) != 2
+                or any(not isinstance(value, str) or not value for value in policy)
+                for policy in reduction.policy_versions
+            )
+            or not isinstance(reduction.authority_facts, tuple)
+            or any(not isinstance(fact, str) or not fact for fact in reduction.authority_facts)
+        ):
+            return _reject(_StableReasonCodes.INVALID_MODEL, ("snapshot_construction",))
+
+        entry_keys = tuple(
+            (entry.producer_identity, entry.producer_version) for entry in reduction.entries
+        )
         if len(entry_keys) != len(set(entry_keys)):
             return _reject(
                 _StableReasonCodes.DUPLICATE_OWNERSHIP,
@@ -103,16 +153,22 @@ class _SnapshotBuilder:
                 (("fact", "duplicate_registry_entry_identity"),),
             )
 
-        action_keys = tuple(action.action_identity for action in manifest.actions)
-        if len(action_keys) != len(set(action_keys)):
+        if len(reduction.governance_action_references) != len(
+            set(reduction.governance_action_references)
+        ):
             return _reject(
                 _StableReasonCodes.INVALID_IDENTITY,
                 (manifest.manifest_identity,),
                 (("fact", "duplicate_governance_action_identity"),),
             )
 
-        if manifest.governance_epoch != epoch or any(
-            action.effective_epoch.sequence > epoch.sequence for action in manifest.actions
+        if (
+            reduction.starting_snapshot.governance_epoch.sequence >= epoch.sequence
+            or reduction.governance_action_references
+            != (
+                *reduction.starting_snapshot.governance_action_references,
+                reduction.action.action_identity,
+            )
         ):
             return _reject(
                 _StableReasonCodes.ILLEGAL_LIFECYCLE_TRANSITION,
@@ -120,12 +176,16 @@ class _SnapshotBuilder:
                 (("fact", "governance_epoch_mismatch"),),
             )
 
-        manifest_policies = frozenset(manifest.policy_versions)
-        authority_facts = frozenset(manifest.authority_facts)
-        if any(
-            not set(action.policy_versions) <= manifest_policies
-            or f"{action.authority_identity}:{action.authority_role}" not in authority_facts
-            for action in manifest.actions
+        if (
+            manifest.manifest_schema_version != _MANIFEST_SCHEMA_VERSION
+            or manifest.identity_domain_version != _IDENTITY_DOMAIN_VERSION
+            or (
+                manifest.canonicalization_profile_identity,
+                manifest.canonicalization_profile_version,
+            )
+            != _MANIFEST_CANONICALIZATION_PROFILE
+            or (manifest.digest_profile_identity, manifest.digest_profile_version)
+            != _MANIFEST_DIGEST_PROFILE
         ):
             return _reject(
                 _StableReasonCodes.INCOMPLETE_DECLARATION,
@@ -134,16 +194,14 @@ class _SnapshotBuilder:
             )
 
         canonical_entries = tuple(
-            sorted(entries, key=lambda item: (item.producer_identity, item.producer_version))
-        )
-        canonical_actions = tuple(
             sorted(
-                manifest.actions,
-                key=lambda item: (item.effective_epoch.sequence, item.action_identity),
+                reduction.entries,
+                key=lambda item: (item.producer_identity, item.producer_version),
             )
         )
-        action_references = tuple(action.action_identity for action in canonical_actions)
-        policies = tuple(sorted(manifest.policy_versions))
+        action_references = reduction.governance_action_references
+        policies = tuple(sorted(reduction.policy_versions))
+        authority_facts = tuple(sorted(reduction.authority_facts))
         return RegistrySnapshot(
             snapshot_identity=_snapshot_identity(
                 canonical_entries,
@@ -151,6 +209,7 @@ class _SnapshotBuilder:
                 epoch,
                 action_references,
                 policies,
+                authority_facts,
             ),
             manifest_reference=manifest.manifest_identity,
             governance_epoch=epoch,
