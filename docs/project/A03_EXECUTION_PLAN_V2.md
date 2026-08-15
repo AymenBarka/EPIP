@@ -6,7 +6,7 @@
 | Version | 2.0 |
 | Approval date | 2026-08-15 |
 | Git baseline | `2040e3e` |
-| Approved governance amendment | Completion and acceptance governance correction, 2026-08-15 |
+| Approved governance amendments | Completion and acceptance governance correction; E02–E06 integrated-acceptance dependency correction, 2026-08-15 |
 
 ## Document Authority
 
@@ -397,12 +397,12 @@ reduction, construction, and one replacement request.
 - Failed operations have no partial observable state.
 - Coordinator unit and component tests, local quality gates, package coverage, and repository
   ownership checks pass.
-- Completion of E05 admits the combined E02–E05 Integrated Acceptance Gate.
+- Completion of E05 admits A03-V2-E06 implementation under the Component Completion Gate.
 
 ### Repository Impact
 
 Modify the coordinator and coordinator tests only. Commit after Component Completion; acceptance,
-baselining, tagging, and architectural freeze remain subject to the combined E02–E05 Integrated
+baselining, tagging, and architectural freeze remain subject to the combined E02–E06 Integrated
 Acceptance Gate.
 
 ## A03-V2-E06 — Public Registry Façade Integration
@@ -601,22 +601,25 @@ A03-V2-E00
                         -> A03-V2-E04
                             -> Component Completion Gate — E04
                                 -> A03-V2-E05
-                                    -> Integrated Acceptance Gate — E02 through E05
+                                    -> Component Completion Gate — E05
                                         -> A03-V2-E06
-                                            -> A03-V2-E07
-                                                -> A03-V2-E08
+                                            -> Component Completion Gate — E06
+                                                -> Integrated Acceptance Gate — E02 through E06
+                                                    -> A03-V2-E07
+                                                        -> A03-V2-E08
 ```
 
 This implementation order is mandatory and unchanged. E03 may begin after E02 Component Completion;
-E04 may begin after E03 Component Completion; and E05 may begin after E04 Component Completion. E06
-may begin only after successful combined E02–E05 Integrated Acceptance. Component Completion is not
-package acceptance and creates no reverse dependency or dependency cycle.
+E04 may begin after E03 Component Completion; E05 may begin after E04 Component Completion; and E06
+may begin after E05 Component Completion. E07 may begin only after successful combined E02–E06
+Integrated Acceptance. Component Completion is not package acceptance and creates no reverse
+dependency or dependency cycle.
 
 ## Commit and Review Policy
 
 Each execution package must produce exactly one independently reviewable commit after its applicable
 completion gate. The next package must not begin while the current package has uncommitted or
-unpushed changes. An E02–E05 component-completion commit is an implementation checkpoint only; it is
+unpushed changes. An E02–E06 component-completion commit is an implementation checkpoint only; it is
 not an accepted repository baseline, release tag, or architectural freeze point.
 
 Recommended commit subjects are:
@@ -646,10 +649,10 @@ The Component Completion Gate certifies execution-package-local completion only.
 It does not require repository-wide regression, repository-wide integration, downstream
 execution-package integration, or repository-wide acceptance.
 
-Successful E02, E03, and E04 Component Completion produces the status:
+Successful E02, E03, E04, E05, and E06 Component Completion produces the status:
 
 ```text
-COMPONENT COMPLETE — INTEGRATED ACCEPTANCE PENDING
+COMPONENT COMPLETE VERIFIED
 ```
 
 A package with this status shall not become a repository baseline, receive a release tag, be
@@ -658,8 +661,8 @@ Acceptance may authorize those repository states.
 
 ## Integrated Acceptance Gate
 
-The combined E02–E05 Integrated Acceptance Gate runs only after E02, E03, E04, and E05 have
-completed their allocated implementation. It requires:
+The combined E02–E06 Integrated Acceptance Gate runs only after E02, E03, E04, E05, and E06 have
+completed their allocated implementation and passed their Component Completion Gates. It requires:
 
 - all dependent execution packages implemented;
 - the complete integration path established;
@@ -671,12 +674,13 @@ completed their allocated implementation. It requires:
 - coverage maintained or improved;
 - `git diff --check` passing;
 - deterministic lifecycle demonstration;
+- complete Registry façade integration;
 - no compatibility shim;
 - no alternate execution path;
 - no responsibility leakage.
 
 Successful completion authorizes acceptance, repository baselining, release tagging, and use as an
-architectural freeze point for E02–E05. E06 may begin only after this gate succeeds.
+architectural freeze point for E02–E06. E07 may begin only after this gate succeeds.
 
 No TODO, placeholder, compatibility shim, speculative API, hidden authority, hidden state, external
 lookup, or future-package implementation is permitted.
