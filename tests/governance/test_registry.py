@@ -30,7 +30,7 @@ def _operation() -> tuple[GovernanceAction, GovernanceManifest, GovernanceEpoch]
         subject_references=("producer-001",),
         prior_standing="Declared",
         resulting_standing="Registered",
-        policy_versions=(("registry", "1.0.0"),),
+        policy_versions=(("admission", "1.0.0"),),
         effective_epoch=epoch,
         resulting_snapshot_reference="snapshot-reduction-002",
     )
@@ -38,7 +38,7 @@ def _operation() -> tuple[GovernanceAction, GovernanceManifest, GovernanceEpoch]
         manifest_identity="manifest-002",
         governance_epoch=epoch,
         actions=(action,),
-        policy_versions=(("registry", "1.0.0"),),
+        policy_versions=action.policy_versions,
         authority_facts=("registry-authority:registry_authority",),
     )
     return action, manifest, epoch
@@ -60,8 +60,10 @@ def _rejection(result: RegistrySnapshot | GovernanceRejection) -> GovernanceReje
     return result
 
 
-def test_registry_supports_empty_and_initial_immutable_state() -> None:
-    assert GovernanceRegistry().current_snapshot is None
+def test_registry_requires_one_initial_authoritative_snapshot() -> None:
+    with pytest.raises(TypeError, match="immutable RegistrySnapshot"):
+        GovernanceRegistry()
+
     snapshot = _initial_snapshot()
     registry = GovernanceRegistry(snapshot)
     assert registry.current_snapshot is snapshot
@@ -100,6 +102,13 @@ def test_public_rejection_is_propagated_unchanged_without_partial_update() -> No
     assert rejection.reason_code == "GOV_UNAUTHORIZED_AUTHORITY"
     assert result is delegation.return_value
     delegation.assert_called_once()
+    delegated_coordinator, delegated_action, delegated_manifest, delegated_epoch = (
+        delegation.call_args.args
+    )
+    assert isinstance(delegated_coordinator, _GovernanceCoordinator)
+    assert delegated_action is invalid
+    assert delegated_manifest is manifest
+    assert delegated_epoch is epoch
     assert registry.current_snapshot is previous
 
 
@@ -155,3 +164,12 @@ def test_registry_is_a_facade_without_duplicated_component_logic() -> None:
     assert "RegistrySnapshot(" not in source
     assert "replace_snapshot" not in source
     assert source.count("coordinate(") == 1
+
+
+def test_public_apply_signature_remains_unchanged() -> None:
+    assert tuple(inspect.signature(GovernanceRegistry.apply).parameters) == (
+        "self",
+        "action",
+        "manifest",
+        "epoch",
+    )

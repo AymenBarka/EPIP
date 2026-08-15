@@ -32,13 +32,15 @@ class GovernanceRegistry:
     __slots__ = ("__coordinator", "__store")
 
     def __init__(self, initial_snapshot: RegistrySnapshot | None = None) -> None:
-        """Own one private store initialized with an optional immutable snapshot."""
+        """Own one private store initialized with one authoritative snapshot."""
 
+        if initial_snapshot is None:
+            raise TypeError("initial_snapshot must be an immutable RegistrySnapshot")
         self.__store = GovernanceStore(initial_snapshot)
         self.__coordinator = _GovernanceCoordinator(self.__store)
 
     @property
-    def current_snapshot(self) -> RegistrySnapshot | None:
+    def current_snapshot(self) -> RegistrySnapshot:
         """Return read-only access to the current immutable registry snapshot."""
 
         return self.__store.current_snapshot
