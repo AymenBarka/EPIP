@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from enum import Enum
 from types import MappingProxyType
+from typing import NamedTuple
 
 from epip.governance.model import (
     AdmissionRequest,
@@ -16,8 +17,11 @@ from epip.governance.model import (
     CertificationRecord,
     CompatibilityDecision,
     GovernanceAction,
+    GovernanceEpoch,
+    GovernanceManifest,
     GovernanceRejection,
     RegistryEntry,
+    RegistrySnapshot,
 )
 from epip.producer import ProducerContract
 
@@ -115,6 +119,86 @@ def _reject(
     return GovernanceRejection(code.value, references, details)
 
 
+class _ValidationAcceptance(NamedTuple):
+    """Bind one explicit validator acceptance to the exact immutable inputs."""
+
+    validator_identity: str
+    snapshot: RegistrySnapshot
+    action: GovernanceAction
+    manifest: GovernanceManifest
+    epoch: GovernanceEpoch
+
+
+def _accept(
+    validator_identity: str,
+    snapshot: RegistrySnapshot,
+    action: GovernanceAction,
+    manifest: GovernanceManifest,
+    epoch: GovernanceEpoch,
+) -> _ValidationAcceptance:
+    """Return one immutable deterministic acceptance for exact validated values."""
+
+    return _ValidationAcceptance(validator_identity, snapshot, action, manifest, epoch)
+
+
+def _invalid_context(
+    snapshot: object,
+    action: object,
+    manifest: object,
+    epoch: object,
+    validator_identity: str,
+) -> GovernanceRejection | None:
+    """Reject context values that are not the required immutable A03 models."""
+
+    if not isinstance(snapshot, RegistrySnapshot):
+        return _reject(_StableReasonCodes.INVALID_MODEL, (validator_identity, "snapshot"))
+    if not isinstance(action, GovernanceAction):
+        return _reject(_StableReasonCodes.INVALID_MODEL, (validator_identity, "action"))
+    if not isinstance(manifest, GovernanceManifest):
+        return _reject(_StableReasonCodes.INVALID_MODEL, (validator_identity, "manifest"))
+    if not isinstance(epoch, GovernanceEpoch):
+        return _reject(_StableReasonCodes.INVALID_MODEL, (validator_identity, "epoch"))
+    return None
+
+
+def _entry_for_subject(
+    snapshot: RegistrySnapshot,
+    action: GovernanceAction,
+) -> RegistryEntry | GovernanceRejection:
+    """Resolve exactly one selected registry entry without external lookup."""
+
+    matching = tuple(
+        entry for entry in snapshot.entries if entry.producer_identity in action.subject_references
+    )
+    if len(matching) != 1:
+        return _reject(
+            _StableReasonCodes.INVALID_IDENTITY,
+            (action.action_identity, *action.subject_references),
+            (("fact", "selected_registry_entry"),),
+        )
+    return matching[0]
+
+
+def _validate_fact_references(
+    manifest: GovernanceManifest,
+    expected: tuple[tuple[str, str, str], ...],
+    action_identity: str,
+) -> GovernanceRejection | None:
+    """Validate semantic selection through complete canonical fact references."""
+
+    actual = tuple(
+        (reference.artifact_identity, reference.fact_type, reference.relationship_role)
+        for reference in manifest.fact_references
+    )
+    if actual != expected:
+        return _reject(
+            _StableReasonCodes.INCOMPLETE_DECLARATION,
+            (action_identity, manifest.manifest_identity),
+            (("fact", "canonical_fact_selection"),),
+        )
+    return None
+
+
 class _AdmissionValidator:
     """Validate immutable admission declarations without deciding admission."""
 
@@ -178,7 +262,66 @@ class _AdmissionValidator:
                 _StableReasonCodes.DUPLICATE_OWNERSHIP,
                 (request.producer_identity, request.producer_version),
             )
+        if matching:
+            return _reject(
+                _StableReasonCodes.DUPLICATE_OWNERSHIP,
+                (request.producer_identity, request.producer_version),
+            )
         return None
+
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate admission semantics using only exact immutable operation facts."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "admission")
+        if invalid is not None:
+            return invalid
+        if action.action_type != "admission_requested":
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity,),
+                (("fact", "admission_action"),),
+            )
+        if len(manifest.admission_requests) != 1 or len(manifest.producer_contracts) != 1:
+            return _reject(
+                _StableReasonCodes.MISSING_MANDATORY_FACT,
+                (action.action_identity,),
+                (("fact", "admission_request_and_producer_contract"),),
+            )
+        request = manifest.admission_requests[0]
+        contract = manifest.producer_contracts[0]
+        if not {
+            request.request_identity,
+            request.producer_identity,
+        }.intersection(action.subject_references):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, request.request_identity),
+                (("fact", "action_to_admission_request"),),
+            )
+        reference_rejection = _validate_fact_references(
+            manifest,
+            (
+                (request.request_identity, "admission_request", "admission_input"),
+                (
+                    contract.producer_identity,
+                    "producer_contract",
+                    "producer_contract_input",
+                ),
+            ),
+            action.action_identity,
+        )
+        if reference_rejection is not None:
+            return reference_rejection
+        rejection = _AdmissionValidator.validate(request, contract, snapshot.entries)
+        if rejection is not None:
+            return rejection
+        return _accept("admission", snapshot, action, manifest, epoch)
 
 
 class _AuthorityValidator:
@@ -199,6 +342,56 @@ class _AuthorityValidator:
                 (action.action_identity, action.authority_identity),
             )
         return None
+
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate exact authority, snapshot, policy, action, and epoch binding."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "authority")
+        if invalid is not None:
+            return invalid
+        if manifest.actions != (action,):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, manifest.manifest_identity),
+                (("fact", "selected_manifest_action"),),
+            )
+        if (
+            action.effective_epoch != epoch
+            or manifest.governance_epoch != epoch
+            or snapshot.governance_epoch.sequence > epoch.sequence
+        ):
+            return _reject(
+                _StableReasonCodes.ILLEGAL_LIFECYCLE_TRANSITION,
+                (action.action_identity, manifest.manifest_identity),
+                (("fact", "governance_epoch"),),
+            )
+        if not set(action.policy_versions) <= set(manifest.policy_versions) or not set(
+            action.policy_versions
+        ) <= set(snapshot.policy_versions):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, manifest.manifest_identity),
+                (("fact", "policy_versions"),),
+            )
+        authority_fact = f"{action.authority_identity}:{action.authority_role}"
+        if authority_fact not in manifest.authority_facts:
+            return _reject(
+                _StableReasonCodes.UNAUTHORIZED_AUTHORITY,
+                (action.action_identity, action.authority_identity),
+            )
+        permitted = _ACTION_AUTHORITIES.get(action.action_type)
+        if permitted is not None and action.authority_role not in permitted:
+            return _reject(
+                _StableReasonCodes.UNAUTHORIZED_AUTHORITY,
+                (action.action_identity, action.authority_identity),
+            )
+        return _accept("authority", snapshot, action, manifest, epoch)
 
 
 class _CertificationValidator:
@@ -259,6 +452,110 @@ class _CertificationValidator:
             )
         return None
 
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate selected certification facts against authoritative state."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "certification")
+        if invalid is not None:
+            return invalid
+        if not action.action_type.startswith("certification_"):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity,),
+                (("fact", "certification_action"),),
+            )
+        if len(manifest.certification_records) != 1:
+            return _reject(
+                _StableReasonCodes.MISSING_MANDATORY_FACT,
+                (action.action_identity,),
+                (("fact", "certification_record"),),
+            )
+        record = manifest.certification_records[0]
+        if record.record_identity not in action.subject_references:
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, record.record_identity),
+                (("fact", "action_to_certification_record"),),
+            )
+        matching_entries = tuple(
+            entry
+            for entry in snapshot.entries
+            if entry.producer_identity == record.producer_identity
+        )
+        if len(matching_entries) != 1:
+            return _reject(
+                _StableReasonCodes.INVALID_CERTIFICATION_SCOPE,
+                (record.record_identity, record.producer_identity),
+            )
+        profiles = tuple(
+            profile
+            for profile in manifest.certification_profiles
+            if record.certification_profile_reference
+            in {
+                profile.profile_identity,
+                f"{profile.profile_identity}@{profile.profile_version}",
+            }
+        )
+        profile = profiles[0] if len(profiles) == 1 else None
+        if profile is not None:
+            reference_rejection = _validate_fact_references(
+                manifest,
+                (
+                    (
+                        profile.profile_identity,
+                        "certification_profile",
+                        "certification_profile_input",
+                    ),
+                    (
+                        record.record_identity,
+                        "certification_record",
+                        "certification_record_input",
+                    ),
+                ),
+                action.action_identity,
+            )
+            if reference_rejection is not None:
+                return reference_rejection
+        rejection = _CertificationValidator.validate(record, profile, matching_entries[0])
+        if rejection is not None:
+            return rejection
+        expected_verdicts = {
+            "certification_issued": frozenset({"passed", "failed"}),
+            "certification_suspended": frozenset({"suspended"}),
+            "certification_expired": frozenset({"expired"}),
+            "certification_revoked": frozenset({"revoked"}),
+        }
+        expected_verdict = expected_verdicts.get(action.action_type)
+        if expected_verdict is None or record.verdict not in expected_verdict:
+            return _reject(
+                _StableReasonCodes.INVALID_CERTIFICATION_STATE,
+                (record.record_identity, action.action_identity),
+            )
+        known_records = {
+            existing.record_identity
+            for entry in snapshot.entries
+            for existing in entry.certification_records
+        }
+        if action.action_type == "certification_issued":
+            if record.record_identity in known_records or record.status_relationship_reference:
+                return _reject(
+                    _StableReasonCodes.INVALID_CERTIFICATION_STATE,
+                    (record.record_identity,),
+                )
+        elif record.status_relationship_reference not in known_records:
+            return _reject(
+                _StableReasonCodes.INVALID_CERTIFICATION_STATE,
+                (record.record_identity,),
+                (("fact", "prior_certification_record"),),
+            )
+        return _accept("certification", snapshot, action, manifest, epoch)
+
 
 class _CompatibilityValidator:
     """Validate explicit compatibility facts without inferring compatibility."""
@@ -298,6 +595,86 @@ class _CompatibilityValidator:
                 (decision.source_reference, decision.target_reference),
             )
         return None
+
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate one selected directional compatibility fact."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "compatibility")
+        if invalid is not None:
+            return invalid
+        if not action.action_type.startswith("compatibility_"):
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity,),
+                (("fact", "compatibility_action"),),
+            )
+        if len(manifest.compatibility_decisions) != 1:
+            return _reject(
+                _StableReasonCodes.MISSING_MANDATORY_FACT,
+                (action.action_identity,),
+                (("fact", "compatibility_decision"),),
+            )
+        decision = manifest.compatibility_decisions[0]
+        if decision.decision_identity not in action.subject_references:
+            return _reject(
+                _StableReasonCodes.INCOMPLETE_DECLARATION,
+                (action.action_identity, decision.decision_identity),
+                (("fact", "action_to_compatibility_decision"),),
+            )
+        reference_rejection = _validate_fact_references(
+            manifest,
+            (
+                (
+                    decision.decision_identity,
+                    "compatibility_decision",
+                    "compatibility_input",
+                ),
+            ),
+            action.action_identity,
+        )
+        if reference_rejection is not None:
+            return reference_rejection
+        known_references = tuple(
+            reference
+            for entry in snapshot.entries
+            for reference in (
+                entry.producer_identity,
+                f"{entry.producer_identity}@{entry.producer_version}",
+            )
+        )
+        revoked = tuple(
+            existing.decision_identity
+            for entry in snapshot.entries
+            for existing in entry.compatibility_decisions
+            if existing.revocation_reference is not None
+        )
+        rejection = _CompatibilityValidator.validate(decision, known_references, revoked)
+        if rejection is not None:
+            return rejection
+        known_decisions = {
+            existing.decision_identity
+            for entry in snapshot.entries
+            for existing in entry.compatibility_decisions
+        }
+        if action.action_type == "compatibility_approved":
+            if decision.decision_identity in known_decisions or decision.revocation_reference:
+                return _reject(
+                    _StableReasonCodes.REVOKED_COMPATIBILITY,
+                    (decision.decision_identity,),
+                )
+        elif decision.revocation_reference not in known_decisions:
+            return _reject(
+                _StableReasonCodes.UNKNOWN_COMPATIBILITY,
+                (decision.decision_identity,),
+                (("fact", "prior_compatibility_decision"),),
+            )
+        return _accept("compatibility", snapshot, action, manifest, epoch)
 
 
 class _LifecycleValidator:
@@ -354,6 +731,50 @@ class _LifecycleValidator:
             )
         return None
 
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate one selected lifecycle transition from authoritative facts."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "lifecycle")
+        if invalid is not None:
+            return invalid
+        selected = _entry_for_subject(snapshot, action)
+        if isinstance(selected, GovernanceRejection):
+            return selected
+        if action.prior_standing != selected.lifecycle_standing:
+            return _reject(
+                _StableReasonCodes.ILLEGAL_LIFECYCLE_TRANSITION,
+                (action.action_identity, selected.lifecycle_standing),
+            )
+        certification_valid = any(
+            record.verdict == "passed" for record in selected.certification_records
+        )
+        trusted = selected.trust_standing == "Trusted"
+        compatibility_valid = any(
+            decision.revocation_reference is None for decision in selected.compatibility_decisions
+        )
+        remediation_approved = bool(action.approval_references)
+        recertification_approved = bool(
+            manifest.certification_records and action.approval_references
+        )
+        rejection = _LifecycleValidator.validate(
+            selected,
+            action.resulting_standing,
+            certification_valid=certification_valid,
+            trusted=trusted,
+            compatibility_valid=compatibility_valid,
+            remediation_approved=remediation_approved,
+            recertification_approved=recertification_approved,
+        )
+        if rejection is not None:
+            return rejection
+        return _accept("lifecycle", snapshot, action, manifest, epoch)
+
 
 class _TrustValidator:
     """Validate scoped trust transitions without granting trust."""
@@ -397,6 +818,36 @@ class _TrustValidator:
                 (("fact", "certification_evidence"),),
             )
         return None
+
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate one selected trust transition from immutable operation facts."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "trust")
+        if invalid is not None:
+            return invalid
+        selected = _entry_for_subject(snapshot, action)
+        if isinstance(selected, GovernanceRejection):
+            return selected
+        if action.prior_standing != selected.trust_standing:
+            return _reject(
+                _StableReasonCodes.INVALID_TRUST_TRANSITION,
+                (action.action_identity, selected.trust_standing),
+            )
+        evidence = tuple(
+            reference
+            for record in manifest.certification_records
+            for reference in record.evidence_references
+        )
+        rejection = _TrustValidator.validate(action, selected.trust_standing, evidence)
+        if rejection is not None:
+            return rejection
+        return _accept("trust", snapshot, action, manifest, epoch)
 
 
 class _RevocationValidator:
@@ -442,3 +893,48 @@ class _RevocationValidator:
         if overlap:
             return _reject(_StableReasonCodes.ALREADY_REVOKED_SCOPE, overlap)
         return None
+
+    @staticmethod
+    def validate_context(
+        snapshot: RegistrySnapshot,
+        action: GovernanceAction,
+        manifest: GovernanceManifest,
+        epoch: GovernanceEpoch,
+    ) -> _ValidationAcceptance | GovernanceRejection:
+        """Validate one selected revocation against immutable authoritative history."""
+
+        invalid = _invalid_context(snapshot, action, manifest, epoch, "revocation")
+        if invalid is not None:
+            return invalid
+        existing_revocations = tuple(
+            reference
+            for entry in snapshot.entries
+            for reference in entry.governance_provenance
+            if reference == action.action_identity
+        )
+        revoked_scope = tuple(
+            reference
+            for entry in snapshot.entries
+            if entry.trust_standing == "Revoked" or entry.lifecycle_standing == "Retired"
+            for reference in (entry.producer_identity,)
+        )
+        revoked_scope += tuple(
+            record.record_identity
+            for entry in snapshot.entries
+            for record in entry.certification_records
+            if record.verdict == "revoked"
+        )
+        revoked_scope += tuple(
+            decision.decision_identity
+            for entry in snapshot.entries
+            for decision in entry.compatibility_decisions
+            if decision.revocation_reference is not None
+        )
+        rejection = _RevocationValidator.validate(
+            action,
+            existing_revocations,
+            revoked_scope,
+        )
+        if rejection is not None:
+            return rejection
+        return _accept("revocation", snapshot, action, manifest, epoch)

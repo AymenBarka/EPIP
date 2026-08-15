@@ -13,8 +13,12 @@ from epip.governance.model import (
     CertificationRecord,
     CompatibilityDecision,
     GovernanceAction,
+    GovernanceEpoch,
+    GovernanceFactReference,
+    GovernanceManifest,
     GovernanceRejection,
     RegistryEntry,
+    RegistrySnapshot,
 )
 from epip.governance.validation import (
     _ACTION_AUTHORITIES,
@@ -26,6 +30,7 @@ from epip.governance.validation import (
     _RevocationValidator,
     _StableReasonCodes,
     _TrustValidator,
+    _ValidationAcceptance,
 )
 from epip.producer import ProducerContract
 from tests.governance.test_model import (
@@ -34,7 +39,10 @@ from tests.governance.test_model import (
     _certification,
     _compatibility,
     _entry,
+    _fact_reference,
+    _manifest,
     _profile,
+    _snapshot,
 )
 from tests.producer.test_contract import _contract
 
@@ -51,8 +59,47 @@ def _matching_contract(**overrides: object) -> ProducerContract:
     return _contract(**values)
 
 
-def _code(result: GovernanceRejection | None) -> str:
-    assert result is not None
+def _reference_for(
+    identity_domain: str,
+    artifact_identity: str,
+    artifact_version: str,
+    fact_type: str,
+    relationship_role: str,
+) -> GovernanceFactReference:
+    return _fact_reference(
+        identity_domain=identity_domain,
+        artifact_identity=artifact_identity,
+        artifact_version=artifact_version,
+        fact_type=fact_type,
+        relationship_role=relationship_role,
+    )
+
+
+def _operation_manifest(
+    action: GovernanceAction,
+    **overrides: object,
+) -> GovernanceManifest:
+    values: dict[str, object] = {
+        "manifest_identity": "manifest-validation-002",
+        "governance_epoch": action.effective_epoch,
+        "actions": (action,),
+        "policy_versions": action.policy_versions,
+        "authority_facts": (f"{action.authority_identity}:{action.authority_role}",),
+    }
+    values.update(overrides)
+    return _manifest(**values)
+
+
+def _starting_snapshot(**overrides: object) -> RegistrySnapshot:
+    values: dict[str, object] = {"governance_epoch": GovernanceEpoch(1)}
+    values.update(overrides)
+    return _snapshot(**values)
+
+
+def _code(
+    result: _ValidationAcceptance | GovernanceRejection | None,
+) -> str:
+    assert isinstance(result, GovernanceRejection)
     return result.reason_code
 
 
@@ -420,3 +467,631 @@ def test_validators_return_equal_deterministic_rejections() -> None:
     first = _AuthorityValidator.validate(action)
     second = _AuthorityValidator.validate(replace(action))
     assert first == second
+
+
+def test_authority_context_acceptance_binds_exact_immutable_inputs() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    manifest = _operation_manifest(action)
+    snapshot = _starting_snapshot()
+
+    first = _AuthorityValidator.validate_context(snapshot, action, manifest, epoch)
+    second = _AuthorityValidator.validate_context(snapshot, action, manifest, epoch)
+
+    assert isinstance(first, _ValidationAcceptance)
+    assert first == second
+    assert (first.snapshot, first.action, first.manifest, first.epoch) == (
+        snapshot,
+        action,
+        manifest,
+        epoch,
+    )
+    with pytest.raises(AttributeError):
+        first.validator_identity = "changed"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize("invalid_field", ("snapshot", "action", "manifest", "epoch"))
+def test_authority_context_rejects_invalid_models(invalid_field: str) -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    manifest = _operation_manifest(action)
+    values: dict[str, object] = {
+        "snapshot": _starting_snapshot(),
+        "action": action,
+        "manifest": manifest,
+        "epoch": epoch,
+    }
+    values[invalid_field] = object()
+    result = _AuthorityValidator.validate_context(
+        cast(RegistrySnapshot, values["snapshot"]),
+        cast(GovernanceAction, values["action"]),
+        cast(GovernanceManifest, values["manifest"]),
+        cast(GovernanceEpoch, values["epoch"]),
+    )
+    assert _code(result) == "GOV_INVALID_MODEL"
+
+
+def test_authority_context_rejects_action_epoch_policy_and_authority_mismatch() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    snapshot = _starting_snapshot()
+
+    other_action = _action(action_identity="other", effective_epoch=epoch)
+    mismatch = _operation_manifest(other_action)
+    assert _code(_AuthorityValidator.validate_context(snapshot, action, mismatch, epoch)) == (
+        "GOV_INCOMPLETE_DECLARATION"
+    )
+
+    future_snapshot = _starting_snapshot(governance_epoch=GovernanceEpoch(3))
+    manifest = _operation_manifest(action)
+    assert (
+        _code(_AuthorityValidator.validate_context(future_snapshot, action, manifest, epoch))
+        == "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
+    )
+
+    missing_policy = _operation_manifest(
+        action,
+        policy_versions=(("other", "1.0.0"),),
+    )
+    assert (
+        _code(_AuthorityValidator.validate_context(snapshot, action, missing_policy, epoch))
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+    missing_authority = _operation_manifest(
+        action,
+        authority_facts=("other:producer_owner",),
+    )
+    assert (
+        _code(_AuthorityValidator.validate_context(snapshot, action, missing_authority, epoch))
+        == "GOV_UNAUTHORIZED_AUTHORITY"
+    )
+
+
+def test_admission_context_validates_manifest_facts_snapshot_and_correspondence() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    request = _admission()
+    contract = _matching_contract()
+    references = (
+        _reference_for(
+            "producer",
+            request.request_identity,
+            request.producer_version,
+            "admission_request",
+            "admission_input",
+        ),
+        _reference_for(
+            "producer",
+            contract.producer_identity,
+            contract.producer_version,
+            "producer_contract",
+            "producer_contract_input",
+        ),
+    )
+    manifest = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=references,
+    )
+    snapshot = _starting_snapshot(entries=())
+    before = (snapshot, action, manifest, epoch)
+
+    accepted = _AdmissionValidator.validate_context(snapshot, action, manifest, epoch)
+    assert isinstance(accepted, _ValidationAcceptance)
+    assert (snapshot, action, manifest, epoch) == before
+
+    missing = _operation_manifest(action)
+    assert _code(_AdmissionValidator.validate_context(snapshot, action, missing, epoch)) == (
+        "GOV_MISSING_MANDATORY_FACT"
+    )
+    unrelated_action = replace(action, subject_references=("unrelated",))
+    unrelated_manifest = _operation_manifest(
+        unrelated_action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=references,
+    )
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                unrelated_action,
+                unrelated_manifest,
+                epoch,
+            )
+        )
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+
+def test_admission_context_rejects_duplicate_authoritative_ownership() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    request = _admission()
+    contract = _matching_contract()
+    manifest = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=(
+            _reference_for(
+                "producer",
+                request.request_identity,
+                request.producer_version,
+                "admission_request",
+                "admission_input",
+            ),
+            _reference_for(
+                "producer",
+                contract.producer_identity,
+                contract.producer_version,
+                "producer_contract",
+                "producer_contract_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(entries=(_entry(owner_identity="other"),))
+    assert _code(_AdmissionValidator.validate_context(snapshot, action, manifest, epoch)) == (
+        "GOV_DUPLICATE_OWNERSHIP"
+    )
+
+
+def test_certification_context_validates_selected_record_profile_and_snapshot() -> None:
+    epoch = GovernanceEpoch(2)
+    record = _certification(effective_epoch=epoch)
+    profile = _profile()
+    action = _action(
+        action_type="certification_issued",
+        authority_role="certification_authority",
+        authority_identity="certification-authority",
+        subject_references=(record.record_identity,),
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(
+        action,
+        certification_profiles=(profile,),
+        certification_records=(record,),
+        fact_references=(
+            _reference_for(
+                "certification",
+                profile.profile_identity,
+                profile.profile_version,
+                "certification_profile",
+                "certification_profile_input",
+            ),
+            _reference_for(
+                "certification",
+                record.record_identity,
+                record.certification_suite_version,
+                "certification_record",
+                "certification_record_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=()),)
+    )
+    assert isinstance(
+        _CertificationValidator.validate_context(snapshot, action, manifest, epoch),
+        _ValidationAcceptance,
+    )
+
+    missing = _operation_manifest(action)
+    assert _code(_CertificationValidator.validate_context(snapshot, action, missing, epoch)) == (
+        "GOV_MISSING_MANDATORY_FACT"
+    )
+
+
+def test_compatibility_context_validates_direction_endpoints_and_correspondence() -> None:
+    epoch = GovernanceEpoch(2)
+    decision = _compatibility(effective_epoch=epoch)
+    action = _action(
+        action_type="compatibility_approved",
+        authority_identity="compatibility-authority",
+        authority_role="compatibility_authority",
+        subject_references=(decision.decision_identity,),
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(
+        action,
+        compatibility_decisions=(decision,),
+        fact_references=(
+            _reference_for(
+                "validation",
+                decision.decision_identity,
+                decision.policy_version,
+                "compatibility_decision",
+                "compatibility_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(
+        entries=(
+            _entry(
+                producer_identity="producer-001",
+                producer_version="1.0.0",
+                compatibility_decisions=(),
+            ),
+            _entry(
+                producer_identity="consumer-001",
+                producer_version="1.0.0",
+                compatibility_decisions=(),
+            ),
+        )
+    )
+    assert isinstance(
+        _CompatibilityValidator.validate_context(snapshot, action, manifest, epoch),
+        _ValidationAcceptance,
+    )
+
+    unrelated_action = replace(action, subject_references=("other",))
+    unrelated_manifest = _operation_manifest(
+        unrelated_action,
+        compatibility_decisions=(decision,),
+        fact_references=manifest.fact_references,
+    )
+    assert (
+        _code(
+            _CompatibilityValidator.validate_context(
+                snapshot,
+                unrelated_action,
+                unrelated_manifest,
+                epoch,
+            )
+        )
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+
+def test_lifecycle_trust_and_revocation_contexts_use_authoritative_snapshot() -> None:
+    epoch = GovernanceEpoch(2)
+    lifecycle_action = _action(
+        action_type="lifecycle_transitioned",
+        authority_identity="registry-authority",
+        authority_role="registry_authority",
+        subject_references=("producer-001",),
+        prior_standing="Certified",
+        resulting_standing="Enabled",
+        effective_epoch=epoch,
+    )
+    lifecycle_manifest = _operation_manifest(lifecycle_action)
+    lifecycle_snapshot = _starting_snapshot(
+        entries=(
+            _entry(
+                lifecycle_standing="Certified",
+                trust_standing="Trusted",
+            ),
+        )
+    )
+    assert isinstance(
+        _LifecycleValidator.validate_context(
+            lifecycle_snapshot,
+            lifecycle_action,
+            lifecycle_manifest,
+            epoch,
+        ),
+        _ValidationAcceptance,
+    )
+
+    trust_action = _trust_action(effective_epoch=epoch)
+    trust_manifest = _operation_manifest(trust_action)
+    trust_snapshot = _starting_snapshot(
+        entries=(_entry(trust_standing="Untrusted"),),
+    )
+    assert isinstance(
+        _TrustValidator.validate_context(trust_snapshot, trust_action, trust_manifest, epoch),
+        _ValidationAcceptance,
+    )
+
+    revocation_action = _revocation_action(
+        action_identity="action-revocation-002",
+        effective_epoch=epoch,
+    )
+    revocation_manifest = _operation_manifest(revocation_action)
+    assert isinstance(
+        _RevocationValidator.validate_context(
+            lifecycle_snapshot,
+            revocation_action,
+            revocation_manifest,
+            epoch,
+        ),
+        _ValidationAcceptance,
+    )
+
+
+def test_certification_context_validates_authoritative_status_transition() -> None:
+    epoch = GovernanceEpoch(2)
+    prior = _certification()
+    revoked = _certification(
+        record_identity="certification-revocation-002",
+        verdict="revoked",
+        effective_epoch=epoch,
+        status_relationship_reference=prior.record_identity,
+    )
+    profile = _profile()
+    action = _action(
+        action_type="certification_revoked",
+        authority_identity="certification-authority",
+        authority_role="certification_authority",
+        subject_references=(revoked.record_identity,),
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(
+        action,
+        certification_profiles=(profile,),
+        certification_records=(revoked,),
+        fact_references=(
+            _reference_for(
+                "certification",
+                profile.profile_identity,
+                profile.profile_version,
+                "certification_profile",
+                "certification_profile_input",
+            ),
+            _reference_for(
+                "certification",
+                revoked.record_identity,
+                revoked.certification_suite_version,
+                "certification_record",
+                "certification_record_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(
+        entries=(
+            _entry(
+                lifecycle_standing="Registered",
+                certification_records=(prior,),
+            ),
+        )
+    )
+
+    assert isinstance(
+        _CertificationValidator.validate_context(snapshot, action, manifest, epoch),
+        _ValidationAcceptance,
+    )
+    missing_history = _starting_snapshot(
+        entries=(_entry(lifecycle_standing="Registered", certification_records=()),)
+    )
+    assert (
+        _code(_CertificationValidator.validate_context(missing_history, action, manifest, epoch))
+        == "GOV_INVALID_CERTIFICATION_STATE"
+    )
+
+
+def test_compatibility_context_validates_authoritative_revocation_transition() -> None:
+    epoch = GovernanceEpoch(2)
+    prior = _compatibility()
+    revoked = _compatibility(
+        decision_identity="compatibility-revocation-002",
+        effective_epoch=epoch,
+        revocation_reference=prior.decision_identity,
+    )
+    action = _action(
+        action_type="compatibility_revoked",
+        authority_identity="compatibility-authority",
+        authority_role="compatibility_authority",
+        subject_references=(revoked.decision_identity,),
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(
+        action,
+        compatibility_decisions=(revoked,),
+        fact_references=(
+            _reference_for(
+                "validation",
+                revoked.decision_identity,
+                revoked.policy_version,
+                "compatibility_decision",
+                "compatibility_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(
+        entries=(
+            _entry(compatibility_decisions=(prior,)),
+            _entry(
+                producer_identity="consumer-001",
+                compatibility_decisions=(),
+            ),
+        )
+    )
+    assert isinstance(
+        _CompatibilityValidator.validate_context(snapshot, action, manifest, epoch),
+        _ValidationAcceptance,
+    )
+
+
+def test_lifecycle_and_trust_context_reject_prior_standing_mismatch() -> None:
+    epoch = GovernanceEpoch(2)
+    lifecycle_action = _action(
+        action_type="lifecycle_transitioned",
+        authority_identity="registry-authority",
+        authority_role="registry_authority",
+        subject_references=("producer-001",),
+        prior_standing="Declared",
+        resulting_standing="Enabled",
+        effective_epoch=epoch,
+    )
+    snapshot = _starting_snapshot(entries=(_entry(lifecycle_standing="Certified"),))
+    assert (
+        _code(
+            _LifecycleValidator.validate_context(
+                snapshot,
+                lifecycle_action,
+                _operation_manifest(lifecycle_action),
+                epoch,
+            )
+        )
+        == "GOV_ILLEGAL_LIFECYCLE_TRANSITION"
+    )
+
+    trust_action = _trust_action(prior_standing="Experimental", effective_epoch=epoch)
+    assert (
+        _code(
+            _TrustValidator.validate_context(
+                _starting_snapshot(entries=(_entry(trust_standing="Untrusted"),)),
+                trust_action,
+                _operation_manifest(trust_action),
+                epoch,
+            )
+        )
+        == "GOV_INVALID_TRUST_TRANSITION"
+    )
+
+
+def test_context_rejections_are_deterministic_and_inputs_remain_immutable() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    manifest = _operation_manifest(
+        action,
+        policy_versions=(("other", "1.0.0"),),
+    )
+    snapshot = _starting_snapshot()
+    before = (snapshot, action, manifest, epoch)
+
+    first = _AuthorityValidator.validate_context(snapshot, action, manifest, epoch)
+    second = _AuthorityValidator.validate_context(snapshot, action, manifest, epoch)
+
+    assert isinstance(first, GovernanceRejection)
+    assert first == second
+    assert (snapshot, action, manifest, epoch) == before
+
+
+def test_authority_context_does_not_own_supported_action_validation() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(
+        action_type="future_governance_action",
+        authority_identity="future-authority",
+        authority_role="future_authority",
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(action)
+
+    result = _AuthorityValidator.validate_context(_starting_snapshot(), action, manifest, epoch)
+
+    assert isinstance(result, _ValidationAcceptance)
+
+
+def test_admission_context_uses_canonical_fact_roles_and_exact_selection() -> None:
+    epoch = GovernanceEpoch(2)
+    request = _admission()
+    contract = _matching_contract()
+    action = _action(effective_epoch=epoch)
+    references = (
+        _reference_for(
+            "producer",
+            request.request_identity,
+            request.producer_version,
+            "admission_request",
+            "incorrect_role",
+        ),
+        _reference_for(
+            "producer",
+            contract.producer_identity,
+            contract.producer_version,
+            "producer_contract",
+            "producer_contract_input",
+        ),
+    )
+    incorrect_role = _operation_manifest(
+        action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=references,
+    )
+    snapshot = _starting_snapshot(entries=())
+    assert (
+        _code(_AdmissionValidator.validate_context(snapshot, action, incorrect_role, epoch))
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+    incorrect_action = replace(
+        action,
+        subject_references=("unrelated-fact",),
+    )
+    incorrect_selection = _operation_manifest(
+        incorrect_action,
+        admission_requests=(request,),
+        producer_contracts=(contract,),
+        fact_references=(
+            replace(references[0], relationship_role="admission_input"),
+            references[1],
+        ),
+    )
+    assert (
+        _code(
+            _AdmissionValidator.validate_context(
+                snapshot,
+                incorrect_action,
+                incorrect_selection,
+                epoch,
+            )
+        )
+        == "GOV_INCOMPLETE_DECLARATION"
+    )
+
+
+def test_authority_context_validates_authoritative_snapshot_policy() -> None:
+    epoch = GovernanceEpoch(2)
+    action = _action(effective_epoch=epoch)
+    manifest = _operation_manifest(action)
+    snapshot = _starting_snapshot(policy_versions=(("other", "1.0.0"),))
+
+    result = _AuthorityValidator.validate_context(snapshot, action, manifest, epoch)
+
+    assert _code(result) == "GOV_INCOMPLETE_DECLARATION"
+
+
+def test_certification_context_accepts_authoritative_suspension() -> None:
+    epoch = GovernanceEpoch(2)
+    prior = _certification()
+    suspended = _certification(
+        record_identity="certification-suspension-002",
+        verdict="suspended",
+        effective_epoch=epoch,
+        status_relationship_reference=prior.record_identity,
+    )
+    profile = _profile()
+    action = _action(
+        action_type="certification_suspended",
+        authority_identity="certification-authority",
+        authority_role="certification_authority",
+        subject_references=(suspended.record_identity,),
+        effective_epoch=epoch,
+    )
+    manifest = _operation_manifest(
+        action,
+        certification_profiles=(profile,),
+        certification_records=(suspended,),
+        fact_references=(
+            _reference_for(
+                "certification",
+                profile.profile_identity,
+                profile.profile_version,
+                "certification_profile",
+                "certification_profile_input",
+            ),
+            _reference_for(
+                "certification",
+                suspended.record_identity,
+                suspended.certification_suite_version,
+                "certification_record",
+                "certification_record_input",
+            ),
+        ),
+    )
+    snapshot = _starting_snapshot(
+        entries=(
+            _entry(
+                lifecycle_standing="Registered",
+                certification_records=(prior,),
+            ),
+        )
+    )
+
+    result = _CertificationValidator.validate_context(snapshot, action, manifest, epoch)
+
+    assert isinstance(result, _ValidationAcceptance)
