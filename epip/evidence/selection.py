@@ -13,7 +13,7 @@ from epip.evidence.model import (
     EvidenceRequirement,
     ResolutionProfile,
 )
-from epip.governance import GovernanceEpoch, RegistryEntry
+from epip.governance import GovernanceEpoch, GovernanceRejection, RegistryEntry
 
 
 def _candidate_key(entry: RegistryEntry) -> tuple[str, str, str]:
@@ -29,6 +29,30 @@ def _require_candidates(value: object) -> CandidateDiagnostics:
     if len(set(identities)) != len(identities):
         raise DataIntegrityError("governed candidate identities must be unique")
     return value
+
+
+def _diagnostic_reason(
+    rejection: GovernanceRejection | DiagnosticReason,
+    requirement: EvidenceRequirement,
+) -> DiagnosticReason:
+    if isinstance(rejection, DiagnosticReason):
+        return rejection
+    code = (
+        DiagnosticCode.INCOMPATIBLE_DEPENDENCY
+        if rejection.reason_code == "E02_INCOMPATIBLE_PROVIDER"
+        else (
+            DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION
+            if rejection.reason_code in {"E02_EXPIRED_PROVIDER", "E02_REVOKED_PROVIDER"}
+            else DiagnosticCode.INELIGIBLE_PROVIDER
+        )
+    )
+    return DiagnosticReason(
+        code,
+        requirement.requirement_id,
+        rejection.reason_code,
+        rejection.affected_references[0],
+        requirement.semantic_version,
+    )
 
 
 class SelectionPolicy(NamedTuple):
@@ -76,7 +100,9 @@ class SelectionEngine:
 
         ordered = tuple(sorted(governed.candidates, key=_candidate_key))
         selected, diagnostic = cls._select_candidates(ordered, requirement, profile)
-        diagnostics = governed.rejections
+        diagnostics = tuple(
+            _diagnostic_reason(rejection, requirement) for rejection in governed.rejections
+        )
         if diagnostic is not None:
             diagnostics = (*diagnostics, diagnostic)
         return SelectionDiagnostics(

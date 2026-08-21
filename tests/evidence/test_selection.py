@@ -18,7 +18,7 @@ from epip.evidence.model import (
     ResolutionProfile,
 )
 from epip.evidence.selection import SelectionDiagnostics, SelectionEngine, SelectionPolicy
-from epip.governance import GovernanceEpoch, RegistryEntry
+from epip.governance import GovernanceEpoch, GovernanceRejection, RegistryEntry
 
 
 def _entry(producer: str = "producer-a") -> RegistryEntry:
@@ -62,14 +62,14 @@ def _policy(**changes: object) -> SelectionPolicy:
 
 def _candidates(
     entries: tuple[RegistryEntry, ...],
-    rejections: tuple[DiagnosticReason, ...] = (),
+    rejections: tuple[GovernanceRejection | DiagnosticReason, ...] = (),
 ) -> CandidateDiagnostics:
     return CandidateDiagnostics(
         "snapshot-1",
         "manifest-1",
         GovernanceEpoch(4),
         entries,
-        rejections,
+        cast(Any, rejections),
     )
 
 
@@ -205,6 +205,33 @@ def test_prior_governance_rejections_are_preserved() -> None:
         _candidates((_entry(),), (rejection,)), _requirement(), _policy()
     )
     assert result.diagnostics == (rejection,)
+
+
+@pytest.mark.parametrize(
+    ("reason_code", "expected"),
+    [
+        ("E02_INCOMPATIBLE_PROVIDER", DiagnosticCode.INCOMPATIBLE_DEPENDENCY),
+        ("E02_EXPIRED_PROVIDER", DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION),
+        ("E02_REVOKED_PROVIDER", DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION),
+        ("E02_UNCERTIFIED_PROVIDER", DiagnosticCode.INELIGIBLE_PROVIDER),
+    ],
+)
+def test_governance_rejections_use_frozen_e00_diagnostics(
+    reason_code: str, expected: DiagnosticCode
+) -> None:
+    rejection = GovernanceRejection(reason_code, ("producer-z",))
+    result = SelectionEngine.select(
+        _candidates((_entry(),), (rejection,)), _requirement(), _policy()
+    )
+    assert result.diagnostics == (
+        DiagnosticReason(
+            expected,
+            "requirement-1",
+            reason_code,
+            "producer-z",
+            "1.0.0",
+        ),
+    )
 
 
 def test_policy_and_diagnostics_are_immutable_and_hashable() -> None:
