@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from itertools import permutations
 from typing import Any, cast
@@ -35,7 +36,13 @@ from epip.evidence.validation import (
     IndependenceChecker,
     SemanticValidator,
 )
-from epip.governance.model import CertificationRecord, CompatibilityDecision, GovernanceEpoch
+from epip.governance.model import (
+    CertificationRecord,
+    CompatibilityDecision,
+    GovernanceEpoch,
+    RegistryEntry,
+    RegistrySnapshot,
+)
 
 
 def _unsafe_replace(value: object, **changes: object) -> object:
@@ -90,8 +97,8 @@ def _requirement(**changes: object) -> EvidenceRequirement:
     return EvidenceRequirement(**values)  # type: ignore[arg-type]
 
 
-def _epoch() -> GovernanceEpoch:
-    return GovernanceEpoch(1)
+def _epoch(sequence: int = 1) -> GovernanceEpoch:
+    return GovernanceEpoch(sequence)
 
 
 def _decision(**changes: object) -> CompatibilityDecision:
@@ -158,6 +165,65 @@ def _effects(**changes: object) -> CompatibilityEffects:
     }
     values.update(changes)
     return CompatibilityEffects(**values)  # type: ignore[arg-type]
+
+
+def _phase2_decision(**changes: object) -> CompatibilityDecision:
+    values: dict[str, object] = {
+        "source_reference": "producer-1@1.0.0",
+        "target_reference": "requirement-1",
+    }
+    values.update(changes)
+    return _decision(**values)
+
+
+def _entry(**changes: object) -> RegistryEntry:
+    values: dict[str, object] = {
+        "producer_identity": "producer-1",
+        "producer_version": "1.0.0",
+        "descriptor_reference": "descriptor-1",
+        "owner_identity": "owner-1",
+        "producer_contract_version": "1.0.0",
+        "implementation_identity": "build-1",
+        "capability_references": (("market.structure", "1.0.0"),),
+        "trust_standing": "Trusted",
+        "certification_records": (_certification(),),
+        "compatibility_decisions": (_phase2_decision(),),
+        "lifecycle_standing": "Enabled",
+        "governance_provenance": ("admission-1",),
+    }
+    values.update(changes)
+    return RegistryEntry(**values)  # type: ignore[arg-type]
+
+
+def _snapshot(entry: RegistryEntry, **changes: object) -> RegistrySnapshot:
+    values: dict[str, object] = {
+        "snapshot_identity": "snapshot-1",
+        "manifest_reference": "manifest-1",
+        "governance_epoch": _epoch(2),
+        "entries": (entry,),
+        "governance_action_references": ("action-1",),
+        "policy_versions": (("compatibility", "1.0.0"),),
+    }
+    values.update(changes)
+    return RegistrySnapshot(**values)  # type: ignore[arg-type]
+
+
+def _validate_phase2(
+    entry: RegistryEntry | None = None,
+    *,
+    requirement: EvidenceRequirement | None = None,
+    effects: tuple[CompatibilityEffects, ...] | None = None,
+    snapshot_changes: dict[str, object] | None = None,
+    dimension: str = "semantic",
+) -> None:
+    candidate = entry or _entry()
+    CompatibilityEvaluator.validate_phase2(
+        requirement or _requirement(),
+        _snapshot(candidate, **(snapshot_changes or {})),
+        candidate,
+        effects if effects is not None else (_effects(),),
+        dimension,
+    )
 
 
 def _equivalence(
@@ -746,3 +812,155 @@ def test_independence_is_invariant_to_lineage_order() -> None:
     right = _claim(evidence_id="evidence-2", provenance=(unrelated,))
     assert IndependenceChecker.independent(left, right, policy)
     assert IndependenceChecker.independent(replace(left, provenance=(second, first)), right, policy)
+
+
+def test_phase2_compatibility_uses_only_immutable_pre_execution_facts() -> None:
+    entry = _entry()
+    requirement = _requirement()
+    snapshot = _snapshot(entry)
+    effects = (_effects(),)
+    inputs = (entry, requirement, snapshot, effects)
+    original_hashes = tuple(hash(item) for item in inputs)
+
+    CompatibilityEvaluator.validate_phase2(requirement, snapshot, entry, effects, "semantic")
+
+    assert original_hashes == tuple(hash(item) for item in inputs)
+    assert "EvidenceClaim" not in CompatibilityEvaluator.validate_phase2.__annotations__.values()
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source_reference": "other@1.0.0"},
+        {"target_reference": "other-requirement"},
+        {"direction": "target-to-source"},
+        {"version_scope": (("source", "2.0.0"), ("target", "1.0.0"))},
+        {"version_scope": (("source", "1.0.0"), ("target", "2.0.0"))},
+        {"intended_use": "other-use"},
+        {"profile_scope": (("scope", "M15"),)},
+        {"compatibility_dimension": "structural"},
+        {"effective_epoch": _epoch(3)},
+        {"policy_version": "2.0.0"},
+        {"review_or_expiry_condition": "opaque-condition"},
+        {"revocation_reference": "revocation-1"},
+        {"supersession_reference": "decision-2"},
+    ],
+)
+def test_phase2_incompatible_decisions_fail_closed(changes: dict[str, object]) -> None:
+    entry = _entry(compatibility_decisions=(_phase2_decision(**changes),))
+    with pytest.raises(DataIntegrityError, match="INCOMPATIBLE_DEPENDENCY"):
+        _validate_phase2(entry)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"producer_identity": "other-producer"},
+        {"producer_version": "2.0.0"},
+        {"implementation_identity": "other-build"},
+        {"producer_contract_version": "2.0.0"},
+        {"capability_references": (("other", "1.0.0"),)},
+        {"verdict": "unsupported"},
+        {"effective_epoch": _epoch(3)},
+        {"expiration_or_review_condition": "opaque-condition"},
+        {"status_relationship_reference": "supersession-1"},
+    ],
+)
+def test_phase2_uncertified_candidates_fail_closed(changes: dict[str, object]) -> None:
+    entry = _entry(certification_records=(_certification(**changes),))
+    with pytest.raises(DataIntegrityError, match="INELIGIBLE_PROVIDER"):
+        _validate_phase2(entry)
+
+
+@pytest.mark.parametrize("verdict", ["expired", "revoked"])
+def test_phase2_expired_or_revoked_certification_fails_closed(verdict: str) -> None:
+    entry = _entry(certification_records=(_certification(verdict=verdict),))
+    with pytest.raises(DataIntegrityError, match="EXPIRED_OR_REVOKED_CERTIFICATION"):
+        _validate_phase2(entry)
+
+
+def test_phase2_requires_exact_authoritative_certification_and_decision() -> None:
+    certification = _certification()
+    decision = _phase2_decision()
+    for entry in (
+        _entry(certification_records=()),
+        _entry(certification_records=(certification, certification)),
+        _entry(compatibility_decisions=()),
+        _entry(compatibility_decisions=(decision, decision)),
+    ):
+        with pytest.raises(DataIntegrityError):
+            _validate_phase2(entry)
+
+
+def test_phase2_requires_certification_binding_to_decision() -> None:
+    entry = _entry(certification_records=(_certification(evidence_references=("other-decision",)),))
+    with pytest.raises(DataIntegrityError, match="INCOMPATIBLE_DEPENDENCY"):
+        _validate_phase2(entry)
+
+
+@pytest.mark.parametrize(
+    "effects",
+    [
+        (),
+        (_effects(), _effects()),
+        (_effects(decision_reference="other-decision"),),
+        (_effects(effects_version="2.0.0"),),
+        (_effects(declared_losses=("meaning",)),),
+    ],
+)
+def test_phase2_compatibility_effects_fail_closed(
+    effects: tuple[CompatibilityEffects, ...],
+) -> None:
+    with pytest.raises(DataIntegrityError, match="INCOMPATIBLE_DEPENDENCY"):
+        _validate_phase2(effects=effects)
+
+
+def test_phase2_requires_exact_capability_and_registry_membership() -> None:
+    entry = _entry(capability_references=(("other", "1.0.0"),))
+    with pytest.raises(DataIntegrityError, match="INCOMPATIBLE_DEPENDENCY"):
+        _validate_phase2(entry)
+
+    candidate = _entry()
+    other = _entry(producer_identity="producer-2")
+    with pytest.raises(DataIntegrityError, match="INELIGIBLE_PROVIDER"):
+        CompatibilityEvaluator.validate_phase2(
+            _requirement(), _snapshot(other), candidate, (_effects(),), "semantic"
+        )
+
+
+def test_phase2_missing_policy_and_invalid_inputs_fail_closed() -> None:
+    with pytest.raises(DataIntegrityError, match="INCOMPATIBLE_DEPENDENCY"):
+        _validate_phase2(snapshot_changes={"policy_versions": (("admission", "1.0.0"),)})
+
+    entry = _entry()
+    snapshot = _snapshot(entry)
+    calls: tuple[Callable[[], None], ...] = (
+        lambda: CompatibilityEvaluator.validate_phase2(
+            cast(Any, object()), snapshot, entry, (_effects(),), "semantic"
+        ),
+        lambda: CompatibilityEvaluator.validate_phase2(
+            _requirement(), cast(Any, object()), entry, (_effects(),), "semantic"
+        ),
+        lambda: CompatibilityEvaluator.validate_phase2(
+            _requirement(), snapshot, cast(Any, object()), (_effects(),), "semantic"
+        ),
+        lambda: CompatibilityEvaluator.validate_phase2(
+            _requirement(), snapshot, entry, cast(Any, []), "semantic"
+        ),
+        lambda: CompatibilityEvaluator.validate_phase2(
+            _requirement(), snapshot, entry, (_effects(),), ""
+        ),
+    )
+    for call in calls:
+        with pytest.raises(DataIntegrityError, match="INVALID_DEPENDENCY"):
+            call()
+
+
+def test_phase2_failure_is_deterministic() -> None:
+    messages: list[str] = []
+    entry = _entry(compatibility_decisions=())
+    for _ in range(3):
+        with pytest.raises(DataIntegrityError) as captured:
+            _validate_phase2(entry)
+        messages.append(str(captured.value))
+    assert len(set(messages)) == 1

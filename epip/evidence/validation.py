@@ -18,7 +18,12 @@ from epip.evidence.model import (
     ProvenanceReference,
     SemanticState,
 )
-from epip.governance.model import CertificationRecord, CompatibilityDecision
+from epip.governance.model import (
+    CertificationRecord,
+    CompatibilityDecision,
+    RegistryEntry,
+    RegistrySnapshot,
+)
 
 
 def _reject(code: DiagnosticCode, reason: str) -> NoReturn:
@@ -180,6 +185,115 @@ class CompatibilityEvaluator:
     """Validate authoritative directional compatibility and declared effects."""
 
     __slots__ = ()
+
+    _PHASE2_EXPIRY_CONDITIONS = frozenset({"version-change"})
+
+    @classmethod
+    def validate_phase2(
+        cls,
+        requirement: EvidenceRequirement,
+        snapshot: RegistrySnapshot,
+        entry: RegistryEntry,
+        effects: tuple[CompatibilityEffects, ...],
+        compatibility_dimension: str,
+    ) -> None:
+        """Validate pre-execution compatibility from immutable authoritative facts."""
+
+        if not isinstance(requirement, EvidenceRequirement):
+            _reject(DiagnosticCode.INVALID_DEPENDENCY, "requirement is not immutable evidence data")
+        if not isinstance(snapshot, RegistrySnapshot):
+            _reject(DiagnosticCode.INVALID_DEPENDENCY, "snapshot is not immutable registry data")
+        if not isinstance(entry, RegistryEntry):
+            _reject(DiagnosticCode.INVALID_DEPENDENCY, "candidate is not immutable registry data")
+        if not isinstance(effects, tuple) or not all(
+            isinstance(item, CompatibilityEffects) for item in effects
+        ):
+            _reject(
+                DiagnosticCode.INVALID_DEPENDENCY, "effects are not immutable compatibility data"
+            )
+        if not isinstance(compatibility_dimension, str) or not compatibility_dimension.strip():
+            _reject(DiagnosticCode.INVALID_DEPENDENCY, "compatibility dimension is absent")
+        if snapshot.entries.count(entry) != 1:
+            _reject(DiagnosticCode.INELIGIBLE_PROVIDER, "candidate is not uniquely registry-bound")
+
+        capability = (requirement.evidence_type, requirement.semantic_version)
+        if capability not in entry.capability_references:
+            _reject(DiagnosticCode.INCOMPATIBLE_DEPENDENCY, "candidate capability is incompatible")
+
+        applicable_certifications = tuple(
+            record
+            for record in entry.certification_records
+            if record.producer_identity == entry.producer_identity
+            and record.producer_version == entry.producer_version
+            and capability in record.capability_references
+        )
+        if any(record.verdict in {"expired", "revoked"} for record in applicable_certifications):
+            _reject(
+                DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION,
+                "candidate certification is expired or revoked",
+            )
+        certifications = tuple(
+            record
+            for record in applicable_certifications
+            if record.verdict == "passed"
+            and record.implementation_identity == entry.implementation_identity
+            and record.producer_contract_version == entry.producer_contract_version
+            and record.effective_epoch.sequence <= snapshot.governance_epoch.sequence
+            and record.status_relationship_reference is None
+            and record.expiration_or_review_condition in cls._PHASE2_EXPIRY_CONDITIONS
+        )
+        if len(certifications) != 1:
+            _reject(
+                DiagnosticCode.INELIGIBLE_PROVIDER,
+                "candidate certification is absent, ambiguous, or unsupported",
+            )
+        certification = certifications[0]
+
+        source_reference = f"{entry.producer_identity}@{entry.producer_version}"
+        decisions = tuple(
+            decision
+            for decision in entry.compatibility_decisions
+            if decision.source_reference == source_reference
+            and decision.target_reference == requirement.requirement_id
+        )
+        if len(decisions) != 1:
+            _reject(
+                DiagnosticCode.INCOMPATIBLE_DEPENDENCY,
+                "compatibility decision is absent or ambiguous",
+            )
+        decision = decisions[0]
+        versions = dict(decision.version_scope)
+        profiles = dict(decision.profile_scope)
+        if (
+            decision.direction != "source-to-target"
+            or versions.get("source") != requirement.semantic_version
+            or versions.get("target") != requirement.semantic_version
+            or decision.intended_use != requirement.requirement_id
+            or profiles.get("scope") != requirement.scope
+            or decision.compatibility_dimension != compatibility_dimension
+            or decision.effective_epoch.sequence > snapshot.governance_epoch.sequence
+            or dict(snapshot.policy_versions).get("compatibility") != decision.policy_version
+            or decision.review_or_expiry_condition not in cls._PHASE2_EXPIRY_CONDITIONS
+            or decision.revocation_reference is not None
+            or decision.supersession_reference is not None
+            or decision.decision_identity not in certification.evidence_references
+        ):
+            _reject(
+                DiagnosticCode.INCOMPATIBLE_DEPENDENCY,
+                "compatibility decision is inconsistent, inactive, or unsupported",
+            )
+
+        matching_effects = tuple(
+            item
+            for item in effects
+            if item.decision_reference == decision.decision_identity
+            and item.effects_version == decision.policy_version
+        )
+        if len(matching_effects) != 1 or matching_effects[0].declared_losses:
+            _reject(
+                DiagnosticCode.INCOMPATIBLE_DEPENDENCY,
+                "compatibility effects are absent, ambiguous, or decision-incompatible",
+            )
 
     @staticmethod
     def evaluate(
