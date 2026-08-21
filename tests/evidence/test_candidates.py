@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from inspect import getmembers, isfunction
+from inspect import getmembers, getsource, isfunction
 from typing import Any, cast
 
 import pytest
@@ -14,20 +14,12 @@ from epip.evidence.candidates import (
     CandidateFilter,
 )
 from epip.evidence.model import (
-    AssumptionMetadata,
     CompatibilityEffects,
-    CompletenessMetadata,
     DependencyType,
-    DispositionAxis,
-    EvidenceClaim,
+    DiagnosticCode,
     EvidenceRequirement,
-    ProvenanceReference,
-    QualityMetadata,
-    SemanticBoundary,
-    SemanticIdentity,
-    SemanticState,
-    ValidityMetadata,
 )
+from epip.evidence.validation import CompatibilityEvaluator
 from epip.governance import (
     CertificationRecord,
     CompatibilityDecision,
@@ -109,6 +101,23 @@ def _entry(producer: str = "producer-a", **changes: object) -> RegistryEntry:
     return RegistryEntry(**values)  # type: ignore[arg-type]
 
 
+def _effects(producer: str = "producer-a", **changes: object) -> CompatibilityEffects:
+    values: dict[str, object] = {
+        "decision_reference": f"decision-{producer}",
+        "effects_version": "1.0.0",
+        "conversion": None,
+        "narrowing": None,
+        "widening": None,
+        "unit_effect": "structure-state",
+        "completeness_effect": "PRESENT",
+        "temporal_effect": "window-1",
+        "quality_effect": "accepted",
+        "provenance_effect": "feed-1",
+    }
+    values.update(changes)
+    return CompatibilityEffects(**values)  # type: ignore[arg-type]
+
+
 def _snapshot(entries: tuple[RegistryEntry, ...] | None = None) -> RegistrySnapshot:
     return RegistrySnapshot(
         "snapshot-1",
@@ -116,7 +125,7 @@ def _snapshot(entries: tuple[RegistryEntry, ...] | None = None) -> RegistrySnaps
         _epoch(),
         entries if entries is not None else (_entry(),),
         ("action-1",),
-        (("admission", "1.0.0"),),
+        (("admission", "1.0.0"), ("compatibility", "1.0.0")),
     )
 
 
@@ -133,58 +142,9 @@ def _requirement(**changes: object) -> EvidenceRequirement:
     return EvidenceRequirement(**values)  # type: ignore[arg-type]
 
 
-def _claim(entry: RegistryEntry, **changes: object) -> EvidenceClaim:
-    values: dict[str, object] = {
-        "evidence_id": f"{entry.producer_identity}@{entry.producer_version}",
-        "identity": SemanticIdentity("market.structure", "1.0.0", "EURUSD", "H1"),
-        "source_identity": entry.producer_identity,
-        "implementation_version": entry.producer_version,
-        "boundary": SemanticBoundary("EURUSD", "H1", "closed", "window-1"),
-        "claim": "bullish",
-        "value_domain": "structure-state",
-        "units": None,
-        "validity": ValidityMetadata("closed", True, "boundary-1"),
-        "completeness": CompletenessMetadata(
-            SemanticState("PRESENT"), ("structure",), 1, ("H1",), ("trend",), True
-        ),
-        "quality": QualityMetadata("quality", "1.0.0", "accepted"),
-        "assumptions": AssumptionMetadata("1.0.0", ("closed",)),
-        "provenance": (ProvenanceReference("feed-1", "feed", "1.0.0"),),
-        "content_identity": f"content-{entry.producer_identity}",
-        "disposition": DispositionAxis.ACCEPTED,
-    }
-    values.update(changes)
-    return EvidenceClaim(**values)  # type: ignore[arg-type]
-
-
-def _effects(entry: RegistryEntry, **changes: object) -> CompatibilityEffects:
-    values: dict[str, object] = {
-        "decision_reference": f"decision-{entry.producer_identity}",
-        "effects_version": "1.0.0",
-        "conversion": None,
-        "narrowing": None,
-        "widening": None,
-        "unit_effect": "structure-state",
-        "completeness_effect": "PRESENT",
-        "temporal_effect": "window-1",
-        "quality_effect": "accepted",
-        "provenance_effect": "feed-1",
-    }
-    values.update(changes)
-    return CompatibilityEffects(**values)  # type: ignore[arg-type]
-
-
 def _filter(snapshot: RegistrySnapshot) -> CandidateDiagnostics:
-    claims = tuple(_claim(entry) for entry in snapshot.entries)
-    effects = tuple(_effects(entry) for entry in snapshot.entries)
-    return CandidateFilter.filter(
-        snapshot,
-        _requirement(),
-        _claim(_entry("target")),
-        claims,
-        effects,
-        "semantic",
-    )
+    effects = tuple(_effects(entry.producer_identity) for entry in snapshot.entries)
+    return CandidateFilter.filter(snapshot, _requirement(), effects, "semantic")
 
 
 def test_public_production_inventory_is_exact() -> None:
@@ -207,8 +167,8 @@ def test_enumerates_snapshot_and_evidence_definitions_deterministically() -> Non
     second = _entry("producer-b", capability_references=(("market.trend", "2.0.0"),))
     first = _entry("producer-a")
     snapshot = _snapshot((second, first))
-    assert CandidateEnumerator.enumerate(snapshot) == (first, second)
-    assert CandidateEnumerator.evidence_definitions(snapshot) == (
+    assert CandidateEnumerator._enumerate(snapshot) == (first, second)
+    assert CandidateEnumerator._evidence_definitions(snapshot) == (
         ("market.structure", "1.0.0"),
         ("market.trend", "2.0.0"),
     )
@@ -217,7 +177,10 @@ def test_enumerates_snapshot_and_evidence_definitions_deterministically() -> Non
 def test_candidate_filter_uses_exact_capability_and_stable_order() -> None:
     first = _entry("producer-a")
     second = _entry("producer-b", capability_references=(("market.trend", "1.0.0"),))
-    assert CandidateFilter.capabilities((second, first), "market.structure", "1.0.0") == (first,)
+    result = CandidateFilter.filter(
+        _snapshot((second, first)), _requirement(), (_effects("producer-a"),), "semantic"
+    )
+    assert result.candidates == (first,)
 
 
 def test_governance_filter_accepts_eligible_entry() -> None:
@@ -227,37 +190,77 @@ def test_governance_filter_accepts_eligible_entry() -> None:
     assert result.rejections == ()
 
 
+def test_compatibility_eligibility_is_delegated_exclusively_to_e01(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    def validate(*facts: object) -> None:
+        calls.append(facts)
+
+    monkeypatch.setattr(CompatibilityEvaluator, "validate_phase2", validate)
+    entry = _entry()
+    snapshot = _snapshot((entry,))
+    effects = (_effects(),)
+
+    result = CandidateFilter.filter(snapshot, _requirement(), effects, "semantic")
+
+    assert result.candidates == (entry,)
+    assert calls == [(_requirement(), snapshot, entry, effects, "semantic")]
+
+
+def test_e01_fail_closed_diagnostic_is_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reject(*facts: object) -> None:
+        del facts
+        raise DataIntegrityError("INCOMPATIBLE_DEPENDENCY: delegated rejection")
+
+    monkeypatch.setattr(CompatibilityEvaluator, "validate_phase2", reject)
+    result = _filter(_snapshot())
+    assert result.candidates == ()
+    assert result.rejections[0].code is DiagnosticCode.INCOMPATIBLE_DEPENDENCY
+
+
+def test_no_local_compatibility_validation_remains() -> None:
+    from epip.evidence import candidates
+
+    source = getsource(candidates)
+    assert "CompatibilityEvaluator.validate_phase2" in source
+    assert "_decision_matches" not in source
+    assert "_certification_matches" not in source
+    assert "_SUPPORTED_EXPIRY_CONDITIONS" not in source
+
+
 @pytest.mark.parametrize(
     ("changes", "reason"),
     [
-        ({"lifecycle_standing": "Declared"}, "E02_NOT_ADMITTED"),
-        ({"lifecycle_standing": "Registered"}, "E02_NOT_ENABLED"),
-        ({"lifecycle_standing": "Certified"}, "E02_NOT_ENABLED"),
-        ({"lifecycle_standing": "Disabled"}, "E02_DISABLED_PROVIDER"),
-        ({"lifecycle_standing": "Deprecated"}, "E02_EXPIRED_PROVIDER"),
-        ({"lifecycle_standing": "Retired"}, "E02_EXPIRED_PROVIDER"),
-        ({"trust_standing": "Untrusted"}, "E02_UNTRUSTED_PROVIDER"),
-        ({"trust_standing": "Revoked"}, "E02_REVOKED_PROVIDER"),
-        ({"certification_records": ()}, "E02_UNCERTIFIED_PROVIDER"),
+        ({"lifecycle_standing": "Declared"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"lifecycle_standing": "Registered"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"lifecycle_standing": "Certified"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"lifecycle_standing": "Disabled"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"lifecycle_standing": "Deprecated"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"lifecycle_standing": "Retired"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"trust_standing": "Untrusted"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"trust_standing": "Revoked"}, DiagnosticCode.INELIGIBLE_PROVIDER),
+        ({"certification_records": ()}, DiagnosticCode.INELIGIBLE_PROVIDER),
     ],
 )
 def test_admission_enablement_lifecycle_trust_and_certification_rejections(
-    changes: dict[str, object], reason: str
+    changes: dict[str, object], reason: DiagnosticCode
 ) -> None:
     snapshot = _snapshot((cast(Any, _entry)(**changes),))
     result = _filter(snapshot)
     assert result.candidates == ()
-    assert tuple(rejection.reason_code for rejection in result.rejections) == (reason,)
-    assert result.rejections[0].affected_references == ("producer-a",)
+    assert tuple(rejection.code for rejection in result.rejections) == (reason,)
+    assert result.rejections[0].candidate_id == "producer-a"
 
 
-@pytest.mark.parametrize(
-    "verdict,reason", [("revoked", "E02_REVOKED_PROVIDER"), ("expired", "E02_EXPIRED_PROVIDER")]
-)
-def test_revoked_and_expired_certifications_are_rejected(verdict: str, reason: str) -> None:
+@pytest.mark.parametrize("verdict", ["revoked", "expired"])
+def test_revoked_and_expired_certifications_are_rejected(verdict: str) -> None:
     entry = _entry(certification_records=(_certification(verdict=verdict),))
     result = _filter(_snapshot((entry,)))
-    assert result.rejections[0].reason_code == reason
+    assert result.rejections[0].code is DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION
 
 
 def test_future_or_mismatched_certification_is_rejected() -> None:
@@ -269,7 +272,7 @@ def test_future_or_mismatched_certification_is_rejected() -> None:
         _certification(verdict="suspended"),
     ):
         entry = _entry(certification_records=(certification,))
-        assert _filter(_snapshot((entry,))).rejections[0].reason_code == "E02_UNCERTIFIED_PROVIDER"
+        assert _filter(_snapshot((entry,))).rejections[0].code is DiagnosticCode.INELIGIBLE_PROVIDER
 
 
 @pytest.mark.parametrize(
@@ -283,7 +286,7 @@ def test_certification_is_bound_to_implementation_and_contract(
     changes: dict[str, object],
 ) -> None:
     entry = _entry(certification_records=(cast(Any, _certification)(**changes),))
-    assert _filter(_snapshot((entry,))).rejections[0].reason_code == "E02_UNCERTIFIED_PROVIDER"
+    assert _filter(_snapshot((entry,))).rejections[0].code is DiagnosticCode.INELIGIBLE_PROVIDER
 
 
 @pytest.mark.parametrize(
@@ -297,7 +300,8 @@ def test_certification_is_bound_to_implementation_and_contract(
         {"intended_use": "other-use"},
         {"profile_scope": (("scope", "M15"),)},
         {"compatibility_dimension": "structural"},
-        {"review_or_expiry_condition": "uncertified-expiry-condition"},
+        {"policy_version": "2.0.0"},
+        {"review_or_expiry_condition": "opaque-condition"},
         {"revocation_reference": "revoked-by"},
         {"supersession_reference": "superseded-by"},
         {"effective_epoch": _epoch(3)},
@@ -306,38 +310,49 @@ def test_certification_is_bound_to_implementation_and_contract(
 def test_incompatible_decisions_are_rejected(changes: dict[str, object]) -> None:
     entry = _entry(compatibility_decisions=(cast(Any, _compatibility)(**changes),))
     result = _filter(_snapshot((entry,)))
-    assert result.rejections[0].reason_code == "E02_INCOMPATIBLE_PROVIDER"
+    assert result.rejections[0].code is DiagnosticCode.INCOMPATIBLE_DEPENDENCY
 
 
-def test_compatibility_is_computed_by_e01_from_immutable_semantic_facts() -> None:
+def test_enumeration_requires_no_prematerialized_evidence() -> None:
     entry = _entry()
-    snapshot = _snapshot((entry,))
-    result = CandidateFilter.filter(
-        snapshot,
-        _requirement(),
-        _claim(_entry("target"), boundary=SemanticBoundary("EURUSD", "H1", "closed", "other")),
-        (_claim(entry),),
-        (_effects(entry),),
-        "semantic",
+    result = CandidateFilter.filter(_snapshot((entry,)), _requirement(), (_effects(),), "semantic")
+    assert result.candidates == (entry,)
+
+
+def test_unsupported_certification_expiry_condition_fails_closed() -> None:
+    entry = _entry(
+        certification_records=(_certification(expiration_or_review_condition="opaque-condition"),)
     )
+    result = _filter(_snapshot((entry,)))
     assert result.candidates == ()
-    assert result.rejections[0].reason_code == "E02_INCOMPATIBLE_PROVIDER"
+    assert result.rejections[0].code is DiagnosticCode.INELIGIBLE_PROVIDER
+
+
+def test_certification_status_relationship_fails_closed() -> None:
+    entry = _entry(
+        certification_records=(
+            _certification(status_relationship_reference="revocation-or-supersession"),
+        )
+    )
+    assert _filter(_snapshot((entry,))).candidates == ()
 
 
 def test_missing_or_ambiguous_authoritative_facts_fail_closed() -> None:
-    entry = _entry()
-    snapshot = _snapshot((entry,))
-    target = _claim(_entry("target"))
-    for sources, effects in (
-        ((), (_effects(entry),)),
-        ((_claim(entry), _claim(entry)), (_effects(entry),)),
-        ((_claim(entry),), ()),
-        ((_claim(entry),), (_effects(entry), _effects(entry))),
-    ):
-        result = CandidateFilter.filter(
-            snapshot, _requirement(), target, sources, effects, "semantic"
-        )
-        assert result.rejections[0].reason_code == "E02_INCOMPATIBLE_PROVIDER"
+    decision = _compatibility()
+    for decisions in ((), (decision, decision)):
+        entry = _entry(compatibility_decisions=decisions)
+        result = _filter(_snapshot((entry,)))
+        assert result.rejections[0].code is DiagnosticCode.INCOMPATIBLE_DEPENDENCY
+    certification = _certification()
+    entry = _entry(certification_records=(certification, certification))
+    assert _filter(_snapshot((entry,))).rejections[0].code is DiagnosticCode.INELIGIBLE_PROVIDER
+
+
+def test_certification_must_authorize_the_compatibility_decision() -> None:
+    entry = _entry(certification_records=(_certification(evidence_references=("other-decision",)),))
+    result = _filter(_snapshot((entry,)))
+    assert result.candidates == ()
+    assert result.rejections[0].code is DiagnosticCode.INCOMPATIBLE_DEPENDENCY
 
 
 def test_missing_compatibility_is_rejected_and_diagnostics_are_preserved() -> None:
@@ -345,7 +360,24 @@ def test_missing_compatibility_is_rejected_and_diagnostics_are_preserved() -> No
     result = _filter(_snapshot((entry,)))
     assert result.candidates == ()
     assert result.rejections == (result.rejections[0],)
-    assert result.rejections[0].diagnostic_details == (("producer_version", "1.0.0"),)
+    assert result.rejections[0].candidate_id == "producer-a"
+    assert result.rejections[0].semantic_version == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    "effects",
+    [
+        (),
+        (_effects(), _effects()),
+        (_effects(decision_reference="other-decision"),),
+    ],
+)
+def test_compatibility_effects_fail_closed(
+    effects: tuple[CompatibilityEffects, ...],
+) -> None:
+    result = CandidateFilter.filter(_snapshot(), _requirement(), effects, "semantic")
+    assert result.candidates == ()
+    assert result.rejections[0].code is DiagnosticCode.INCOMPATIBLE_DEPENDENCY
 
 
 def test_repeated_execution_and_input_permutations_are_stable() -> None:
@@ -365,25 +397,13 @@ def test_repeated_execution_and_input_permutations_are_stable() -> None:
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: CandidateEnumerator.enumerate(cast(Any, object())),
-        lambda: CandidateFilter.capabilities(cast(Any, []), "type", "1.0.0"),
-        lambda: CandidateFilter.capabilities((_entry(),), "", "1.0.0"),
-        lambda: CandidateFilter.capabilities((_entry(),), "type", ""),
-        lambda: CandidateFilter.filter(
-            _snapshot(), cast(Any, object()), _claim(_entry("target")), (), (), "semantic"
-        ),
-        lambda: CandidateFilter.filter(
-            _snapshot(), _requirement(), cast(Any, object()), (), (), "semantic"
-        ),
-        lambda: CandidateFilter.filter(
-            _snapshot(), _requirement(), _claim(_entry("target")), cast(Any, []), (), "semantic"
-        ),
-        lambda: CandidateFilter.filter(
-            _snapshot(), _requirement(), _claim(_entry("target")), (), cast(Any, []), "semantic"
-        ),
-        lambda: CandidateFilter.filter(
-            _snapshot(), _requirement(), _claim(_entry("target")), (), (), ""
-        ),
+        lambda: CandidateEnumerator._enumerate(cast(Any, object())),
+        lambda: CandidateFilter._capabilities(cast(Any, []), "type", "1.0.0"),
+        lambda: CandidateFilter._capabilities((_entry(),), "", "1.0.0"),
+        lambda: CandidateFilter._capabilities((_entry(),), "type", ""),
+        lambda: CandidateFilter.filter(_snapshot(), cast(Any, object()), (_effects(),), "semantic"),
+        lambda: CandidateFilter.filter(_snapshot(), _requirement(), (_effects(),), ""),
+        lambda: CandidateFilter.filter(_snapshot(), _requirement(), cast(Any, []), "semantic"),
     ],
 )
 def test_invalid_inputs_fail_closed(call: object) -> None:
@@ -403,7 +423,7 @@ def test_unknown_registry_states_fail_closed() -> None:
 def test_entries_must_be_unique() -> None:
     entry = _entry()
     with pytest.raises(DataIntegrityError, match="unique"):
-        CandidateEnumerator.enumerate(_snapshot((entry, entry)))
+        CandidateFilter.filter(_snapshot((entry, entry)), _requirement(), (_effects(),), "semantic")
 
 
 def test_diagnostics_are_deeply_immutable_and_hashable() -> None:
@@ -424,6 +444,8 @@ def test_candidate_filter_is_the_only_externally_usable_filter() -> None:
 
     assert not hasattr(candidates, "GovernanceFilter")
     assert not hasattr(candidates.CandidateEnumerator, "filter")
+    assert not hasattr(candidates.CandidateEnumerator, "enumerate")
+    assert not hasattr(candidates.CandidateFilter, "capabilities")
     assert callable(candidates.CandidateFilter.filter)
 
 
@@ -431,13 +453,11 @@ def test_filtering_preserves_every_immutable_input() -> None:
     entry = _entry()
     snapshot = _snapshot((entry,))
     requirement = _requirement()
-    target = _claim(_entry("target"))
-    sources = (_claim(entry),)
-    effects = (_effects(entry),)
-    inputs = (snapshot, requirement, target, sources, effects)
+    effects = (_effects(),)
+    inputs = (snapshot, requirement, effects)
     hashes = tuple(hash(value) for value in inputs)
-    first = CandidateFilter.filter(snapshot, requirement, target, sources, effects, "semantic")
-    second = CandidateFilter.filter(snapshot, requirement, target, sources, effects, "semantic")
+    first = CandidateFilter.filter(snapshot, requirement, effects, "semantic")
+    second = CandidateFilter.filter(snapshot, requirement, effects, "semantic")
     assert first == second
     assert hashes == tuple(hash(value) for value in inputs)
 

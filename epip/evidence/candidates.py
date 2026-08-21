@@ -7,15 +7,13 @@ from typing import NamedTuple
 from epip.core.integrity import DataIntegrityError
 from epip.evidence.model import (
     CompatibilityEffects,
-    EvidenceClaim,
+    DiagnosticCode,
+    DiagnosticReason,
     EvidenceRequirement,
 )
 from epip.evidence.validation import CompatibilityEvaluator
 from epip.governance import (
-    CertificationRecord,
-    CompatibilityDecision,
     GovernanceEpoch,
-    GovernanceRejection,
     RegistryEntry,
     RegistrySnapshot,
 )
@@ -49,7 +47,7 @@ class CandidateDiagnostics(NamedTuple):
     manifest_reference: str
     governance_epoch: GovernanceEpoch
     candidates: tuple[RegistryEntry, ...]
-    rejections: tuple[GovernanceRejection, ...]
+    rejections: tuple[DiagnosticReason, ...]
 
 
 class CandidateEnumerator:
@@ -58,16 +56,16 @@ class CandidateEnumerator:
     __slots__ = ()
 
     @staticmethod
-    def enumerate(snapshot: RegistrySnapshot) -> tuple[RegistryEntry, ...]:
+    def _enumerate(snapshot: RegistrySnapshot) -> tuple[RegistryEntry, ...]:
         if not isinstance(snapshot, RegistrySnapshot):
             raise DataIntegrityError("snapshot must be an immutable RegistrySnapshot")
         return tuple(sorted(_require_entries(snapshot.entries), key=_candidate_key))
 
     @classmethod
-    def evidence_definitions(cls, snapshot: RegistrySnapshot) -> tuple[tuple[str, str], ...]:
+    def _evidence_definitions(cls, snapshot: RegistrySnapshot) -> tuple[tuple[str, str], ...]:
         definitions = {
             capability
-            for entry in cls.enumerate(snapshot)
+            for entry in cls._enumerate(snapshot)
             for capability in entry.capability_references
         }
         return tuple(sorted(definitions))
@@ -83,26 +81,18 @@ class CandidateFilter:
         cls,
         snapshot: RegistrySnapshot,
         requirement: EvidenceRequirement,
-        target_claim: EvidenceClaim,
-        source_claims: tuple[EvidenceClaim, ...],
         effects: tuple[CompatibilityEffects, ...],
         compatibility_dimension: str,
     ) -> CandidateDiagnostics:
         if not isinstance(requirement, EvidenceRequirement):
             raise DataIntegrityError("requirement must be an immutable EvidenceRequirement")
-        if not isinstance(target_claim, EvidenceClaim):
-            raise DataIntegrityError("target_claim must be an immutable EvidenceClaim")
-        if not isinstance(source_claims, tuple) or not all(
-            isinstance(claim, EvidenceClaim) for claim in source_claims
-        ):
-            raise DataIntegrityError("source_claims must be an immutable tuple of EvidenceClaim")
         if not isinstance(effects, tuple) or not all(
             isinstance(effect, CompatibilityEffects) for effect in effects
         ):
             raise DataIntegrityError("effects must be an immutable tuple of CompatibilityEffects")
         dimension = _require_text(compatibility_dimension, "compatibility_dimension")
-        entries = cls.capabilities(
-            CandidateEnumerator.enumerate(snapshot),
+        entries = cls._capabilities(
+            CandidateEnumerator._enumerate(snapshot),
             requirement.evidence_type,
             requirement.semantic_version,
         )
@@ -110,14 +100,12 @@ class CandidateFilter:
             snapshot,
             entries,
             requirement,
-            target_claim,
-            source_claims,
             effects,
             dimension,
         )
 
     @staticmethod
-    def capabilities(
+    def _capabilities(
         entries: tuple[RegistryEntry, ...], evidence_type: str, semantic_version: str
     ) -> tuple[RegistryEntry, ...]:
         candidates = _require_entries(entries)
@@ -149,22 +137,18 @@ class _GovernanceFilter:
         snapshot: RegistrySnapshot,
         entries: tuple[RegistryEntry, ...],
         requirement: EvidenceRequirement,
-        target_claim: EvidenceClaim,
-        source_claims: tuple[EvidenceClaim, ...],
         effects: tuple[CompatibilityEffects, ...],
         compatibility_dimension: str,
     ) -> CandidateDiagnostics:
         candidates = _require_entries(entries)
 
         admitted: list[RegistryEntry] = []
-        rejected: list[GovernanceRejection] = []
+        rejected: list[DiagnosticReason] = []
         for entry in sorted(candidates, key=_candidate_key):
             reason = cls._rejection_reason(
                 snapshot,
                 entry,
                 requirement,
-                target_claim,
-                source_claims,
                 effects,
                 compatibility_dimension,
             )
@@ -172,10 +156,12 @@ class _GovernanceFilter:
                 admitted.append(entry)
             else:
                 rejected.append(
-                    GovernanceRejection(
+                    DiagnosticReason(
                         reason,
-                        (entry.producer_identity,),
-                        (("producer_version", entry.producer_version),),
+                        requirement.requirement_id,
+                        cls._reason_text(reason),
+                        entry.producer_identity,
+                        entry.producer_version,
                     )
                 )
         return CandidateDiagnostics(
@@ -192,127 +178,57 @@ class _GovernanceFilter:
         snapshot: RegistrySnapshot,
         entry: RegistryEntry,
         requirement: EvidenceRequirement,
-        target_claim: EvidenceClaim,
-        source_claims: tuple[EvidenceClaim, ...],
         effects: tuple[CompatibilityEffects, ...],
         compatibility_dimension: str,
-    ) -> str | None:
+    ) -> DiagnosticCode | None:
         if entry.lifecycle_standing not in cls._LIFECYCLE_STATES:
             raise DataIntegrityError("registry entry has an unknown lifecycle standing")
         if entry.trust_standing not in cls._TRUST_STATES:
             raise DataIntegrityError("registry entry has an unknown trust standing")
         if entry.lifecycle_standing == "Declared":
-            return "E02_NOT_ADMITTED"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         if entry.lifecycle_standing == "Disabled":
-            return "E02_DISABLED_PROVIDER"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         if entry.lifecycle_standing in {"Deprecated", "Retired"}:
-            return "E02_EXPIRED_PROVIDER"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         if entry.lifecycle_standing != "Enabled":
-            return "E02_NOT_ENABLED"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         if entry.trust_standing == "Revoked":
-            return "E02_REVOKED_PROVIDER"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         if entry.trust_standing != "Trusted":
-            return "E02_UNTRUSTED_PROVIDER"
-
-        capability = (requirement.evidence_type, requirement.semantic_version)
-        certifications = tuple(
-            record
-            for record in entry.certification_records
-            if record.producer_identity == entry.producer_identity
-            and record.producer_version == entry.producer_version
-            and capability in record.capability_references
-        )
-        if any(record.verdict == "revoked" for record in certifications):
-            return "E02_REVOKED_PROVIDER"
-        if any(record.verdict == "expired" for record in certifications):
-            return "E02_EXPIRED_PROVIDER"
-        valid_certifications = tuple(
-            record
-            for record in certifications
-            if cls._certification_matches(record, entry, snapshot)
-        )
-        if len(valid_certifications) != 1:
-            return "E02_UNCERTIFIED_PROVIDER"
-
-        matching_sources = tuple(
-            claim
-            for claim in source_claims
-            if claim.source_identity == entry.producer_identity
-            and claim.implementation_version == entry.producer_version
-            and claim.identity.evidence_type == requirement.evidence_type
-            and claim.identity.semantic_version == requirement.semantic_version
-        )
-        if len(matching_sources) != 1:
-            return "E02_INCOMPATIBLE_PROVIDER"
-        source_claim = matching_sources[0]
-        decisions = tuple(
-            decision
-            for decision in entry.compatibility_decisions
-            if decision.source_reference == source_claim.evidence_id
-            and decision.target_reference == requirement.requirement_id
-        )
-        if len(decisions) != 1:
-            return "E02_INCOMPATIBLE_PROVIDER"
-        decision = decisions[0]
-        matching_effects = tuple(
-            effect for effect in effects if effect.decision_reference == decision.decision_identity
-        )
-        if len(matching_effects) != 1:
-            return "E02_INCOMPATIBLE_PROVIDER"
-        if not cls._decision_matches(
-            decision,
-            source_claim,
-            requirement,
-            compatibility_dimension,
-            snapshot,
-            valid_certifications[0],
-        ):
-            return "E02_INCOMPATIBLE_PROVIDER"
+            return DiagnosticCode.INELIGIBLE_PROVIDER
         try:
-            CompatibilityEvaluator.evaluate(
-                source_claim,
+            CompatibilityEvaluator.validate_phase2(
                 requirement,
-                target_claim,
-                decision,
-                valid_certifications[0],
-                matching_effects[0],
+                snapshot,
+                entry,
+                effects,
+                compatibility_dimension,
             )
-        except DataIntegrityError:
-            return "E02_INCOMPATIBLE_PROVIDER"
+        except DataIntegrityError as error:
+            return cls._diagnostic_code(error)
         return None
 
     @staticmethod
-    def _certification_matches(
-        record: CertificationRecord, entry: RegistryEntry, snapshot: RegistrySnapshot
-    ) -> bool:
-        return (
-            record.verdict == "passed"
-            and record.implementation_identity == entry.implementation_identity
-            and record.producer_contract_version == entry.producer_contract_version
-            and record.effective_epoch.sequence <= snapshot.governance_epoch.sequence
+    def _diagnostic_code(error: DataIntegrityError) -> DiagnosticCode:
+        message = str(error)
+        return next(
+            (code for code in DiagnosticCode if message.startswith(f"{code.value}:")),
+            DiagnosticCode.INVALID_DEPENDENCY,
         )
 
     @staticmethod
-    def _decision_matches(
-        decision: CompatibilityDecision,
-        source_claim: EvidenceClaim,
-        requirement: EvidenceRequirement,
-        compatibility_dimension: str,
-        snapshot: RegistrySnapshot,
-        certification: CertificationRecord,
-    ) -> bool:
-        versions = dict(decision.version_scope)
-        return (
-            decision.source_reference == source_claim.evidence_id
-            and decision.target_reference == requirement.requirement_id
-            and decision.direction == "source-to-target"
-            and versions.get("source") == source_claim.identity.semantic_version
-            and versions.get("target") == requirement.semantic_version
-            and decision.intended_use == requirement.requirement_id
-            and dict(decision.profile_scope).get("scope") == requirement.scope
-            and decision.compatibility_dimension == compatibility_dimension
-            and decision.review_or_expiry_condition == certification.expiration_or_review_condition
-            and decision.revocation_reference is None
-            and decision.supersession_reference is None
-            and decision.effective_epoch.sequence <= snapshot.governance_epoch.sequence
-        )
+    def _reason_text(code: DiagnosticCode) -> str:
+        reasons = {
+            DiagnosticCode.INELIGIBLE_PROVIDER: "provider failed mandatory governance eligibility",
+            DiagnosticCode.EXPIRED_OR_REVOKED_CERTIFICATION: (
+                "provider certification is expired or revoked"
+            ),
+            DiagnosticCode.INCOMPATIBLE_DEPENDENCY: (
+                "provider has no active authoritative compatibility decision"
+            ),
+            DiagnosticCode.INVALID_DEPENDENCY: (
+                "provider compatibility facts failed closed validation"
+            ),
+        }
+        return reasons[code]
