@@ -37,7 +37,7 @@ class ReplayCompatibilityValidator:
         if not isinstance(boundary, TemporalBoundary):
             return _ReplayCompatibilityValidator.validate(
                 validation_identity,
-                boundary,
+                cast(Any, boundary),
                 *args,
                 **kwargs,
             )
@@ -272,12 +272,28 @@ def test_validation_model_remaining_fail_closed_paths() -> None:
     context = _context(_boundary())
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(
-            "v", "boundary", _instant(1), _instant(1), _instant(2), 1, True, "historical", context
-        )  # type: ignore[arg-type]
+            "v",
+            "boundary",
+            _instant(1),
+            _instant(1),
+            _instant(2),
+            cast(Any, 1),
+            True,
+            "historical",
+            context,
+        )
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(
-            "v", "boundary", object(), _instant(1), _instant(2), True, True, "historical", context
-        )  # type: ignore[arg-type]
+            "v",
+            "boundary",
+            cast(Any, object()),
+            _instant(1),
+            _instant(2),
+            True,
+            True,
+            "historical",
+            context,
+        )
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(
             "v",
