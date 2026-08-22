@@ -65,17 +65,17 @@ def _fail(reason: str) -> NoReturn:
 
 class ReplayCompatibilityValidation(_Immutable):
     __slots__ = (
-        "validation_identity",
         "boundary_identity",
-        "replay_time",
-        "historical_time",
-        "knowledge_boundary",
-        "historical_visible",
         "exposure_valid",
+        "historical_mode",
+        "historical_time",
+        "historical_visible",
+        "knowledge_boundary",
         "mode",
         "predecessor_context",
-        "historical_mode",
+        "replay_time",
         "revision_mode",
+        "validation_identity",
     )
     _fields = __slots__
     validation_identity: str
@@ -134,7 +134,7 @@ class ReplayCompatibilityValidation(_Immutable):
 
 
 class ReplayCompatibilityDiagnostics(_Immutable):
-    __slots__ = ("validations", "reasons")
+    __slots__ = ("reasons", "validations")
     _fields = __slots__
     validations: tuple[ReplayCompatibilityValidation, ...]
     reasons: tuple[TemporalDiagnosticReason, ...]
