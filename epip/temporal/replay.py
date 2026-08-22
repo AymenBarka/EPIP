@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 __all__ = [
-    "ReplayCompatibilityValidator",
-    "ReplayCompatibilityValidation",
     "ReplayCompatibilityDiagnostics",
+    "ReplayCompatibilityValidation",
+    "ReplayCompatibilityValidator",
 ]
 
 from dataclasses import FrozenInstanceError
