@@ -8,11 +8,11 @@ This document is the approved normative execution plan for Programme A05.
 
 Status:
 
-**APPROVED**
+APPROVED
 
 This document has received independent architecture and governance review and the explicit decision:
 
-**A05 EXECUTION PLAN APPROVED**
+A05 EXECUTION PLAN APPROVED
 
 The ADR-EPIP017-05 frozen-architecture approval gate has been satisfied.
 
@@ -233,7 +233,7 @@ A package MUST be independently implemented, verified, delivered, published, and
 Repository ownership SHALL be allocated exactly once.
 
 | Package | Production ownership | Test ownership |
-|---|---|---|
+| --- | --- | --- |
 | A05-V1-E00 | `epip/temporal/__init__.py`, `epip/temporal/model.py` | `tests/temporal/__init__.py`, `tests/temporal/test_model.py` |
 | A05-V1-E01 | `epip/temporal/timeframe.py` | `tests/temporal/test_timeframe.py` |
 | A05-V1-E02 | `epip/temporal/availability.py` | `tests/temporal/test_availability.py` |
@@ -301,7 +301,7 @@ Missing, incomplete, inconsistent, unauthoritative, revoked, superseded, or unsu
 
 ---
 
-# 11. Package allocations
+## 11. Package allocations
 
 ## 11.1 A05-V1-E00 — Immutable temporal semantic baseline
 
@@ -988,7 +988,7 @@ A03 and A04 frozen repository facts
 Specific immutable fact dependencies SHALL include:
 
 | Fact | Owner | Authorized consumers |
-|---|---|---|
+| --- | --- | --- |
 | Temporal semantic baseline | E00 | E01–E09 |
 | Calendar sessions, holidays, timezone rules, shortened sessions, market closures, exceptional intervals | E00 | E01 and authorized successors |
 | Canonical timeframe outcomes | E01 | E02–E09 where required |
