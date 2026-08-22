@@ -229,13 +229,13 @@ def test_diagnostic_binding_rejects_orphans() -> None:
 
 def test_context_shape_and_uniqueness_fail_closed() -> None:
     base = {
-        validation_identity="v",
-        boundary_identity="b",
-        replay_time=_instant(1),
-        historical_time=_instant(1),
-        knowledge_boundary=_instant(2),
-        historical_visible=True,
-        exposure_valid=True,
+        "validation_identity": "v",
+        "boundary_identity": "b",
+        "replay_time": _instant(1),
+        "historical_time": _instant(1),
+        "knowledge_boundary": _instant(2),
+        "historical_visible": True,
+        "exposure_valid": True,
         "mode": "historical",
     }
     with pytest.raises(DataIntegrityError):
