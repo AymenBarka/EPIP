@@ -36,7 +36,10 @@ class ReplayCompatibilityValidator:
     def validate(cls, validation_identity: str, boundary: object, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(boundary, TemporalBoundary):
             return _ReplayCompatibilityValidator.validate(
-                validation_identity, boundary, *args, **kwargs  # type: ignore[arg-type]
+                validation_identity,
+                boundary,
+                *args,
+                **kwargs,  # type: ignore[arg-type]
             )
         assert isinstance(boundary, TemporalBoundary)
         kwargs.setdefault("predecessor_context", _context(boundary))
@@ -133,7 +136,9 @@ def test_output_models_reject_invalid_and_duplicate_inputs() -> None:
             "", "b", _instant(1), _instant(1), _instant(2), True, True, "historical"
         )
     with pytest.raises(DataIntegrityError):
-        ReplayCompatibilityValidation("v", "b", object(), _instant(1), _instant(2), True, True, "historical")  # type: ignore[arg-type]
+        ReplayCompatibilityValidation(
+            "v", "b", object(), _instant(1), _instant(2), True, True, "historical"
+        )  # type: ignore[arg-type]
     validation = ReplayCompatibilityValidator.validate(
         "v", _boundary(), _instant(15), _instant(10), _instant(20)
     ).validations[0]
@@ -142,9 +147,13 @@ def test_output_models_reject_invalid_and_duplicate_inputs() -> None:
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityDiagnostics((validation, validation))
     with pytest.raises(DataIntegrityError):
-        ReplayCompatibilityValidation("v", "b", _instant(1), _instant(1), _instant(2), 1, True, "historical")  # type: ignore[arg-type]
+        ReplayCompatibilityValidation(
+            "v", "b", _instant(1), _instant(1), _instant(2), 1, True, "historical"
+        )  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
-        ReplayCompatibilityValidation("v", "b", _instant(1), _instant(1), object(), True, True, "historical")  # type: ignore[arg-type]
+        ReplayCompatibilityValidation(
+            "v", "b", _instant(1), _instant(1), object(), True, True, "historical"
+        )  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(
             "v",
@@ -262,9 +271,13 @@ def test_real_validator_context_failure_paths() -> None:
 def test_validation_model_remaining_fail_closed_paths() -> None:
     context = _context(_boundary())
     with pytest.raises(DataIntegrityError):
-        ReplayCompatibilityValidation("v", "boundary", _instant(1), _instant(1), _instant(2), 1, True, "historical", context)  # type: ignore[arg-type]
+        ReplayCompatibilityValidation(
+            "v", "boundary", _instant(1), _instant(1), _instant(2), 1, True, "historical", context
+        )  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
-        ReplayCompatibilityValidation("v", "boundary", object(), _instant(1), _instant(2), True, True, "historical", context)  # type: ignore[arg-type]
+        ReplayCompatibilityValidation(
+            "v", "boundary", object(), _instant(1), _instant(2), True, True, "historical", context
+        )  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(
             "v",
