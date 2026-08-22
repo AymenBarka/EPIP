@@ -15,6 +15,8 @@ from epip.temporal.model import (
 from epip.temporal.replay import (
     ReplayCompatibilityDiagnostics,
     ReplayCompatibilityValidation,
+)
+from epip.temporal.replay import (
     ReplayCompatibilityValidator as _ReplayCompatibilityValidator,
 )
 
