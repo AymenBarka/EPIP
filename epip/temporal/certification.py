@@ -8,7 +8,7 @@ from typing import ClassVar
 from epip.core.integrity import DataIntegrityError, MissingFieldError, require_text
 from epip.temporal.model import CanonicalInstant, TemporalDiagnosticCode, TemporalDiagnosticReason
 
-__all__ = ["CertificationPreparer", "CertificationPreparation", "CertificationDiagnostics"]
+__all__ = ["CertificationDiagnostics", "CertificationPreparation", "CertificationPreparer"]
 
 
 class _Immutable:
@@ -37,7 +37,7 @@ class _Immutable:
 
 
 class CertificationPreparation(_Immutable):
-    __slots__ = ("preparation_identity", "profile_identity", "facts", "complete")
+    __slots__ = ("complete", "facts", "preparation_identity", "profile_identity")
     _fields = __slots__
     preparation_identity: str
     profile_identity: str
