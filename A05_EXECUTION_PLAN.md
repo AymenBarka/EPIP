@@ -457,7 +457,7 @@ E01 MUST NOT:
 
 ### Purpose
 
-E02 SHALL own deterministic availability, visibility, usability, staleness, expiration, and knowledge-boundary analysis.
+E02 SHALL own deterministic availability, visibility, provisional temporal eligibility, staleness, expiration, and knowledge-boundary analysis.
 
 ### Production ownership
 
@@ -486,7 +486,9 @@ E02 SHALL:
 
 - preserve Publication Time and Availability Time independently;
 - enforce the frozen Knowledge Boundary;
-- distinguish visibility from usability;
+- distinguish visibility and provisional temporal eligibility from final usability;
+- determine visibility;
+- determine provisional temporal eligibility;
 - determine staleness and expiration only from explicit immutable facts;
 - reject future knowledge;
 - reject ambient-time expiration;
@@ -498,10 +500,17 @@ E02 SHALL:
 
 E02 SHALL produce immutable availability decisions and diagnostics.
 
+When all E02-owned conditions are satisfied, E02 SHALL preserve the artifact as visible and
+provisionally temporally eligible for successor validation. This outcome MUST NOT assert
+completeness, temporal-dependency validity, revision validity, or final usability.
+
 ### Boundaries
 
 E02 MUST NOT:
 
+- classify an artifact as `AvailabilityStatus.USABLE`;
+- determine final usability because authoritative completeness, temporal-dependency,
+  compatibility, and revision outcomes are owned by E04, E05, and E06;
 - modify observation facts;
 - compute timeframe mappings;
 - infer missing availability;
@@ -701,7 +710,8 @@ E05 MUST NOT:
 
 ### Purpose
 
-E06 SHALL own deterministic correction, replacement, withdrawal, revision-lineage, and historical-continuity validation.
+E06 SHALL own deterministic correction, replacement, withdrawal, revision-lineage,
+historical-continuity validation, and final deterministic usability determination.
 
 ### Production ownership
 
@@ -742,9 +752,29 @@ E06 SHALL:
 - preserve prior plan interpretation;
 - produce deterministic fail-closed diagnostics.
 
+E06 SHALL determine final usability only after consuming:
+
+- E02 visibility outcomes;
+- E02 provisional temporal-eligibility outcomes;
+- E04 completeness outcomes;
+- E05 compatibility outcomes;
+- E06 revision-validation outcomes.
+
+E06 SHALL classify an artifact as `AvailabilityStatus.USABLE` ONLY when:
+
+- E02 established visibility and provisional temporal eligibility;
+- E04 established required closure and completeness;
+- E05 established temporal-dependency and compatibility validity;
+- E06 established applicable revision and historical continuity;
+- every mandatory consumer policy requirement is satisfied.
+
+Missing, incomplete, inconsistent, or rejected mandatory predecessor outcomes MUST fail closed
+and MUST NOT produce `AvailabilityStatus.USABLE`.
+
 ### Immutable outputs
 
-E06 SHALL produce immutable revision-validation outcomes and diagnostics.
+E06 SHALL produce immutable revision-validation outcomes, final usability decisions, and
+deterministic diagnostics.
 
 ### Boundaries
 
@@ -993,11 +1023,12 @@ Specific immutable fact dependencies SHALL include:
 | Calendar sessions, holidays, timezone rules, shortened sessions, market closures, exceptional intervals | E00 | E01 and authorized successors |
 | Canonical timeframe outcomes | E01 | E02–E09 where required |
 | Temporal Mapping Contract facts | E01 | E05, E08, E09 |
-| Availability outcomes | E02 | E03–E09 where required |
+| Visibility and provisional temporal-eligibility outcomes | E02 | E03–E09 where required |
 | Observation-validation outcomes | E03 | E04–E09 where required |
 | Completeness outcomes | E04 | E05–E09 where required |
 | Temporal dependency outcomes | E05 | E06–E09 where required |
 | Revision outcomes | E06 | E07–E09 |
+| Final usability decisions | E06 | E07–E09 where required |
 | Replay-compatibility outcomes | E07 | E08–E09 |
 | Certification-preparation outcomes | E08 | E09 |
 | Integrated temporal closure | E09 | authorized successor programmes only |
