@@ -228,7 +228,7 @@ def test_diagnostic_binding_rejects_orphans() -> None:
 
 
 def test_context_shape_and_uniqueness_fail_closed() -> None:
-    base = dict(
+    base = {
         validation_identity="v",
         boundary_identity="b",
         replay_time=_instant(1),
@@ -236,8 +236,8 @@ def test_context_shape_and_uniqueness_fail_closed() -> None:
         knowledge_boundary=_instant(2),
         historical_visible=True,
         exposure_valid=True,
-        mode="historical",
-    )
+        "mode": "historical",
+    }
     with pytest.raises(DataIntegrityError):
         ReplayCompatibilityValidation(**base, predecessor_context=[])  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
