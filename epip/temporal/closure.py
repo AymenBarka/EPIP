@@ -1,8 +1,10 @@
 """Deterministic terminal verification of the A05 temporal pipeline."""
 
 from __future__ import annotations
+
 from dataclasses import FrozenInstanceError
 from typing import ClassVar
+
 from epip.core.integrity import DataIntegrityError, MissingFieldError, require_text
 
 __all__ = ["ClosureDiagnostics", "IntegratedTemporalClosure", "TemporalClosureVerifier"]
