@@ -51,4 +51,12 @@ Deliverables are the two normative documents, E00–E09 production and tests, re
 
 ## 8. Traceability
 
+## 9. E06 corrective contract
+
+E06 owns immutable projection-result composition and complete predecessor lineage preservation. It consumes the public immutable contracts from E00–E05 and produces only `ProjectionResult`, `ProjectionResultValidation` and `ProjectionDiagnostics` in `epip/a06/projection.py`, with tests in `tests/a06/test_projection.py`.
+
+Complete lineage is the exact authoritative E00–E05 predecessor fact set, physically embedded in `ProjectionResult`. The set is complete, unique, canonical, immutable, hashable and independently reconstructable from `ProjectionResult` alone. Caller-provided labels are not authoritative. E06 SHALL preserve `ProjectionIdentity.identity`, `baseline_tag`, `authority_identity`, all consumed request/authority/scope/plan/eligibility/compatibility facts, and required temporal/replay references.
+
+E06 fails closed on missing, incomplete, malformed, duplicate, unknown, forged, inconsistent or contradictory predecessor facts, including identity, baseline, temporal-basis, scope, plan, eligibility and compatibility mismatches. E07 consumes only the frozen public E06 result and explicitly authorized A05 replay contracts; it may not access private E06 state or recompute E00–E06 semantics.
+
 Foundation→E00; authority→E01; scope→E02; planning→E03; eligibility→E04; compatibility→E05; projection→E06; replay→E07; audit→E08; integrated closure→E09. Each responsibility appears exactly once.

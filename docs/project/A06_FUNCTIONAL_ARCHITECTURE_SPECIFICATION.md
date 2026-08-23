@@ -57,3 +57,13 @@ A package is complete only when its declared responsibilities, contracts, diagno
 ## 7. Authority precedence
 
 Approved ADRs and architectural constraints supersede this specification; this specification supersedes the A06 Execution Plan; the Execution Plan supersedes closed predecessor contracts; implementations must conform to all of them.
+
+## 8. E06 lineage and reconstruction clarification
+
+Complete lineage is the canonical immutable preservation of the complete E00–E05 predecessor contract facts consumed by E06. The required set is exactly E00, E01, E02, E03, E04 and E05; unknown, missing, duplicate, forged or contradictory entries fail closed. Caller-supplied free-form labels are not authoritative.
+
+The preservation model is physical embedding: every immutable fact required to reconstruct the E06 evaluation is stored in `ProjectionResult`. Reconstruction is offline and deterministic from `ProjectionResult` alone; no external mutable store, network lookup, digest algorithm or additional public lineage type is required. Equality and hashing include all preserved facts.
+
+`ProjectionIdentity` is the canonical A06 identity carrier. E06 SHALL preserve its `identity`, `baseline_tag` and `authority_identity`, together with all consumed request, authority, scope, plan, eligibility, compatibility, temporal and replay facts required for reconstruction. A05 remains predecessor-owned and is never reinterpreted.
+
+E07 consumes only the frozen public E06 result and its preserved facts plus explicitly authorized A05 replay contracts. E07 MUST NOT access private E06 state, invent lineage, repair missing facts or recompute predecessor semantics. E08 and E09 may use these facts for attribution and closure continuity without acquiring predecessor ownership.
