@@ -5,7 +5,7 @@ import pytest
 from epip.a06.authority import ProjectionAuthority
 from epip.a06.compatibility import ProjectionCompatibility
 from epip.a06.eligibility import ProjectionEligibility
-from epip.a06.foundation import ProjectionRequest
+from epip.a06.foundation import ProjectionIdentity, ProjectionRequest
 from epip.a06.planning import ProjectionPlan
 from epip.a06.projection import (
     ProjectionDiagnostics,
@@ -36,14 +36,30 @@ def _objects() -> tuple[
 def test_projection_result_and_validation_are_deterministic_and_hashable() -> None:
     request, authority, scope, plan, eligibility, compatibility = _objects()
     result = ProjectionResult(
-        "result", compatibility, eligibility, plan, request, authority, scope, ("e05", "e00")
+        "result",
+        compatibility,
+        eligibility,
+        plan,
+        request,
+        authority,
+        scope,
+        ("e05", "e00", "e01", "e02", "e03", "e04"),
+        projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
     )
     same = ProjectionResult(
-        "result", compatibility, eligibility, plan, request, authority, scope, ("e00", "e05")
+        "result",
+        compatibility,
+        eligibility,
+        plan,
+        request,
+        authority,
+        scope,
+        ("e00", "e01", "e02", "e03", "e04", "e05"),
+        projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
     )
     assert result == same
     assert hash(result) == hash(same)
-    assert result.lineage == ("e00", "e05")
+    assert result.lineage == ("e00", "e01", "e02", "e03", "e04", "e05")
     validation = ProjectionResultValidation(
         result, compatibility, eligibility, plan, request, authority, scope
     )
@@ -55,17 +71,87 @@ def test_projection_result_and_validation_are_deterministic_and_hashable() -> No
 def test_projection_rejects_invalid_contracts() -> None:
     request, authority, scope, plan, eligibility, compatibility = _objects()
     with pytest.raises(DataIntegrityError):
-        ProjectionResult("", compatibility, eligibility, plan, request, authority, scope, ("e00",))
+        ProjectionResult(
+            "",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
+        )
     with pytest.raises(DataIntegrityError):
         ProjectionResult("r", compatibility, eligibility, plan, request, authority, scope, [])
     with pytest.raises(DataIntegrityError):
         ProjectionResult(
-            "r", compatibility, eligibility, plan, request, authority, scope, ("e00", "e00")
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e00", "e01", "e02", "e03", "e04", "e05"),
         )
+
+    with pytest.raises(DataIntegrityError):
+        ProjectionResult(
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e99"),
+            projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
+        )
+    with pytest.raises(DataIntegrityError):
+        ProjectionResult(
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02"),
+            projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
+        )
+    with pytest.raises(DataIntegrityError):
+        ProjectionResult(
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
+            projection_identity=ProjectionIdentity("p", "other", "auth"),
+        )
+
     with pytest.raises(DataIntegrityError):
         ProjectionResult("r", object(), eligibility, plan, request, authority, scope, ("e00",))  # type: ignore[arg-type]
     with pytest.raises(DataIntegrityError):
         ProjectionResult("r", compatibility, eligibility, plan, request, authority, scope, ())
+    with pytest.raises(DataIntegrityError):
+        ProjectionResult(
+            "r", compatibility, eligibility, plan, request, authority, scope, ("e00",), projection_identity=object()  # type: ignore[arg-type]
+        )
+    with pytest.raises(DataIntegrityError):
+        ProjectionResult(
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00",),
+            projection_identity=ProjectionIdentity("p", "tag", "other"),
+        )
 
 
 @pytest.mark.parametrize("field", ["plan_identity", "authority_identity"])
@@ -76,7 +162,17 @@ def test_projection_rejects_inconsistent_predecessor_identity(field: str) -> Non
         object.__setattr__(altered, name, getattr(compatibility, name))
     object.__setattr__(altered, field, "other")
     with pytest.raises(DataIntegrityError):
-        ProjectionResult("r", altered, eligibility, plan, request, authority, scope, ("e00",))
+        ProjectionResult(
+            "r",
+            altered,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
+            projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
+        )
 
 
 @pytest.mark.parametrize("field", ["plan_identity", "authority_identity"])
@@ -87,7 +183,17 @@ def test_projection_rejects_inconsistent_eligibility_identity(field: str) -> Non
         object.__setattr__(altered, name, getattr(eligibility, name))
     object.__setattr__(altered, field, "other")
     with pytest.raises(DataIntegrityError):
-        ProjectionResult("r", compatibility, altered, plan, request, authority, scope, ("e00",))
+        ProjectionResult(
+            "r",
+            compatibility,
+            altered,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
+            projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
+        )
 
 
 def test_projection_rejects_scope_mismatch_and_validation_type() -> None:
@@ -95,10 +201,25 @@ def test_projection_rejects_scope_mismatch_and_validation_type() -> None:
     bad_scope = ProjectionScope(("b",), ("day",))
     with pytest.raises(DataIntegrityError):
         ProjectionResult(
-            "r", compatibility, eligibility, plan, request, authority, bad_scope, ("e00",)
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            bad_scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
         )
     result = ProjectionResult(
-        "r", compatibility, eligibility, plan, request, authority, scope, ("e00",)
+        "r",
+        compatibility,
+        eligibility,
+        plan,
+        request,
+        authority,
+        scope,
+        ("e00", "e01", "e02", "e03", "e04", "e05"),
+        projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
     )
     with pytest.raises(DataIntegrityError):
         ProjectionResultValidation(object(), compatibility, eligibility, plan, request, authority, scope)  # type: ignore[arg-type]
@@ -123,7 +244,15 @@ def test_diagnostics_are_canonical_and_immutable() -> None:
 def test_result_equality_rejects_other_type() -> None:
     request, authority, scope, plan, eligibility, compatibility = _objects()
     result = ProjectionResult(
-        "r", compatibility, eligibility, plan, request, authority, scope, ("e00",)
+        "r",
+        compatibility,
+        eligibility,
+        plan,
+        request,
+        authority,
+        scope,
+        ("e00", "e01", "e02", "e03", "e04", "e05"),
+        projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
     )
     assert result != object()
 
@@ -140,7 +269,15 @@ def _result() -> tuple[
     request, authority, scope, plan, eligibility, compatibility = _objects()
     return (
         ProjectionResult(
-            "r", compatibility, eligibility, plan, request, authority, scope, ("e00", "e05")
+            "r",
+            compatibility,
+            eligibility,
+            plan,
+            request,
+            authority,
+            scope,
+            ("e00", "e01", "e02", "e03", "e04", "e05"),
+            projection_identity=ProjectionIdentity("p", "A05-v1.0.0", "auth"),
         ),
         request,
         authority,
@@ -154,7 +291,7 @@ def _result() -> tuple[
 def test_e00_to_e06_contract_integration() -> None:
     result, request, *_ = _result()
     assert result.request_identity == request.request_identity
-    assert result.lineage == ("e00", "e05")
+    assert result.lineage == ("e00", "e01", "e02", "e03", "e04", "e05")
     assert request.target_scope == ("a",)
 
 

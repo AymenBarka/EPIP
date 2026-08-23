@@ -8,7 +8,7 @@ from typing import ClassVar
 from epip.a06.authority import ProjectionAuthority
 from epip.a06.compatibility import ProjectionCompatibility
 from epip.a06.eligibility import ProjectionEligibility
-from epip.a06.foundation import ProjectionRequest
+from epip.a06.foundation import ProjectionIdentity, ProjectionRequest
 from epip.a06.planning import ProjectionPlan
 from epip.a06.scope import ProjectionScope
 from epip.core.integrity import DataIntegrityError, MissingFieldError, require_text
@@ -53,7 +53,10 @@ def _lineage(value: object) -> tuple[str, ...]:
         raise MissingFieldError("lineage must not be empty")
     if len(set(result)) != len(result):
         raise DataIntegrityError("lineage must not contain duplicates")
-    return tuple(sorted(result))
+    required = ("e00", "e01", "e02", "e03", "e04", "e05")
+    if tuple(sorted(result)) != required:
+        raise DataIntegrityError("lineage must contain exactly E00-E05")
+    return required
 
 
 class ProjectionResult(_Immutable):
@@ -61,21 +64,47 @@ class ProjectionResult(_Immutable):
 
     __slots__ = (
         "authority_identity",
+        "baseline_tag",
         "compatible",
         "eligible",
+        "governance_epoch",
+        "knowledge_boundary",
         "lineage",
+        "permitted_scope",
         "plan_identity",
+        "plan_steps",
+        "policy_version",
+        "projection_identity",
+        "projection_mode",
         "request_identity",
         "result_identity",
+        "target_scope",
+        "temporal_basis",
+        "temporal_dimensions",
+        "valid_from",
+        "valid_until",
     )
     _field_names = __slots__
     authority_identity: str
+    baseline_tag: str
     compatible: bool
     eligible: bool
+    governance_epoch: int
     lineage: tuple[str, ...]
+    knowledge_boundary: int
     plan_identity: str
+    plan_steps: tuple[str, ...]
+    projection_identity: str
+    projection_mode: str
+    policy_version: int
     request_identity: str
     result_identity: str
+    target_scope: tuple[str, ...]
+    temporal_basis: str
+    temporal_dimensions: tuple[str, ...]
+    permitted_scope: tuple[str, ...]
+    valid_from: int
+    valid_until: int
 
     def __init__(
         self,
@@ -87,6 +116,7 @@ class ProjectionResult(_Immutable):
         authority: ProjectionAuthority,
         scope: ProjectionScope,
         lineage: object,
+        projection_identity: ProjectionIdentity | None = None,
     ) -> None:
         for obj, typ, name in (
             (compatibility, ProjectionCompatibility, "compatibility"),
@@ -110,15 +140,40 @@ class ProjectionResult(_Immutable):
             raise DataIntegrityError("eligibility authority identity mismatch")
         if set(scope.target_artifacts) != set(request.target_scope):
             raise DataIntegrityError("scope and request target mismatch")
+        if projection_identity is None:
+            projection_identity = ProjectionIdentity(
+                request.request_identity,
+                "A05-v1.0.0",
+                authority.authority_identity,
+            )
+        if not isinstance(projection_identity, ProjectionIdentity):
+            raise DataIntegrityError("projection_identity must be a ProjectionIdentity")
+        if projection_identity.authority_identity != authority.authority_identity:
+            raise DataIntegrityError("projection identity authority mismatch")
+        if projection_identity.baseline_tag != "A05-v1.0.0":
+            raise DataIntegrityError("projection identity baseline mismatch")
         self._init(
             {
                 "authority_identity": authority.authority_identity,
+                "baseline_tag": projection_identity.baseline_tag,
                 "compatible": compatibility.compatible,
                 "eligible": eligibility.eligible,
+                "governance_epoch": authority.governance_epoch,
                 "lineage": _lineage(lineage),
+                "knowledge_boundary": eligibility.knowledge_boundary,
                 "plan_identity": plan.plan_identity,
+                "plan_steps": plan.steps,
+                "projection_identity": projection_identity.identity,
+                "projection_mode": request.projection_mode,
+                "policy_version": request.policy_version,
                 "request_identity": request.request_identity,
                 "result_identity": result_identity.strip(),
+                "target_scope": request.target_scope,
+                "temporal_basis": request.temporal_basis,
+                "temporal_dimensions": scope.temporal_dimensions,
+                "permitted_scope": authority.permitted_scope,
+                "valid_from": authority.valid_from,
+                "valid_until": authority.valid_until,
             }
         )
 
