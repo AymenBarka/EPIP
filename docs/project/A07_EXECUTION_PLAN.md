@@ -108,8 +108,11 @@ reconstruction, permutation, provenance, and fail-closed tests. Required invaria
 - NO_TRADE has no executable geometry;
 - invalid evidence never produces BUY/SELL.
 
-Baseline accounting is explicit: historical A06 evidence is 2075 tests; current PRE-A07
-full tracked baseline is 2085. Every unit reports pre-package baseline, package contribution,
+Baseline accounting is explicit: historical A06 evidence is 2075 tests; independent
+reconstruction of the exact PRE-E00 commit `ec4054437bd21decdac341ad9ca65e49d1036c99`
+establishes the current PRE-A07 full tracked baseline as 2075. Canonical collection uses
+pytest `--import-mode=importlib`; no predecessor tests were lost. Every unit reports
+pre-package baseline, package contribution,
 post-package baseline, and current full baseline.
 
 ## 8. Quality and remote gates
