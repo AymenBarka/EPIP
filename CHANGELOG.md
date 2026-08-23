@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.5.20
+
+### Fixed
+
+- Added complete A06 superseding release metadata and changelog evidence.
+- Preserved immutable tags v1.5.18 and v1.5.19 as historical release artifacts.
+
+### Quality
+
+- Release metadata correction only.
+- No A06 production semantic changes.
+
+## v1.5.19
+
+### Fixed
+
+- Added A06 release metadata correction for the superseding patch release.
+
 ## v1.5.17
 
 ### Fixed
