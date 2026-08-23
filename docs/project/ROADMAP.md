@@ -26,12 +26,16 @@ timeline
     v1.5.15 : Hardening-007 release metadata correction
     v1.5.16 : EPIP-016 Decision Theory Framework
     v1.5.17 : EPIP-016 release metadata correction
+    v1.5.18 : A06 architectural closure
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
 ```
 
 ## Completed releases
+
+- **v1.5.18:** A06 architectural closure, with E00–E09 CLOSED / FROZEN. The release preserves
+  the v1.6.0 Strategy Engine reservation; A07 has no assigned version and is not authorized.
 
 - **v1.0.0-pre:** completed the core analytical pipeline through Market Context, combining Core,
   EventBus, Feature Store, Market Data, Replay, Swing, Structure, Liquidity, and Fibonacci outputs.
