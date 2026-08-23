@@ -12,7 +12,7 @@ A06 adds a deterministic projection layer above the frozen A05 temporal baseline
 ## 2. Domain concepts
 
 | Concept | Owner | Immutable content |
-|---|---|---|
+| --- | --- | --- |
 | ProjectionRequest | E00 | request identity, target scope, temporal basis, mode, policy version |
 | ProjectionIdentity | E00 | projection identity, A05 baseline tag, authority identity |
 | ProjectionAuthority | E01 | authority identity, governance epoch, permitted scope, policy and validity |
@@ -30,7 +30,7 @@ All concepts are immutable, hashable, canonically ordered and independently reco
 ## 3. Package allocation
 
 | Package | Owns | Consumes | Produces | Forbidden |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | E00 | foundation identity and request facts | A05 baseline identity | `ProjectionRequest`, `ProjectionIdentity`, `ProjectionFoundationDiagnostics` | authority, scope, planning, execution, replay, audit, closure |
 | E01 | authority validation | E00 and A05 authority facts | `ProjectionAuthority`, `AuthorityValidation`, `AuthorityDiagnostics` | scope, planning, eligibility, execution |
 | E02 | scope definition and validation | E00, E01 | `ProjectionScope`, `ScopeValidation`, `ScopeDiagnostics` | authority, planning, eligibility, execution |

@@ -11,7 +11,7 @@ Predecessor baseline: A05-v1.0.0
 Execution is strictly sequential: E00 → E01 → E02 → E03 → E04 → E05 → E06 → E07 → E08 → E09. Each unit owns only its production and test files below and may consume only declared immutable predecessor contracts.
 
 | Unit | Production file | Test file | Public outputs |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | E00 | `epip/a06/foundation.py` | `tests/a06/test_foundation.py` | `ProjectionRequest`, `ProjectionIdentity`, `ProjectionFoundationDiagnostics` |
 | E01 | `epip/a06/authority.py` | `tests/a06/test_authority.py` | `ProjectionAuthority`, `AuthorityValidation`, `AuthorityDiagnostics` |
 | E02 | `epip/a06/scope.py` | `tests/a06/test_scope.py` | `ProjectionScope`, `ScopeValidation`, `ScopeDiagnostics` |
