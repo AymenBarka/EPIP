@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.5.21
+
+### Fixed
+
+- Synchronized package release metadata for the A06 superseding patch release.
+- Preserved v1.5.18 and v1.5.19 as immutable historical artifacts.
+
+### Quality
+
+- Release metadata correction only; no A06 production semantic changes.
+
 ## v1.5.20
 
 ### Fixed

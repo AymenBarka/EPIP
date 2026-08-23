@@ -29,6 +29,7 @@ timeline
     v1.5.18 : A06 architectural closure
     v1.5.19 : A06 release metadata correction
     v1.5.20 : A06 changelog and release metadata correction
+    v1.5.21 : A06 package release metadata correction
     v1.6.0 : Strategy Engine
     v1.7.0 : Monitoring and Observability
     v2.0.0 : AI Engine
