@@ -5,6 +5,10 @@ Role: NORMATIVE EXECUTION PLAN
 Programme: A06
 Derived from: A06 Functional Architecture Specification
 Predecessor baseline: A05-v1.0.0
+Release assignment: v1.5.18 (annotated tag)
+Release document: docs/project/releases/v1.5.18.md
+Strategy Engine reservation: v1.6.0
+A05-v1.0.0 is a historical legacy tag; A07 has no assigned version.
 
 ## 1. Sequence and ownership
 
