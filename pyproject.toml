@@ -47,6 +47,7 @@ include = ["epip*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--import-mode=importlib"
 
 [tool.mypy]
 python_version = "3.13"

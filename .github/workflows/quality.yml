@@ -38,4 +38,13 @@ jobs:
         run: python -m mypy epip tests
 
       - name: Pytest and coverage
-        run: python -m pytest --cov=epip --cov-report=term-missing --cov-fail-under=95
+        run: >-
+          python -m pytest
+          --deselect=tests/core/test_eventbus_stress.py::test_640000_publications_are_lossless_unique_and_fifo
+          --cov=epip --cov-report=term-missing --cov-fail-under=95
+
+      - name: EventBus stress
+        run: >-
+          python -m pytest
+          tests/core/test_eventbus_stress.py::test_640000_publications_are_lossless_unique_and_fifo
+          -q
