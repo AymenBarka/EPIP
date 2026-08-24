@@ -96,7 +96,7 @@ not implemented. Every implementation phase requires separate authorization.
 | Phase | State | Purpose |
 | --- | --- | --- |
 | P00 | COMPLETE / CLOSED / FROZEN by this governance publication | Architecture governance |
-| P01 | READY FOR CONTRACT AUTHORIZATION | Runtime and Fact Adapter contracts |
+| P01 | IMPLEMENTED CONTRACT / PUBLICATION PENDING | Runtime and Fact Adapter contracts |
 | P02 | Planned | Analysis-to-A07 fact adapters |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |

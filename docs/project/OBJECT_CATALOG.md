@@ -198,16 +198,18 @@ as the post-v1.6.0 count. Current exports remain defined by typed source.
 - **Relationships:** sole canonical final strategy authority; broker-, execution-, sizing-,
   portfolio-, and wall-clock-independent.
 
-## Proposed post-v1.6 contracts
+## P01 post-v1.6 contracts
 
-These are **PROPOSED / FUTURE CONTRACTS**, not implemented APIs. P01 owns their fields:
+These are **IMPLEMENTED CONTRACTS**. They define boundaries but contain no runtime, adapter, sizing,
+or MTF analytical behavior:
 
 - `EvaluationContext` and a snapshot/provenance bundle.
 - `StrategyFactBundle`, strategy-profile identity/version, and adapter protocols.
 - `StrategyRuntimeRequest`, `StrategyRuntimeResult`, and runtime diagnostics.
 - `StrategySignalEnvelope` binding a signal to instrument, timeframe, and sources.
-- `PortfolioRiskSnapshot` or another immutable constraint view.
-- A Capital Risk plan successor preserving A07 direction and geometry.
+- `PortfolioRiskView`, a Capital Risk input-port projection.
+- `CapitalRiskRequest`, `CapitalRiskAssessment`, and `SizedPositionPlan`, preserving nested A07
+  direction and geometry.
 
 The existing `PositionPlan` remains a legacy compatibility output until separately migrated.
 

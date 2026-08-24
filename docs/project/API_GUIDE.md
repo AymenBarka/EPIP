@@ -27,7 +27,8 @@ ExecutionSnapshot -> PortfolioSnapshot
 For new post-v1.6.0 integrations, `DecisionSnapshot`, `TradeDecision`, and Core Kernel `Decision`
 are analytical outputs, not final strategy signals. A07 `StrategySignal` is the final strategy
 output. The future boundary is Strategy Runtime -> `StrategySignal`/`StrategySignalEnvelope` ->
-Capital Risk. Strategy Runtime, `StrategySignalEnvelope`, and the Capital Risk successor are
+Capital Risk. P01 implements these immutable contracts and protocols. Concrete Fact Adapters,
+Strategy Runtime orchestration, Capital Risk sizing behavior, and execution succession are
 **NOT YET IMPLEMENTED**.
 
 ## Graphs

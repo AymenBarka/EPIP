@@ -24,9 +24,9 @@ flowchart LR
     P14 --> P15[P15 Live readiness]
 ```
 
-P01 defines contracts for explicit evaluation context, provenance, Fact Adapters/Profiles,
+P01 implements contracts for explicit evaluation context, provenance, Fact Adapters/Profiles,
 Strategy Runtime results and diagnostics, signal envelopes, Capital Risk succession, and immutable
-portfolio constraints. It is not implemented and requires separate contract authorization.
+portfolio constraints. Concrete behavior begins only under separately authorized P02/P03 work.
 
 Later phases implement analysis-to-A07 mapping, the shared runtime, an Elliott/Fibonacci profile,
 MTF facts, E2E signals, shared-runtime backtesting, ledger/metrics, walk-forward and quantitative

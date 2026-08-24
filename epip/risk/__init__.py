@@ -1,5 +1,12 @@
 """EPIP-013 public Risk Engine API."""
 
+from epip.risk.capital_contracts import (
+    CapitalRiskAssessment,
+    CapitalRiskReason,
+    CapitalRiskRequest,
+    CapitalRiskState,
+    SizedPositionPlan,
+)
 from epip.risk.config import PortfolioLimits, RiskConfig
 from epip.risk.engine import RiskEngine
 from epip.risk.events import (
@@ -29,8 +36,13 @@ from epip.risk.models import (
     StopLoss,
     TakeProfit,
 )
+from epip.risk.portfolio_risk_view import PortfolioRiskView
 
 __all__ = [
+    "CapitalRiskAssessment",
+    "CapitalRiskReason",
+    "CapitalRiskRequest",
+    "CapitalRiskState",
     "Drawdown",
     "DrawdownExceeded",
     "Exposure",
@@ -38,6 +50,7 @@ __all__ = [
     "Leverage",
     "Margin",
     "PortfolioLimits",
+    "PortfolioRiskView",
     "PositionPlan",
     "PositionPlanned",
     "PositionSize",
@@ -57,6 +70,7 @@ __all__ = [
     "RiskRelation",
     "RiskScore",
     "RiskSnapshot",
+    "SizedPositionPlan",
     "SizingMethod",
     "StopLoss",
     "TakeProfit",

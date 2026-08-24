@@ -94,10 +94,11 @@ Mode-specific strategy implementations are forbidden.
 
 ## Public contracts and evolution
 
-Existing snapshots and A07 objects remain governed public contracts. `EvaluationContext`,
-`StrategyFactBundle`, runtime request/result and diagnostics, `StrategySignalEnvelope`, an immutable
-portfolio-risk view, and a Capital Risk plan successor are FUTURE CONTRACTS owned by P01. Stable
-APIs change only through additive evolution or governed compatibility/deprecation.
+Existing snapshots and A07 objects remain governed public contracts. P01 implements
+`EvaluationContext`, provenance/profile/MTF contracts, `StrategyFactBundle`, adapter protocols,
+runtime request/result and diagnostics, `StrategySignalEnvelope`, `PortfolioRiskView`, and additive
+Capital Risk contracts. Concrete adapters, orchestration, strategy profiles, and MTF behavior
+remain future. Stable APIs change only through governed compatibility/deprecation.
 
 Architecture changes require one semantic owner, legal dependencies, immutable boundaries,
 explicit time, typed failure, tests, documentation, an ADR, and architecture approval.

@@ -40,6 +40,8 @@ nav:
       - Decision Engine: architecture/DecisionEngine.md
       - Decision Validation: architecture/DecisionValidation.md
       - System Architecture: project/ARCHITECTURE.md
+      - P01 Contract Specification: project/P01_CONTRACT_SPECIFICATION.md
+      - P01 Implementation Plan: project/P01_IMPLEMENTATION_PLAN.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md

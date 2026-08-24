@@ -136,3 +136,12 @@ history or create it through the normal ADR review process.
   outputs as analytical inputs, separate strategy geometry from Capital Risk, and govern the future
   Fact Adapter/Profile and shared Strategy Runtime boundaries.
 - **ADR:** [ADR-0016](../adr/ADR-0016-CanonicalStrategyPipeline.md)
+
+## ADR-0017 — Canonical Strategy Runtime Contracts
+
+- **Release:** post-`v1.6.0` P01 contract milestone
+- **Status:** Accepted
+- **Purpose:** freeze deterministic evaluation, provenance, profile, MTF, fact-adapter, runtime
+  result, signal-envelope, Capital Risk, Portfolio Risk View, dependency, and compatibility
+  contracts without implementing runtime behavior.
+- **ADR:** [ADR-0017](../adr/ADR-0017-CanonicalStrategyRuntimeContracts.md)
