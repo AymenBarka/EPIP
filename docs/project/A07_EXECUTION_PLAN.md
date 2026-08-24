@@ -1187,6 +1187,268 @@ determinism, immutability, fail-closed, reconstruction, ownership, and successor
 pass; publication succeeds; and every applicable exact-SHA remote gate is green. E06 closure
 authorizes no E07 implementation.
 
+### 5.7 E07 normative reward-risk contract
+
+#### Purpose, ownership, files, and dependencies
+
+E07 deterministically derives reward-risk values and applies the policy minimum-RR threshold over
+already canonical executable E04, E05, and E06 geometry. It owns exactly risk, reward, RR, and
+`minimum_rr` acceptance. It does not own entry, stop, or target construction; direction
+resolution; evidence; analytical, Elliott, Fibonacci, or trend calculations; confidence;
+expiration; signal closure; execution; broker behavior; or MT5 behavior.
+
+The future implementation scope is exactly `epip/a07/reward_risk.py` and
+`tests/a07/test_reward_risk.py`. E07 exports exactly `RewardRiskOutcome`,
+`RewardRiskValidation`, and `RewardRiskDiagnostics`; helpers and constants remain private. No
+production or test implementation is authorized by this governance contract.
+
+Authorized direct dependencies are narrow Python standard-library numeric, immutable-value, and
+typing facilities; E04 `EntryValidation`; E05 `StopValidation`; E06 `TargetValidation`; and core
+`DataIntegrityError`. E00 `StrategyDirection` may be imported only when required for exact BUY/SELL
+branching. E07 must not directly import E01, E02, E03, A05, A06, analytics, providers, market data,
+Fibonacci or Elliott computation, confidence, expiration, signals, execution, broker, MT5, E08 or
+later packages, or external-state services.
+
+#### Public object matrix
+
+All E07 public objects are immutable and runtime-hashable, compare by exact type and every public
+field in documented order, contain no mutable nested state, and own no persistent fingerprint,
+UUID, reference, or digest.
+
+| Object | Purpose | Public fields and exact runtime types | Caller supplied / derived | Validation and canonicalization | Equality, hashing, reconstruction |
+| --- | --- | --- | --- | --- | --- |
+| `RewardRiskOutcome` | Canonical E07 arithmetic result over converged geometry. | `entry_validation: EntryValidation`; `stop_validation: StopValidation`; `target_validation: TargetValidation`; `risk: float`; `reward: float`; `rr: float` | Caller supplies the three exact predecessor validations; risk, reward, and RR are derived. | Requires actionable, value-consistent predecessors; derives positive distances through decimal subtraction and canonical RR through the E07 12-decimal profile. | All six fields participate; reconstruction recomputes all derived values and rejects contradictions. |
+| `RewardRiskValidation` | E07-only minimum-RR acceptance result. | `outcome: RewardRiskOutcome`; `valid: bool`; `diagnostics: RewardRiskDiagnostics` | Caller supplies exact outcome; validity and diagnostics are derived. | Valid exactly when canonical RR is at least authoritative policy `minimum_rr`. | All three fields participate; reconstruction recomputes validity and diagnostics and rejects contradictions. |
+| `RewardRiskDiagnostics` | Closed immutable E07 domain-negative diagnostic value. | `diagnostics: tuple[str, ...]` | Caller supplies exact tuple representation. | Accepts only `()` or `("RR_BELOW_MINIMUM",)`; tuple must already be canonical. | Tuple participates; direct reconstruction accepts only either canonical state. |
+
+#### Predecessor convergence, actionability, and policy continuity
+
+`RewardRiskOutcome` directly consumes exact `EntryValidation`, `StopValidation`, and
+`TargetValidation` runtime types. The directly supplied entry validation is the canonical reference
+entry. The following value-equality invariants are mandatory:
+
+```text
+stop_validation.stop.entry_validation == entry_validation
+target_validation.target.entry_validation == entry_validation
+```
+
+Python object identity is not required. Independently reconstructed but value-equal frozen
+predecessors are accepted. A stop or target referencing a value-unequal entry raises
+`DataIntegrityError`; this is structural corruption, not an RR rejection.
+
+All three validations must have `valid is True` and their frozen canonical validation state. The
+entry direction must resolve to exactly `StrategyDirection.BUY` or `StrategyDirection.SELL`.
+Wrong types, invalid validations, malformed validation state, continuity mismatch, or `NO_TRADE`
+raise `DataIntegrityError`; no `RewardRiskOutcome` is created.
+
+E07 accepts no separate policy or `minimum_rr` parameter. Its authoritative policy and threshold
+are reached only through:
+
+```text
+entry_validation.entry.direction_validation.decision.policy
+entry_validation.entry.direction_validation.decision.policy.minimum_rr
+```
+
+Stop and target policy continuity follows from their required entry-validation value equality.
+E07 neither selects nor recomputes policy and does not duplicate policy state.
+
+#### Canonical prices and directional distance formulas
+
+E07 reads the already canonical predecessor prices exactly as:
+
+```text
+entry  = entry_validation.entry.price
+stop   = stop_validation.stop.price
+target = target_validation.target.price
+```
+
+It must not re-round, quantize, mutate, correct, or otherwise recreate E04, E05, or E06 price
+normalization. It converts each canonical float operand with `Decimal(str(value))` for E07-owned
+distance arithmetic. Raw binary-float subtraction is not the normative operation.
+
+For BUY, the exact formulas are:
+
+```text
+risk_decimal   = Decimal(str(entry)) - Decimal(str(stop))
+reward_decimal = Decimal(str(target)) - Decimal(str(entry))
+```
+
+For SELL, the exact formulas are:
+
+```text
+risk_decimal   = Decimal(str(stop)) - Decimal(str(entry))
+reward_decimal = Decimal(str(entry)) - Decimal(str(target))
+```
+
+Both derived decimals must be finite and strictly positive. Zero, negative, or non-finite risk or
+reward raises `DataIntegrityError`. No absolute-value fallback, epsilon, tolerance, correction, or
+distance minimum exists. E07 may enforce positive arithmetic integrity but must not recreate stop
+or target selection and normalization.
+
+Risk and reward are not re-quantized to `policy.numeric_precision`. After decimal validation,
+their canonical public values are exactly `float(risk_decimal)` and `float(reward_decimal)`, both
+exact built-in floats that must remain finite and strictly positive.
+
+#### RR calculation and canonical profile
+
+RR means reward divided by risk, exactly:
+
+```text
+rr_decimal = reward_decimal / risk_decimal
+```
+
+Reward is the numerator and risk is the denominator. Risk must already be strictly positive; a
+zero denominator is structural corruption raising `DataIntegrityError`. There is no inverse,
+absolute, alternative, or binary-float division formula.
+
+RR is not a price, so E01 `numeric_precision` must not quantize it. E07 owns this dedicated RR
+canonical profile:
+
+```text
+rr_canonical_decimal = rr_decimal.quantize(
+    Decimal("0.000000000001"),
+    rounding=ROUND_HALF_EVEN,
+)
+rr = float(rr_canonical_decimal)
+```
+
+The public RR therefore has 12-decimal canonical precision and exact built-in `float` runtime
+type. It must be finite and strictly positive. A negative-zero result is canonicalized to positive
+`0.0` and then rejected. Instrument price precision cannot alter RR precision or acceptance.
+
+#### Minimum-RR comparison and domain result
+
+The authoritative threshold is the frozen E01 float reached through the reference entry's policy.
+E07 converts it for comparison as:
+
+```text
+minimum_rr_decimal = Decimal(str(policy.minimum_rr))
+accepted = rr_canonical_decimal >= minimum_rr_decimal
+```
+
+Comparison occurs after RR canonicalization and in the Decimal domain. It uses no epsilon,
+tolerance, `math.isclose`, binary-float comparison, or additional threshold rounding. Exact
+equality is accepted. A canonical RR above the threshold is accepted; one below it is a
+well-formed E07 domain-negative result.
+
+Below-threshold geometry still produces `RewardRiskOutcome`: entry, stop, target, risk, reward,
+and RR remain valid. E07 must not raise solely for a low RR, change direction, move geometry, or
+create fallback geometry.
+
+#### `RewardRiskOutcome`
+
+The exact fields, constructor/equality order, and ownership are:
+
+| Field | Type | Ownership |
+| --- | --- | --- |
+| `entry_validation` | `EntryValidation` | Caller supplied; canonical reference entry. |
+| `stop_validation` | `StopValidation` | Caller supplied; must reference a value-equal entry. |
+| `target_validation` | `TargetValidation` | Caller supplied; must reference a value-equal entry. |
+| `risk` | `float` | Derived canonical directional risk distance. |
+| `reward` | `float` | Derived canonical directional reward distance. |
+| `rr` | `float` | Derived canonical 12-decimal reward/risk ratio. |
+
+The ordinary constructor accepts only the three predecessor validations. Callers cannot choose
+authoritative risk, reward, or RR. Reconstruction accepts the three predecessors plus serialized
+public `risk`, `reward`, and `rr`; each supplied derived value must have exact built-in float type
+and exactly equal the independently recomputed canonical public value. Any mismatch, non-finite or
+non-positive supplied value, or other contradiction raises `DataIntegrityError`. Round trips
+preserve exact equality, runtime hash, all three numeric values, and predecessor value continuity.
+
+#### `RewardRiskValidation` and `RewardRiskDiagnostics`
+
+`RewardRiskValidation` means only E07 reward-risk acceptance. Its ordinary constructor accepts one
+exact `RewardRiskOutcome` and derives:
+
+```text
+accepted: valid=True,  diagnostics=RewardRiskDiagnostics(())
+rejected: valid=False, diagnostics=RewardRiskDiagnostics(("RR_BELOW_MINIMUM",))
+```
+
+It does not mean that confidence, expiration, final signal, order, or execution is approved.
+Reconstruction accepts `outcome`, `valid`, and `diagnostics`, requires exact bool and diagnostics
+types, recomputes both derived fields from the outcome and authoritative threshold, and raises
+`DataIntegrityError` for any contradiction.
+
+`RewardRiskDiagnostics` has the sole field `diagnostics: tuple[str, ...]`. Its complete known code
+vocabulary is `RR_BELOW_MINIMUM`. Input must be an exact immutable tuple already in canonical
+lexicographic order. The only valid states are `()` and `("RR_BELOW_MINIMUM",)`. Mutable
+containers, unknown or malformed codes, duplicates, and non-canonical states raise
+`DataIntegrityError`. No predecessor diagnostic is propagated. Structural failures raise rather
+than becoming E07 diagnostics.
+
+#### Malformed and domain-negative classification
+
+| Condition | Classification and exact behavior |
+| --- | --- |
+| Wrong `EntryValidation`, `StopValidation`, or `TargetValidation` type | Structural `DataIntegrityError`. |
+| Invalid or malformed predecessor validation | Structural `DataIntegrityError`. |
+| `NO_TRADE` predecessor | Structural `DataIntegrityError`; no outcome. |
+| Stop-entry or target-entry value mismatch | Structural `DataIntegrityError`. |
+| Non-positive or non-finite risk | Structural `DataIntegrityError`. |
+| Non-positive or non-finite reward | Structural `DataIntegrityError`. |
+| Zero denominator or non-positive/non-finite canonical RR | Structural `DataIntegrityError`. |
+| Contradictory reconstructed derived state | Structural `DataIntegrityError`. |
+| Canonical RR below `minimum_rr` | Well-formed domain-negative validation: `valid=False`, diagnostics exactly `("RR_BELOW_MINIMUM",)`. |
+| Canonical RR equal to or above `minimum_rr` | Accepted validation: `valid=True`, diagnostics exactly `()`. |
+
+#### Trust boundary, determinism, and successor isolation
+
+E07 verifies exact predecessor types, validation actionability, and reference-entry value
+continuity; reads canonical entry, stop, and target; derives its own distances and ratio; and
+derives its own threshold acceptance. It must not recompute E01 identity/fingerprint or policy
+validity, E02 evidence validity, E03 consensus, E04 entry normalization, E05 stop selection or
+normalization, or E06 target selection or normalization.
+
+Equivalent immutable predecessor geometry produces identical risk, reward, RR, validity,
+diagnostics, equality, hash, and reconstruction. Behavior is independent of clock, timezone,
+locale, environment, filesystem, network, market data, provider, broker, MT5, randomness, process
+state, mutable global state, registry, and cache.
+
+E08 exclusively owns confidence and expiration. E07 must not calculate confidence, read confidence
+thresholds, apply time decay, derive expiration, read clocks, or modify acceptance using confidence
+or expiration. E09 owns final signal assembly, validation, and closure. Execution is outside E07.
+An accepted `RewardRiskValidation` is only an E07 result and is not final-signal or execution
+authorization.
+
+#### Normative numeric examples
+
+For BUY with entry `100.0`, stop `95.0`, and target `115.0`, risk is `5.0`, reward is
+`15.0`, and canonical RR is `3.0`. For SELL with entry `100.0`, stop `105.0`, and target `85.0`,
+risk is `5.0`, reward is `15.0`, and canonical RR is `3.0`. With `minimum_rr=3.0`, both are
+accepted because equality satisfies `RR >= minimum_rr`.
+
+With risk `5`, reward `14`, and `minimum_rr=3.0`, raw and canonical RR are `2.8`; validation is
+`valid=False` with diagnostics exactly `("RR_BELOW_MINIMUM",)`.
+
+Threshold comparison uses canonical 12-decimal RR. A raw decimal RR of `2.9999999999996`
+half-even quantizes to `3.000000000000` and is accepted against `3.0`; a raw decimal RR of
+`2.9999999999994` quantizes to `2.999999999999` and is rejected. Implementations derive these
+values through Decimal arithmetic, never binary-float approximation.
+
+#### Future test contract and closure
+
+Future E07 tests must cover exact public fields and runtime types; wrong predecessor types; BUY and
+SELL risk, reward, and RR formulas; `Decimal(str(...))` arithmetic; 12-decimal RR half-even
+canonicalization and public float conversion; authoritative `minimum_rr` access and comparison
+after RR canonicalization; below, exact-equality, and above-threshold results; zero/non-positive
+risk and reward and non-finite derived-state rejection; stop-entry and target-entry mismatch;
+independently reconstructed value-equal predecessors; `NO_TRADE`; validation semantics;
+`RR_BELOW_MINIMUM`; unknown, duplicate, malformed, mutable, and non-canonical diagnostics;
+immutability and nested immutability; exact-type equality; hashing; reconstruction and every
+contradictory reconstruction; determinism and external-state independence; E04/E05/E06
+compatibility; absence of direct E01-E03, A05/A06, and E08+ imports; and confidence, expiration,
+signal, and execution isolation. No arbitrary exact E07 test count is prescribed.
+
+The canonical pre-E07 baseline is 2448. This governance reconciliation adds no tests, so required
+collection remains `2448 + 0 = 2448`, with no predecessor node removal. A future E07
+implementation reports its actual contribution and requires post-E07 collection to equal
+`2448 + actual E07 contribution`. E07 may close only after its two authorized implementation files
+alone are committed; focused, predecessor, collection, full-regression, coverage, static,
+determinism, immutability, fail-closed, reconstruction, ownership, and successor-isolation gates
+pass; publication succeeds; and every applicable exact-SHA remote gate is green. E07 closure
+authorizes no E08 implementation.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
