@@ -145,3 +145,14 @@ history or create it through the normal ADR review process.
   result, signal-envelope, Capital Risk, Portfolio Risk View, dependency, and compatibility
   contracts without implementing runtime behavior.
 - **ADR:** [ADR-0017](../adr/ADR-0017-CanonicalStrategyRuntimeContracts.md)
+
+## ADR-0018 — Typed Strategy Mapping and Analytical Availability Boundaries
+
+- **Milestone:** P02-F00 additive contract foundation
+- **Status:** Accepted
+- **Purpose:** preserve frozen P01 while adding typed instrument, availability, revision, MTF source,
+  and semantic mapping-profile schemas. P04 retains concrete Elliott/Fibonacci rules and P05
+  retains concrete MTF direction.
+- **ADR:** [ADR-0018](../adr/ADR-0018-TypedStrategyMappingAndAvailabilityBoundaries.md)
+- **Specification:**
+  [P02-F00 Additive Strategy Mapping Foundation](P02_F00_ADDITIVE_MAPPING_FOUNDATION.md)
