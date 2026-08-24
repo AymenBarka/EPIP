@@ -49,7 +49,7 @@ E00 -> E01 -> E02 -> E03 -> E04
                               | +-> E05
                               | +-> E06
 E03 + E04 + E05 + E06 -> E07
-E02 + E03 + E07 -> E08
+E00 + E02 + E03 + E07 -> E08
 E02 + E03 + E04 + E05 + E06 + E07 + E08 -> E09
 ```
 
@@ -81,8 +81,9 @@ no candidate precedence, target selection, or RR-derived fallback.
 
 E07 validates finite positive risk/reward and `RR >= minimum_rr`, plus immutable risk acceptance.
 
-E08 computes confidence in `[0,1]`, applies `confidence >= minimum_confidence`, derives
-expiry from immutable evaluation time and policy, and never reads the wall clock.
+E08 canonicalizes one caller-supplied confidence fact in `[0,1]`, applies
+`confidence >= minimum_confidence`, derives expiry from the immutable E00 evaluation request and
+policy, and never reads the wall clock.
 
 E09 validates identity, policy, evidence, provenance, direction, geometry, RR, confidence,
 expiry, and diagnostics without recomputation. BUY/SELL require complete geometry.
@@ -1448,6 +1449,274 @@ alone are committed; focused, predecessor, collection, full-regression, coverage
 determinism, immutability, fail-closed, reconstruction, ownership, and successor-isolation gates
 pass; publication succeeds; and every applicable exact-SHA remote gate is green. E07 closure
 authorizes no E08 implementation.
+
+### 5.8 E08 normative confidence and expiration contract
+
+#### Purpose, ownership, files, and dependencies
+
+E08 binds one caller-supplied immutable confidence fact to already accepted E02, E03, and E07
+results, applies the policy minimum-confidence threshold, and derives deterministic expiration
+metadata from the immutable E00 evaluation request and E01 policy duration. It owns confidence
+canonicalization, `minimum_confidence` acceptance, expiration derivation, validation, and E08
+diagnostics. The predecessor references are its complete rationale inputs; E08 defines no separate
+scoring explanation or analytical-rationale taxonomy.
+
+The future implementation scope is exactly `epip/a07/confidence.py` and
+`tests/a07/test_confidence.py`. E08 exports exactly `StrategyConfidence`, `SignalExpiration`,
+`ConfidenceValidation`, and `ConfidenceDiagnostics`; helpers and constants remain private. This
+governance contract authorizes no implementation.
+
+E08 directly consumes exact E00 `StrategyEvaluationRequest`, E02 `EvidenceValidation`, E03
+`DirectionValidation`, and E07 `RewardRiskValidation` objects. The direct E00 dependency is the
+authoritative immutable path to `evaluation_timestamp`; no frozen predecessor is changed to
+duplicate it. E01 policy is reached indirectly through E03 and E07 continuity.
+
+Allowed direct imports are deterministic Python standard-library immutable-value, numeric, typing,
+and datetime facilities; the four predecessor types just named; and core `DataIntegrityError`.
+Direct E01, E04, E05, and E06 imports are forbidden. Their values remain reachable only through
+the frozen chain. A05, A06, E09+, analytics, providers, market data, replay clocks, filesystem,
+network, execution, broker, and MT5 imports are forbidden.
+
+#### Common object rules
+
+All four public objects are immutable and runtime-hashable, compare by exact type and every public
+field in documented order, and contain only immutable nested values. Every field participates in
+equality and `hash()`. E08 owns no persistent fingerprint, UUID, reference, or digest.
+
+Ordinary constructors accept only fields identified below as caller supplied and derive every
+other field. Each class provides `reconstruct`, accepting all public fields in documented order.
+Reconstruction independently recomputes derived state and requires exact equality with supplied
+derived values. Wrong types, non-canonical values, and contradictions raise `DataIntegrityError`.
+Round trips preserve equality, runtime hash, canonical confidence, canonical timestamps, and
+predecessor value continuity.
+
+#### Exact predecessor topology and hard gates
+
+`StrategyConfidence` consumes exact runtime types `EvidenceValidation`, `DirectionValidation`, and
+`RewardRiskValidation`. The directly supplied E02 value is the canonical evidence reference. The
+mandatory value-equality invariants are:
+
+```text
+direction_validation.decision.evidence_validation == evidence_validation
+reward_risk_validation.outcome.entry_validation.entry.direction_validation
+    == direction_validation
+```
+
+Object identity is not required; independently reconstructed value-equal predecessors are valid.
+All three validations must have `valid is True` and frozen canonical state, and direction must be
+exactly `StrategyDirection.BUY` or `StrategyDirection.SELL`. Wrong types, malformed or invalid
+evidence, non-actionable direction, `NO_TRADE`, failed RR acceptance, or continuity mismatch raises
+`DataIntegrityError`; no confidence object is created. Confidence never compensates for a failed
+hard gate. Predecessor diagnostic strings are not copied or reinterpreted.
+
+The authoritative policy is exactly
+`direction_validation.decision.policy`. E07 policy continuity follows through the required
+direction-validation equality. E08 accepts no separate policy, threshold, or duration argument.
+
+#### Caller-supplied confidence fact and numeric model
+
+E08 adopts one model: the caller supplies one immutable normalized strategy-assessment fact after
+upstream analysis produced the E02/E03/E07 results. The caller owns the semantic calculation that
+produced this fact. E08 does not derive, weight, average, boost, penalize, or infer confidence from
+evidence counts, freshness, direction votes, RR magnitude, Elliott facts, trend, or structure. Its
+predecessors are hard gates and immutable rationale references only and contribute no numeric
+weight. There is no hidden heuristic or E08 derivation formula.
+
+Confidence must have exact built-in `float` type. Integers, booleans, `Decimal`, strings, and float
+subclasses are rejected. It must be finite and within inclusive `0.0..1.0`. NaN, either infinity,
+and values outside the range raise `DataIntegrityError`. Negative zero canonicalizes to positive
+`0.0`; every other value is stored as the exact supplied float. E08 applies no quantization or
+rounding and never uses `policy.numeric_precision`. Its comparison representation is exactly
+`Decimal(str(confidence))`.
+
+#### `StrategyConfidence`
+
+Its exact fields, constructor/equality order, and ownership are:
+
+| Field | Exact runtime type | Source and contract |
+| --- | --- | --- |
+| `evidence_validation` | `EvidenceValidation` | Caller-supplied exact E02 hard-gate result. |
+| `direction_validation` | `DirectionValidation` | Caller-supplied exact E03 result; converges with E02. |
+| `reward_risk_validation` | `RewardRiskValidation` | Caller-supplied exact E07 result; converges with E03. |
+| `confidence` | `float` | Caller-supplied fact, validated and canonicalized by E08. |
+
+The constructor accepts those four fields only and derives no score. Reconstruction accepts the
+same predecessors and serialized confidence, repeats validation and canonicalization, and requires
+exact equality with canonical confidence.
+
+#### Minimum-confidence threshold
+
+The threshold is reached only through
+`strategy_confidence.direction_validation.decision.policy.minimum_confidence`. After confidence
+canonicalization, E08 computes:
+
+```text
+accepted = (
+    Decimal(str(strategy_confidence.confidence))
+    >= Decimal(str(policy.minimum_confidence))
+)
+```
+
+There is no epsilon, tolerance, `math.isclose`, binary-float threshold decision, or threshold
+rounding. Equality and values above the threshold are accepted. A value below the threshold is a
+well-formed domain-negative result and does not alter confidence, RR, direction, or geometry.
+
+#### Deterministic expiration and request continuity
+
+`SignalExpiration` consumes exact `StrategyEvaluationRequest` and `StrategyConfidence` values.
+Policy is reached through `strategy_confidence.direction_validation.decision.policy`. The request
+must satisfy:
+
+```text
+request.strategy_identity == policy.strategy_identity
+request.policy_reference == policy.identity.reference
+all(
+    snapshot.evidence_identity == request.evidence_identity
+    for snapshot in strategy_confidence.evidence_validation.binding.available_evidence
+)
+```
+
+The last invariant is vacuously true for an empty policy-valid binding. Any mismatch raises
+`DataIntegrityError`. The base timestamp is exactly `request.evaluation_timestamp`; duration is
+exactly `policy.expiration_seconds`, already validated by E01 as a positive non-boolean integer in
+seconds. No separate timestamp or duration is accepted.
+
+E08 parses the E00 timestamp with `datetime.fromisoformat`, matching E00. Any timezone-aware offset
+accepted by that parser is accepted, including `Z`, UTC, and positive or negative fixed offsets.
+Parse failure, timezone-naive input, missing `utcoffset`, datetime overflow, or impossible
+derivation raises `DataIntegrityError`.
+
+Both base and expiry instants normalize to UTC. Their canonical public representation is an exact
+`str` produced with `isoformat(timespec="microseconds")`, replacing terminal `+00:00` with uppercase
+`Z`: exactly `YYYY-MM-DDTHH:MM:SS.ffffffZ`. Six fractional digits are always present. Parsed input
+fractions are represented at Python datetime's exact microsecond precision; no original offset
+spelling survives in derived canonical fields.
+
+The exact formula is:
+
+```text
+evaluation_instant = datetime.fromisoformat(request.evaluation_timestamp)
+evaluation_utc = evaluation_instant.astimezone(timezone.utc)
+expires_utc = evaluation_utc + timedelta(seconds=policy.expiration_seconds)
+```
+
+No `datetime.now()`, `datetime.utcnow()`, `time.time()`, system or replay clock, timezone-local
+current state, or live comparison is allowed. `SignalExpiration` is metadata only and never asks
+whether a signal is expired now. A future live decision requires an explicit immutable comparison
+time and an authorized successor or runtime contract.
+
+#### `SignalExpiration`
+
+Its fields, constructor/equality order, and ownership are:
+
+| Field | Exact runtime type | Source and contract |
+| --- | --- | --- |
+| `request` | `StrategyEvaluationRequest` | Caller-supplied exact E00 request. |
+| `strategy_confidence` | `StrategyConfidence` | Caller-supplied exact E08 confidence value. |
+| `evaluation_timestamp` | `str` | Derived canonical UTC request timestamp. |
+| `expiration_seconds` | `int` | Derived exact positive policy duration in seconds. |
+| `expires_at` | `str` | Derived canonical UTC timestamp from the formula. |
+
+The constructor accepts only `request` and `strategy_confidence`. Reconstruction accepts all five
+fields, recomputes the three derived fields, and rejects an exact-value or type contradiction.
+Correct expiration metadata remains structurally valid as an immutable value; passage of wall time
+cannot mutate it or make E08 validation false.
+
+#### Diagnostics and validation
+
+`ConfidenceDiagnostics` has one field, `diagnostics: tuple[str, ...]`. Input must be an exact tuple
+of exact strings already in lexicographic order. The closed vocabulary contains only
+`CONFIDENCE_BELOW_MINIMUM`; the only valid states are `()` and
+`("CONFIDENCE_BELOW_MINIMUM",)`. Unknown or malformed values, mutable containers, duplicates, and
+non-canonical order raise `DataIntegrityError`. Simultaneous E08 diagnostics cannot occur.
+Construction and reconstruction accept the tuple field and enforce identical rules.
+
+`ConfidenceValidation` means only E08 predecessor continuity, confidence acceptance, and structural
+expiration consistency; it is not final-signal authorization. Its fields are:
+
+| Field | Exact runtime type | Source and derivation |
+| --- | --- | --- |
+| `strategy_confidence` | `StrategyConfidence` | Caller-supplied exact E08 value. |
+| `signal_expiration` | `SignalExpiration` | Caller-supplied exact E08 expiration. |
+| `valid` | `bool` | Derived solely from confidence meeting the threshold. |
+| `diagnostics` | `ConfidenceDiagnostics` | Derived empty or below-minimum state. |
+
+The constructor accepts only `strategy_confidence` and `signal_expiration` and requires
+`signal_expiration.strategy_confidence == strategy_confidence`; mismatch raises
+`DataIntegrityError`. Predecessor gates and expiration structure were enforced by their owning E08
+objects. It derives exactly:
+
+```text
+accepted: valid=True,  diagnostics=ConfidenceDiagnostics(())
+rejected: valid=False, diagnostics=ConfidenceDiagnostics(
+    ("CONFIDENCE_BELOW_MINIMUM",)
+)
+```
+
+Reconstruction accepts all four fields, requires exact built-in `bool` and exact diagnostics type,
+recomputes both derived fields, and rejects contradictions. Expiration contributes structural
+integrity only; no live time affects `valid`.
+
+#### Malformed, domain-negative, and successor-owned classification
+
+| Condition | Exact behavior |
+| --- | --- |
+| Wrong E00, E02, E03, E07, or E08 public-object runtime type | Structural `DataIntegrityError`. |
+| Invalid/malformed E02 validation | Structural `DataIntegrityError`; no confidence object. |
+| Invalid/non-actionable E03 validation or `NO_TRADE` | Structural `DataIntegrityError`; no confidence object. |
+| Rejected E07 validation | Structural `DataIntegrityError`; confidence cannot compensate. |
+| Any predecessor value-continuity mismatch | Structural `DataIntegrityError`. |
+| Wrong confidence type, including bool, int, `Decimal`, string, or subclass | Structural `DataIntegrityError`. |
+| NaN, infinity, confidence below zero, or confidence above one | Structural `DataIntegrityError`. |
+| Confidence below `minimum_confidence` | Domain-negative validation with exactly `CONFIDENCE_BELOW_MINIMUM`. |
+| Confidence equal to or above `minimum_confidence` | Accepted validation with empty diagnostics. |
+| Malformed or timezone-naive evaluation timestamp | Structural `DataIntegrityError`. |
+| Invalid expiration duration | Frozen E01 structural failure; malformed reconstructed state raises `DataIntegrityError`. |
+| Request/policy/evidence continuity mismatch | Structural `DataIntegrityError`. |
+| Derived timestamp or expiration contradiction | Structural `DataIntegrityError`. |
+| Unknown, duplicate, mutable, malformed, or non-canonical diagnostics | Structural `DataIntegrityError`. |
+| Expiration compared with external current time | Not evaluated by E08; explicit-time successor/runtime responsibility. |
+
+Structural failures never become `CONFIDENCE_BELOW_MINIMUM`, predecessor codes are not propagated,
+and E08 creates no fallback state.
+
+#### Determinism, trust boundary, and E09 isolation
+
+E08 checks predecessor types, actionability, and continuity; validates and stores confidence;
+applies the policy threshold; and derives expiration metadata. It does not recompute evidence,
+direction, geometry, risk, reward, RR, policy fingerprints, or predecessor diagnostics. Equivalent
+immutable inputs produce identical public values, equality, hashes, and reconstruction.
+
+E08 is independent of wall clock, timezone-local current state, locale, filesystem, network,
+environment, providers, market data, broker, MT5, randomness, process identity, unordered
+iteration, mutable globals, registries, and caches.
+
+E09 exclusively owns final signal construction, integrated validation, and closure. E08 does not
+construct or authorize a final BUY/SELL signal; mutate direction, entry, stop, or target; create a
+broker payload; execute; or access MT5. E09 may later consume frozen E08 results.
+
+#### Future E08 test contract and closure
+
+Future tests must cover exact exports, field order, runtime types, and constructor signatures;
+predecessor convergence and value-equal reconstruction; invalid E02, non-actionable E03, rejected
+E07, `NO_TRADE`, and continuity mismatches; caller-supplied confidence and absence of weighting;
+bounds, negative zero, threshold below/equal/above, bool, int, `Decimal`, string, subclass, NaN, and
+both infinities; no-rounding storage and Decimal comparison; E00 request continuity; UTC and
+positive/negative offsets; malformed/timezone-naive input; duration and seconds unit; exact expiry
+formula; UTC normalization, uppercase `Z`, six fractional digits, fractional preservation, and
+overflow; wall-clock independence and absence of live evaluation; diagnostics and malformed forms;
+validation; exact-type equality, hashing, immutability and nested immutability; reconstruction and
+contradictions; determinism; dependency enforcement; external-state independence; and E09, signal,
+execution, broker, and MT5 isolation. No arbitrary E08 test count is prescribed.
+
+The canonical pre-E08 baseline is 2504. This governance reconciliation adds no tests, so collection
+remains `2504 + 0 = 2504`, with zero predecessor node removal. Future implementation reports its
+actual contribution and requires post-E08 collection to equal `2504 + actual E08 contribution`.
+E08 may close only after its two implementation files alone are committed; all focused,
+predecessor, collection, full-regression, coverage, static, documentation, determinism,
+immutability, fail-closed, reconstruction, ownership, and successor-isolation gates pass;
+publication succeeds; and every applicable exact-SHA remote gate is green. E08 closure authorizes
+no E09 implementation.
 
 ## 6. Hard gates and diagnostics
 
