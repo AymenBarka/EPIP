@@ -671,6 +671,170 @@ A05, A06, collection, full-regression, coverage, static, determinism, immutabili
 reconstruction, ownership, and successor-isolation gates pass; publication succeeds; and every
 applicable exact-SHA remote gate is green. E03 closure authorizes no E04 implementation.
 
+### 5.4 E04 normative entry contract
+
+#### Purpose, ownership, files, and dependencies
+
+E04 converts one caller-authorized immutable price zone into one canonical executable entry price.
+It owns entry-fact validation, policy-precision normalization, direction-sensitive boundary
+selection, entry integrity validation, and E04 diagnostics. It does not discover a zone, optimize
+an entry, or inspect analytical payloads, current price, stop, target, risk, reward, RR,
+`minimum_rr`, confidence, expiration, or execution state.
+
+Its only production and test files are `epip/a07/entry.py` and `tests/a07/test_entry.py`. It exports
+exactly `EntryFacts`, `EntryPrice`, `EntryValidation`, and `EntryDiagnostics`; helpers and constants
+remain private. Allowed imports are Python standard-library decimal, finite-number, dataclass, and
+typing facilities; `StrategyDirection` from E00; `DirectionValidation` from E03; and
+`DataIntegrityError` from `epip.core.integrity`. E04 obtains the frozen `StrategyPolicy`, including
+`numeric_precision`, through `direction_validation.decision.policy`; it neither accepts a second
+policy argument nor directly imports E01. It does not import E02, A05, A06, E05+, analytical
+engines, providers, market data, filesystem, network, clock, environment, random, broker, MT5, or
+execution facilities.
+
+All four public objects are immutable and hashable, compare by exact type and all declared public
+fields in documented order, contain no mutable nested state, and own no persistent fingerprint or
+digest. Wrong types, malformed prices, invalid predecessor state, impossible zones, precision
+collapse, or contradictory reconstruction raise `DataIntegrityError`. E04 performs no exception
+fallback and never represents an executable entry with a sentinel value.
+
+#### Numeric model and normalization
+
+Every caller price must have exact runtime type `float`; booleans, integers, `Decimal`, strings,
+and foreign numeric types fail. Values must be finite and strictly greater than zero. `EntryFacts`
+stores the validated caller floats unchanged; it has no policy or precision input.
+
+Entry derivation converts each raw bound through `Decimal(str(value))`, then quantizes it to
+`Decimal(1).scaleb(-numeric_precision)` with `ROUND_HALF_EVEN`. The quantized value is converted
+back to built-in `float`. A zero result, including a negative zero, is canonicalized to positive
+`0.0`; because executable prices must remain strictly positive, normalization to zero raises
+`DataIntegrityError`. Normalization occurs before zone comparison, boundary selection, derived
+price equality, and entry validation.
+
+The raw and normalized bounds must both satisfy lower less than or equal to upper. If distinct raw
+bounds normalize to the same value, construction raises `DataIntegrityError` for precision
+collapse. Equal raw bounds are explicitly supported and produce one equal normalized boundary.
+No tick size, broker precision, locale, or binary-float rounding operation participates.
+
+#### `EntryFacts`
+
+The exact fields, constructor order, equality order, and reconstruction order are:
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `zone_lower` | `float` | Yes | Caller-supplied finite positive lower price bound. |
+| `zone_upper` | `float` | Yes | Caller-supplied finite positive upper price bound. |
+
+Both fields are caller supplied and stored without rounding. `zone_lower <= zone_upper` is required
+at construction; reversed raw bounds are malformed rather than a domain-negative result. The zone
+is already authorized by upstream analysis. E04 assigns no Elliott, Fibonacci, trend, structure,
+MTF, liquidity, confidence, or RR meaning to it. Exactly one zone is accepted per evaluation; E04
+has no candidate collection, ranking, selection, weighting, or permutation semantics.
+
+Direct reconstruction passes both public fields to the constructor and preserves exact equality
+and runtime hash. Missing and unexpected arguments fail through the Python signature.
+
+#### `EntryPrice`
+
+The exact fields, in constructor, equality, and public representation order, are:
+
+| Field | Type | Ownership |
+| --- | --- | --- |
+| `direction_validation` | `DirectionValidation` | Caller supplied; exact frozen E03 object. |
+| `entry_facts` | `EntryFacts` | Caller supplied; exact E04 raw fact object. |
+| `price` | `float` | Derived canonical executable entry price. |
+
+The public constructor accepts only `direction_validation` and `entry_facts`. Both must be exact
+types. The predecessor must have `valid is True`, empty E03 diagnostics, and a decision direction
+of exactly BUY or SELL. Any internally contradictory E03 object is impossible through its frozen
+public contract; a well-formed invalid validation or `NO_TRADE` direction is rejected with
+`DataIntegrityError` because `EntryPrice` represents executable geometry only.
+
+After normalizing and validating both bounds with the predecessor policy's `numeric_precision`,
+the exact formulas are:
+
+```text
+BUY  price = normalized zone_upper
+SELL price = normalized zone_lower
+```
+
+This is the first executable boundary of the already-authorized zone in resolved trade direction.
+E04 does not use current market price, optimize the entry, calculate Fibonacci, select by RR, or
+inspect stop or target. No other BUY or SELL formula exists.
+
+Reconstruction accepts `direction_validation`, `entry_facts`, and `price`. It requires exact float
+type for the supplied price, reconstructs from the first two fields, and requires supplied price
+to equal the recomputed canonical float exactly. Non-finite, non-positive, noncanonical, or
+contradictory supplied prices raise `DataIntegrityError`.
+
+#### `EntryDiagnostics` and `EntryValidation`
+
+`EntryDiagnostics` has the sole field `diagnostics: tuple[str, ...]`. The E04 diagnostic code set
+is intentionally empty because all E04-owned invalid states prevent construction of executable
+entry geometry. Therefore only the empty tuple is valid. The input must be an actual tuple;
+non-empty tuples, unknown strings, duplicates, malformed members, and mutable containers raise
+`DataIntegrityError`. The stored tuple is immutable and already in its sole canonical order.
+Direct reconstruction from the empty tuple preserves equality and hash.
+
+`EntryValidation` is the immutable integrity validation of a successfully constructed canonical
+entry, not final trade eligibility and not a domain-rejection service. Its exact derived public
+fields, in equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `entry` | `EntryPrice` | Exact caller-supplied executable entry. |
+| `valid` | `bool` | Always true for a successfully constructed exact `EntryPrice`. |
+| `diagnostics` | `EntryDiagnostics` | Always the canonical empty diagnostics object. |
+
+The public constructor accepts only `entry`; wrong types raise `DataIntegrityError`. It validates
+that the entry equals a fresh canonical reconstruction from its predecessor and facts, without
+recomputing E03 direction or upstream analytics. Reconstruction accepts all three public fields,
+recomputes `valid` and diagnostics, and rejects wrong types or contradictions. A `NO_TRADE` or
+invalid-E03 domain outcome has no `EntryPrice` and therefore no `EntryValidation`; callers retain
+the predecessor result rather than manufacture empty or zero geometry.
+
+#### Error classification, determinism, and successor isolation
+
+Wrong public/predecessor types; missing or unexpected arguments; mutable diagnostic containers;
+wrong price types; non-finite, non-positive, reversed, zero-normalized, or precision-collapsed
+bounds; non-actionable E03 validation; unknown or duplicate diagnostics; and contradictory
+reconstruction are structural contract failures raising `DataIntegrityError`. There are no
+E04-owned well-formed negative entry states after an executable `EntryPrice` exists, so E04 has no
+non-empty diagnostic result. Predecessor `NO_TRADE` remains a well-formed E03 result but is an
+invalid input to the executable E04 object.
+
+Same reconstructed predecessor, raw facts, and policy precision always produce exactly the same
+normalized bounds, price, validation, diagnostics, equality, hash, and reconstruction. Behavior is
+independent of clock, timezone, locale, environment, filesystem, network, market provider, broker,
+MT5, randomness, process state, mutable registry, and cache.
+
+Fibonacci, Elliott, trend, structure, MTF, liquidity, or other upstream analysis may produce the
+authorized zone, but E04 receives only `EntryFacts` and performs none of those calculations. E05
+owns stop geometry; E06 owns target geometry; E07 owns risk, reward, RR, and `minimum_rr`
+acceptance; E08 owns confidence and expiration; E09 owns final signal assembly, validation, and
+closure. E04 exposes none of their fields and imports none of their packages.
+
+#### Required E04 tests and closure
+
+The future E04 test module must cover exact public fields, runtime types, exports, BUY and SELL
+boundary selection, equal bounds, reversed bounds, positive-price enforcement, booleans, integers,
+strings, `Decimal`, NaN, both infinities, precision zero and positive precision, exact half-even
+ties, normalization to positive zero and its rejection, raw-equal versus precision-collapsed
+bounds, actionable and invalid E03 validations, `NO_TRADE`, wrong predecessor and fact types,
+empty diagnostics, every forbidden non-empty diagnostic input, equality, exact-type inequality,
+hashing, immutability, nested immutability, reconstruction, contradictory/noncanonical price and
+validation reconstruction, missing and unexpected arguments, repeated execution, timezone,
+locale, environment, filesystem, network and randomness independence, E00-E03 compatibility,
+direct-import enforcement, one-zone-only behavior, and proof of no Fibonacci, stop, target, RR,
+`minimum_rr`, confidence, expiration, signal, execution, E05+, broker, or MT5 behavior. No exact
+test count is prescribed.
+
+The canonical pre-E04 baseline is 2322. A future implementation reports its actual E04 collected
+contribution and requires post-E04 collection to equal `2322 + contribution`, with no predecessor
+node removal. E04 may close only after its authorized files alone are committed; focused,
+predecessor, collection, full-regression, coverage, static, determinism, immutability, fail-closed,
+reconstruction, ownership, and successor-isolation gates pass; publication succeeds; and every
+applicable exact-SHA remote gate is green. E04 closure authorizes no E05 implementation.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
