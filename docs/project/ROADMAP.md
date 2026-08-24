@@ -37,8 +37,8 @@ timeline
 
 ## Completed releases
 
-- **v1.5.18:** A06 architectural closure, with E00–E09 CLOSED / FROZEN. The release preserves
-  the v1.6.0 Strategy Engine reservation; A07 has no assigned version and is not authorized.
+- **v1.5.18:** A06 architectural closure, with E00-E09 CLOSED / FROZEN. The release preserves
+  the v1.6.0 Strategy Engine reservation.
 
 - **v1.0.0-pre:** completed the core analytical pipeline through Market Context, combining Core,
   EventBus, Feature Store, Market Data, Replay, Swing, Structure, Liquidity, and Fibonacci outputs.
@@ -88,8 +88,10 @@ timeline
 
 ## Planned releases
 
-- **v1.6.0 — Strategy Engine:** orchestrate portfolio-aware strategy policies without duplicating
-  analysis, decision, risk, or execution calculations.
+- **v1.6.0 - Strategy Engine:** A07 implementation is complete with E00-E09 CLOSED / FROZEN and a
+  canonical 2643-test baseline. Final A07 governance closure is pending publication and exact-SHA
+  validation of its completion evidence. Release notes, version update, annotated tag, release
+  validation, and publication require separate release authorization.
 - **v1.7.0 — Monitoring & Observability:** metrics, tracing, health, audit streams, operational
   dashboards, and alerting across engine boundaries.
 - **v2.0.0 — AI Engine:** explainable AI assistance over official snapshots and histories, subject

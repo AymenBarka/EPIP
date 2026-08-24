@@ -1,9 +1,11 @@
 # A07 Execution Plan
 
-Status: APPROVED FOR GOVERNANCE DELIVERY  
-Baseline: A05-v1.0.0 / A06 v1.5.21  
+Status: IMPLEMENTATION COMPLETE / FINAL GOVERNANCE CLOSURE PENDING
+
+Baseline: A05-v1.0.0 / A06 v1.5.21 / A07 final collection 2643
+
 Reserved release: v1.6.0  
-Implementation authorization: E00 ready after this document is published
+Implementation state: E00-E09 CLOSED / FROZEN
 
 ## 1. Mission and boundaries
 
@@ -1934,9 +1936,9 @@ selection, market/pending order choice, spread or slippage check, execution pric
 management, stop/target modification, or position closure. The final A07 signal is broker-agnostic
 and execution-independent.
 
-#### Future E09 test contract and closure
+#### E09 test contract and closure evidence
 
-Future tests must cover exact exports, fields, order, runtime types, and constructor signatures;
+E09 tests cover exact exports, fields, order, runtime types, and constructor signatures;
 valid BUY and SELL signals; `NO_TRADE`, rejected E07, rejected E08, wrong E08 type, and malformed E08
 rejection; every canonical source field; exact policy reference and strategy identity; entry, stop,
 target, risk, reward, RR, confidence, evaluation timestamp, and expiry copying without
@@ -1947,15 +1949,16 @@ immutability and nested immutability; signal reconstruction and each field contr
 success-only validation; empty diagnostics and rejection of every non-empty or mutable state;
 validation reconstruction contradictions; determinism and external-state independence; no
 predecessor recomputation; and broker, MT5, execution, position, sizing, spread, and slippage
-isolation. No arbitrary E09 test count is prescribed.
+isolation. The focused E09 suite contributes 62 tests, all passing. E09 statement and branch
+coverage are both 100%.
 
-The canonical pre-E09 baseline is 2581. This governance reconciliation adds no tests, so collection
-remains `2581 + 0 = 2581`, with zero predecessor-node removal. Future E09 implementation reports
-its actual contribution and requires post-E09 collection to equal
-`2581 + actual E09 contribution`. E09 may close only after its two implementation files alone are
-committed; all focused, predecessor, collection, full-regression, coverage, static, documentation,
-determinism, immutability, fail-closed, reconstruction, ownership, and execution-isolation gates
-pass; publication succeeds; and every applicable exact-SHA remote gate is green.
+Final accounting is `2581 + 62 = 2643`: PRE-E09 is 2581, the E09 contribution is 62, and POST-E09
+is the canonical final A07 collection of 2643. Zero predecessor nodes were removed. E09 was
+published as commit `6a83f4d0151ce23a463c6c9297f4cb088cc623b4` with subject
+`feat(a07): implement E09 signal closure`. Its focused, predecessor, collection, full-regression,
+coverage, static, determinism, immutability, fail-closed, reconstruction, ownership,
+execution-isolation, publication, and applicable exact-SHA remote gates passed. E09 is
+CLOSED / FROZEN.
 
 #### A07 final-closure and release boundary
 
@@ -1965,10 +1968,32 @@ predecessor removal; the full regression passes; overall coverage meets the repo
 E09 statement coverage is 100% and branch coverage is 100% where measured; EventBus stress, Black,
 Ruff, MyPy, `git diff --check`, and all applicable exact-SHA remote workflows pass; the tracked tree
 is clean; `HEAD == origin/develop`; no blockers remain; the final package matrix is complete;
-required completion documentation is published; and release verification is complete.
+required completion documentation is published and validated on its exact commit SHA. Release
+preparation and tag-triggered release validation remain separate actions after A07 closure.
 
-`v1.6.0` remains RESERVED until E00-E09 close, A07 final closure succeeds, and release verification
-succeeds. Creating or pushing the tag and release is a separate explicitly authorized action.
+`v1.6.0` remains RESERVED until E00-E09 close and A07 final closure succeeds. Creating release
+notes, changing the package version, creating or pushing the tag, running tag-triggered release
+validation, and creating the release are separate explicitly authorized actions.
+
+#### Final package matrix and closure evidence
+
+| Package | State |
+| --- | --- |
+| E00 | CLOSED / FROZEN |
+| E01 | CLOSED / FROZEN |
+| E02 | CLOSED / FROZEN |
+| E03 | CLOSED / FROZEN |
+| E04 | CLOSED / FROZEN |
+| E05 | CLOSED / FROZEN |
+| E06 | CLOSED / FROZEN |
+| E07 | CLOSED / FROZEN |
+| E08 | CLOSED / FROZEN |
+| E09 | CLOSED / FROZEN |
+
+The final technical evidence is published in
+[`A07_COMPLETION_EVIDENCE.md`](A07_COMPLETION_EVIDENCE.md). A07 final governance closure remains
+pending until that artifact, this reconciled plan, and the reconciled roadmap are committed,
+published, and pass all applicable exact-SHA remote gates with a clean synchronized tracked tree.
 
 ## 6. Hard gates and diagnostics
 
@@ -2019,7 +2044,7 @@ feat(a07): derive E05 stop geometry
 feat(a07): derive E06 target geometry
 feat(a07): establish E07 reward risk
 feat(a07): establish E08 confidence and expiration
-feat(a07): complete E09 strategy signal
+feat(a07): implement E09 signal closure
 ```
 
 After local validation, commit, push to `origin/develop`, verify exact-SHA remote gates,
@@ -2027,9 +2052,11 @@ then mark the unit CLOSED/FROZEN. Frozen predecessors cannot be silently modifie
 
 ## 10. Release model
 
-`v1.6.0` remains RESERVED during implementation. No tag or release document is created now.
-The release may be prepared only after E00–E09 are CLOSED/FROZEN, full regression, coverage,
-Quality, CodeQL, Documentation, clean synchronization, and final closure review all pass.
+`v1.6.0` remains RESERVED and untagged during final A07 governance reconciliation. Release notes,
+the version bump, annotated tag, tag-triggered release validation, and GitHub release belong to a
+separate explicitly authorized release-preparation action after E00-E09 are CLOSED/FROZEN and A07
+final closure, full regression, coverage, Quality, CodeQL, Documentation, and clean synchronization
+all pass.
 
 ## 11. Governance acceptance
 
@@ -2059,7 +2086,8 @@ Feature: release reservation
 
 ## 12. Acceptance criteria
 
-E00–E09 are COMPLETE only when their contracts, tests, quality gates, coverage, and boundaries
+E00-E09 are COMPLETE only when their contracts, tests, quality gates, coverage, and boundaries
 pass. They are CLOSED only after exact authorized-file commit, publication, remote verification,
-and clean tracked-tree inspection. A07 is COMPLETE only after all units close and final release
-verification succeeds.
+and clean tracked-tree inspection. A07 is COMPLETE only after all units close and its completion
+documentation is published and validated on the exact synchronized SHA. Release preparation and
+tag-triggered release verification follow under separate authorization.
