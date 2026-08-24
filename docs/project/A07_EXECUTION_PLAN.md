@@ -86,6 +86,186 @@ expiry from immutable evaluation time and policy, and never reads the wall clock
 E09 validates identity, policy, evidence, provenance, direction, geometry, RR, confidence,
 expiry, and diagnostics without recomputation. BUY/SELL require complete geometry.
 
+### 5.1 E01 normative policy contract
+
+#### Purpose, ownership, files, and dependencies
+
+E01 owns immutable strategy-policy configuration, its domain-qualified content fingerprint,
+identity/reference validation, and policy diagnostics. Its only production and test files are
+`epip/a07/policy.py` and `tests/a07/test_policy.py`. It may import the Python standard library,
+`DataIntegrityError`, `MissingFieldError`, and `require_text` from `epip.core.integrity`, and
+`StrategyDirection` and `StrategyIdentity` from E00. It must not import A05, A06, E02 or any later
+A07 package. E00 remains frozen: E01 exposes a canonical string reference compatible with the
+opaque `StrategyEvaluationRequest.policy_reference`; it does not change that field or retrofit an
+E01 type into E00.
+
+E01 exports exactly `StrategyPolicyIdentity`, `StrategyPolicy`, `PolicyValidation`, and
+`PolicyDiagnostics`. Helpers and constants are private. All four objects are immutable, hashable,
+compare by exact type and all declared fields, contain no mutable nested value, and are
+reconstructable by passing their public fields to their documented constructor, except where the
+constructor derives fields as specified below.
+
+#### Common canonical rules
+
+- Text inputs are required `str` values, stripped at both ends, and must remain non-empty.
+  `policy_id` and `policy_version` additionally match ASCII
+  `[A-Za-z0-9][A-Za-z0-9._-]*`; other text is preserved after stripping with no case folding.
+- Tuple inputs must be actual tuples. Lists, sets, generators, mappings, and scalar substitutes are
+  rejected. Every tuple member is validated before canonical ordering. Duplicate or conflicting
+  members are rejected rather than collapsed.
+- Numeric policy inputs must be actual `float` values; integers, booleans, `Decimal`, and strings
+  are rejected. Values must be finite. Storage remains `float`, as required by the A07 frozen
+  numeric domain. Canonical decimal text is obtained from `Decimal(str(value))`, with trailing
+  fractional zeroes removed, no exponent, and negative zero represented as `0`. Thus `3.0`
+  canonically fingerprints as `3`; integer `3` and string `"3.00"` are invalid inputs rather than
+  alternative representations.
+- Invalid construction raises the existing `MissingFieldError` for a missing/empty required value
+  and `DataIntegrityError` for wrong type, malformed, duplicate, conflicting, non-finite,
+  out-of-domain, or inconsistent content. No input is clamped, repaired, inferred, or defaulted.
+
+#### `StrategyPolicyIdentity`
+
+The exact fields, in constructor and equality order, are:
+
+| Field | Type | Contract |
+| --- | --- | --- |
+| `policy_id` | `str` | Required canonical identifier text. |
+| `policy_version` | `str` | Required canonical version label; it identifies declared policy evolution and is not parsed as SemVer. |
+| `fingerprint` | `str` | Required lowercase 64-character hexadecimal SHA-256 content fingerprint. |
+
+Its `reference` read-only property is exactly
+`a07-policy:1:<policy_id>:<policy_version>:sha256:<fingerprint>`. Colons cannot occur in either
+identifier because of the identifier grammar. Reconstruction from the three fields preserves
+equality, hash, fingerprint, and reference. The identity alone validates fingerprint shape; binding
+the fingerprint to content is enforced by `StrategyPolicy` construction. `StrategyPolicyIdentity`
+does not duplicate or replace `StrategyIdentity`.
+
+#### `StrategyPolicy`
+
+The exact public fields, in canonical fingerprint and equality order, are:
+
+| Field | Type | Required | Domain and canonical form |
+| --- | --- | --- | --- |
+| `identity` | `StrategyPolicyIdentity` | Derived | Constructed from caller `policy_id`, `policy_version`, and the content fingerprint below. A caller-supplied identity is not accepted. |
+| `strategy_identity` | `StrategyIdentity` | Yes | Exact frozen E00 object; it binds the policy to one strategy identity and participates by `strategy_id`, then `strategy_version`. |
+| `enabled_directions` | `tuple[StrategyDirection, ...]` | Yes | Non-empty subset of `BUY` and `SELL`; `NO_TRADE` is an outcome and is forbidden. Canonical order is E00 enum declaration order. Duplicates fail. |
+| `minimum_rr` | `float` | Yes | Finite and strictly greater than zero; canonical decimal text participates in identity. |
+| `minimum_confidence` | `float` | Yes | Finite inclusive range `0.0..1.0`; canonical decimal text participates in identity. |
+| `required_evidence` | `tuple[str, ...]` | Yes | Opaque E02-owned evidence-kind identifiers; may be empty, canonical lexicographic order, unique. |
+| `optional_evidence` | `tuple[str, ...]` | Yes | Opaque E02-owned evidence-kind identifiers; may be empty, canonical lexicographic order, unique and disjoint from `required_evidence`. |
+| `expiration_seconds` | `int` | Yes | Positive integer seconds; booleans rejected. Expiration cannot be disabled. E01 stores duration only and never reads a clock or derives a timestamp. |
+| `numeric_precision` | `int` | Yes | Non-negative integer number of decimal places used by later policy-authorized numeric serialization/rounding; booleans rejected. E01 performs no price geometry. |
+| `elliott_policy` | `tuple[tuple[str, str], ...]` | Yes | Opaque caller-supplied Elliott configuration key/value text pairs; may be empty, ordered lexicographically by `(key, value)`, with unique keys. Duplicate keys, including equal pairs, fail. E01 assigns no analytical meaning or defaults. |
+
+`policy_id` and `policy_version` are required constructor parameters used to derive `identity` but
+are not duplicate `StrategyPolicy` fields. Changing either, the bound strategy identity, or any
+configuration field changes the canonical fingerprint. Identical content under different declared
+versions is therefore unequal and has a different reference. Any semantic policy change requires a
+new `policy_version`; construction cannot detect dishonest reuse of a version label, but the changed
+fingerprint prevents content identity reuse.
+
+Evidence identifiers and Elliott keys/values use the common stripped non-empty text rule. E01
+defines neither taxonomy nor interpretation for them. Empty evidence tuples mean that the policy
+declares no requirements of that class. Empty `elliott_policy` means that it declares no additional
+Elliott constraint. These empty states are explicit caller inputs, not defaults.
+
+#### Fingerprint profile
+
+The fingerprint owner is `StrategyPolicy`; its derived value is stored in
+`StrategyPolicyIdentity.fingerprint`. The algorithm/profile is SHA-256/`sha256-v1`. Hash input is
+UTF-8 encoding of canonical JSON produced with `ensure_ascii=True` and separators `(',', ':')`.
+The JSON root is an array in exactly this order:
+
+```text
+[
+  "a07-strategy-policy", "1", "epip-json-v1", "sha256-v1",
+  policy_id, policy_version,
+  [strategy_id, strategy_version],
+  [enabled direction enum values],
+  minimum_rr canonical decimal text,
+  minimum_confidence canonical decimal text,
+  [required evidence identifiers],
+  [optional evidence identifiers],
+  expiration_seconds,
+  numeric_precision,
+  [[Elliott key, Elliott value], ...]
+]
+```
+
+All arrays use the canonical orders defined above. This schema has no optional fields and therefore
+no null/absent encoding. Duplicate prevention occurs before hashing. Python `hash()` is used only
+for in-process value-object hashing and never for the persistent fingerprint. A SHA-256 collision or
+a supplied identity/content mismatch is a contract-integrity failure; E01 must not select a winner,
+repair content, or issue an alternative reference.
+
+#### `PolicyDiagnostics`
+
+Its sole field is `diagnostics: tuple[str, ...]`. The tuple may be empty. Entries are stable code
+strings, validated by the common text rule, canonically sorted lexicographically, and unique;
+mutable containers, duplicates, malformed entries, and unknown codes fail closed. E01 defines
+exactly one code: `POLICY_REFERENCE_MISMATCH`. Empty diagnostics means that the E01 identity check
+found no mismatch; it is not evidence that later policy application accepted a trade.
+
+#### `PolicyValidation`
+
+`PolicyValidation` is an immutable validation-result value object, not a service and not policy
+application. Its constructor accepts a `StrategyPolicy` and an opaque expected `policy_reference`
+string. Its exact derived public fields, in equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `policy_reference` | `str` | Canonical `policy.identity.reference`. |
+| `expected_policy_reference` | `str` | Required stripped caller reference, normally E00's opaque request field. |
+| `valid` | `bool` | True exactly when the two reference strings are equal. |
+| `diagnostics` | `PolicyDiagnostics` | Empty when valid; otherwise exactly `("POLICY_REFERENCE_MISMATCH",)`. |
+
+Wrong object types or malformed expected references fail at construction. No caller may supply
+`valid` or diagnostics, so an inconsistent result cannot be constructed through the public API.
+Reconstruction repeats validation from a policy and `expected_policy_reference`; derived fields
+must be identical. A false result diagnoses reference inconsistency only and does not evaluate
+evidence, market state, eligibility, direction, geometry, RR, risk, confidence, or expiration.
+
+#### Reconstruction, invariants, and forbidden state
+
+`StrategyPolicy` reconstruction uses its identity's `policy_id` and `policy_version`, followed by
+the remaining public configuration fields; it recomputes the fingerprint and must equal the
+original identity or fail closed. Unknown keyword fields, missing fields, caller-supplied derived
+fields, and malformed values fail. `PolicyDiagnostics` reconstructs from `diagnostics`.
+`PolicyValidation` reconstructs from the original policy and `expected_policy_reference`. Every
+round trip preserves equality and hash and, for policy objects, fingerprint and reference.
+
+E01 invariants are valid non-empty identity text; exact E00 strategy binding; immutable values and
+nested tuples; deterministic domain-separated fingerprinting; canonical decimal, direction,
+evidence, Elliott, and diagnostic ordering; unique keys/items; disjoint required/optional evidence;
+valid numeric domains; identity/content consistency; deterministic reconstruction; and complete
+independence from wall clock, timezone, locale, random state, process state, filesystem, network,
+environment variables, mutable registries, and caches.
+
+E01 does not own runtime evidence binding, policy execution, strategy evaluation, direction or
+signal-eligibility resolution, Elliott structure interpretation, Fibonacci geometry, liquidity
+analysis, entry/stop/target geometry, risk or reward calculation, RR acceptance, confidence
+calculation, live expiration calculation, signal construction or closure, execution, or broker/MT5
+integration. Opaque configuration never authorizes E01 to import or reinterpret successor facts.
+
+#### Required E01 tests and closure
+
+The E01 test module must cover valid, invalid, canonical, equality, hashing, immutability, nested
+immutability, and reconstruction behavior for every public object; identifier grammar; fingerprint
+shape, exact canonical vector, content/version/strategy sensitivity, equivalent-float stability,
+and external-state independence; all numeric boundaries plus NaN and infinities; direction
+membership/order/empty/duplicate/`NO_TRADE` rejection; evidence ordering, emptiness, duplicates,
+overlap, and wrong types; expiration and precision bounds with boolean rejection; Elliott ordering,
+empty state, duplicate keys, and malformed pairs; deterministic diagnostics; reference match and
+mismatch; missing, unknown, wrong-type, conflicting, and mutable inputs; E00 opaque-reference
+compatibility; direct-import enforcement; and proof that no E02+ behavior exists. No exact test
+count is prescribed.
+
+E01 may close only after its authorized files alone are committed, all focused and predecessor/full
+regressions pass, collection arithmetic reconciles, statement and branch coverage requirements
+pass, Black/Ruff/MyPy and documentation checks pass, determinism/immutability/fail-closed and
+successor-leakage audits pass, publication succeeds, and every applicable exact-SHA remote gate is
+green. Closure authorizes no E02 work.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
