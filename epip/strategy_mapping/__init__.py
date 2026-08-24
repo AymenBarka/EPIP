@@ -1,4 +1,4 @@
-"""Public P02-F01 additive strategy-mapping foundation contracts."""
+"""Public additive strategy-mapping contracts."""
 
 from epip.strategy_mapping._base import FOUNDATION_SCHEMA_VERSION
 from epip.strategy_mapping.confidence_policy import (
@@ -17,6 +17,10 @@ from epip.strategy_mapping.direction_policy import (
     SourceSelector,
     SourceSelectorKind,
 )
+from epip.strategy_mapping.evidence_identity import (
+    EVIDENCE_SET_IDENTITY_DOMAIN,
+    derive_evidence_set_identity,
+)
 from epip.strategy_mapping.evidence_policy import (
     EvidenceKeyPolicy,
     EvidenceRequirement,
@@ -31,47 +35,145 @@ from epip.strategy_mapping.geometry_policy import (
     TargetSourcePolicy,
 )
 from epip.strategy_mapping.instrument import InstrumentAlias, InstrumentBinding
+from epip.strategy_mapping.invocation_binding import AdapterInvocationBinding
 from epip.strategy_mapping.mtf_bundle import (
     MultiTimeframeAnalyticalBundle,
     TimeframeAnalyticalFrame,
 )
 from epip.strategy_mapping.profile import SemanticProfileIdentity, StrategySemanticMappingProfile
+from epip.strategy_mapping.resolved_rules import (
+    ResolvedRuleManifest,
+    ResolvedSemanticRuleSet,
+    SemanticRuleDeclaration,
+)
+from epip.strategy_mapping.rule_execution import (
+    EXECUTION_SCHEMA_VERSION,
+    ExecutableSemanticRule,
+    SemanticInvocationKind,
+    SemanticResultKind,
+    SemanticRuleDiagnosticCode,
+    SemanticRuleFamily,
+    SemanticRuleState,
+    SemanticValueKind,
+)
 from epip.strategy_mapping.rule_identity import RuleIdentity
+from epip.strategy_mapping.rule_requests import (
+    ApplicabilityRequest,
+    BoundarySelectionRequest,
+    CandidateRankingRequest,
+    CandidateSelectionRequest,
+    ConfidenceRuleRequest,
+    DirectionRuleRequest,
+    EvidenceMappingRequest,
+    EvidenceOrderingRequest,
+    MtfAggregationRequest,
+    PriceTransformationRequest,
+    SemanticRuleInvocationContext,
+    SemanticRuleRequest,
+    SourceExtractionRequest,
+    TemporalEligibilityRequest,
+)
+from epip.strategy_mapping.rule_results import (
+    ApplicabilityResult,
+    BoundaryRuleResult,
+    CandidateRuleResult,
+    ConfidenceRuleResult,
+    DirectionRuleResult,
+    EvidenceMappingResult,
+    EvidenceOrderingResult,
+    MtfAggregationResult,
+    PriceTransformationResult,
+    RankingRuleResult,
+    SelectionRuleResult,
+    SemanticRuleResult,
+    TemporalEligibilityResult,
+)
+from epip.strategy_mapping.rule_values import (
+    ConfidenceInputValue,
+    SemanticCandidate,
+    SemanticValue,
+    TimeframeDirectionValue,
+)
 from epip.strategy_mapping.serialization import from_dict, from_json, to_dict, to_json
 from epip.strategy_mapping.source_binding import AnalyticalSourceBinding, RevisionIdentity
 
 __all__ = [
+    "EVIDENCE_SET_IDENTITY_DOMAIN",
+    "EXECUTION_SCHEMA_VERSION",
     "FOUNDATION_SCHEMA_VERSION",
+    "AdapterInvocationBinding",
     "AnalyticalSourceBinding",
     "AnalyticalSourceKind",
+    "ApplicabilityRequest",
+    "ApplicabilityResult",
+    "BoundaryRuleResult",
+    "BoundarySelectionRequest",
+    "CandidateRankingRequest",
+    "CandidateRuleResult",
+    "CandidateSelectionRequest",
     "ConfidenceInput",
+    "ConfidenceInputValue",
     "ConfidenceModelKind",
     "ConfidencePolicy",
+    "ConfidenceRuleRequest",
+    "ConfidenceRuleResult",
     "DirectionFactName",
     "DirectionFactPolicy",
+    "DirectionRuleRequest",
+    "DirectionRuleResult",
     "EntrySourcePolicy",
     "EnumDirectionMapping",
     "EvidenceKeyPolicy",
+    "EvidenceMappingRequest",
+    "EvidenceMappingResult",
+    "EvidenceOrderingRequest",
+    "EvidenceOrderingResult",
     "EvidenceRequirement",
     "EvidenceTaxonomy",
+    "ExecutableSemanticRule",
     "FreshnessBasis",
     "FreshnessPolicy",
     "InstrumentAlias",
     "InstrumentBinding",
     "ModelParameter",
+    "MtfAggregationRequest",
+    "MtfAggregationResult",
     "MtfDirectionPolicyRef",
     "MultiTimeframeAnalyticalBundle",
     "NonAcceptanceAction",
+    "PriceTransformationRequest",
+    "PriceTransformationResult",
+    "RankingRuleResult",
+    "ResolvedRuleManifest",
+    "ResolvedSemanticRuleSet",
     "RevisionIdentity",
     "RuleIdentity",
+    "SelectionRuleResult",
+    "SemanticCandidate",
+    "SemanticInvocationKind",
     "SemanticProfileIdentity",
+    "SemanticResultKind",
+    "SemanticRuleDeclaration",
+    "SemanticRuleDiagnosticCode",
+    "SemanticRuleFamily",
+    "SemanticRuleInvocationContext",
+    "SemanticRuleRequest",
+    "SemanticRuleResult",
+    "SemanticRuleState",
+    "SemanticValue",
+    "SemanticValueKind",
+    "SourceExtractionRequest",
     "SourceSelector",
     "SourceSelectorKind",
     "StopSourcePolicy",
     "StrategySemanticMappingProfile",
     "TargetSourcePolicy",
     "TemporalEligibilityPolicy",
+    "TemporalEligibilityRequest",
+    "TemporalEligibilityResult",
     "TimeframeAnalyticalFrame",
+    "TimeframeDirectionValue",
+    "derive_evidence_set_identity",
     "from_dict",
     "from_json",
     "to_dict",
