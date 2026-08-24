@@ -473,6 +473,204 @@ coverage and static/documentation gates pass; determinism, immutability, fail-cl
 reconstruction, dependency, and successor-leakage audits pass; publication succeeds; and all
 applicable exact-SHA remote gates are green. Closure authorizes no E03 work.
 
+### 5.3 E03 normative direction contract
+
+#### Purpose, ownership, files, and dependencies
+
+E03 consumes frozen policy and evidence-validation results plus caller-supplied immutable
+directional facts. It owns directional eligibility, deterministic `StrategyDirection` resolution,
+`NO_TRADE` reasons, conflict handling, enabled-direction enforcement, validation, and E03
+diagnostics. It does not bind evidence, recompute E02 validity or diagnostics, fingerprint or
+reinterpret policy, or calculate any analytical fact.
+
+Its only production and test files are `epip/a07/direction.py` and
+`tests/a07/test_direction.py`. It exports exactly `DirectionalFacts`, `DirectionalDecision`,
+`DirectionValidation`, and `DirectionDiagnostics`; helpers and constants remain private. Allowed
+imports are the Python standard library; `StrategyDirection` from E00; `StrategyPolicy` from E01;
+`EvidenceValidation` from E02; and `DataIntegrityError`, `MissingFieldError`, and `require_text`
+from `epip.core.integrity`. E03 imports no A05, A06, E04+, analytical engine, market-data,
+provider, filesystem, network, clock, environment, random, broker, or MT5 facility.
+
+E03 does not detect or interpret Elliott waves; calculate trend, structure, or multi-timeframe
+state; infer direction from evidence keys, provenance, policy names, or payloads; calculate
+Fibonacci, liquidity, entry, stop, target, RR, confidence, or expiration; construct a final signal;
+or execute a trade. E04 exclusively owns entry geometry. Later packages retain all other successor
+responsibilities.
+
+All four E03 objects are immutable and hashable, compare by exact type and every declared public
+field in documented order, contain no mutable nested state, and own no persistent fingerprint or
+digest. Malformed construction raises `MissingFieldError` for a missing required value where the
+core primitive applies and `DataIntegrityError` for every other contract violation. Well-formed
+negative domain conditions produce `NO_TRADE` and validation diagnostics, never an exception.
+
+#### `DirectionalFacts`
+
+`DirectionalFacts` is the sole normalized analytical input owned by E03. Every fact is supplied by
+the caller; E03 never derives one. Its exact fields, constructor order, equality order, and
+reconstruction order are:
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `elliott_direction` | `StrategyDirection` | Yes | Direction already resolved by the authoritative Elliott producer. |
+| `trend_direction` | `StrategyDirection` | Yes | Direction already resolved by the authoritative trend producer. |
+| `structure_direction` | `StrategyDirection` | Yes | Direction already resolved by the authoritative structure producer. |
+| `mtf_direction` | `StrategyDirection` | Yes | Direction already resolved by the authoritative multi-timeframe producer. |
+| `primary_direction` | `StrategyDirection` | Yes | Direction of the caller-selected primary analytical hypothesis. |
+| `alternate_direction` | `StrategyDirection` | Yes | Direction of the caller-supplied competing alternate hypothesis. |
+
+Every value must be an exact frozen `StrategyDirection`; integers, strings, foreign enums, and
+duck-typed values fail. All six fields are mandatory fixed named fields, so absence is malformed
+construction rather than a domain result. `BUY` and `SELL` are affirmative facts.
+`StrategyDirection.NO_TRADE` is the single neutral/unresolved analytical-fact representation; E03
+defines no duplicate direction or neutral enum. A neutral fact is well formed but prevents
+actionable consensus.
+
+Primary means the direction of the analytical hypothesis selected by the caller as primary;
+alternate means the direction of the competing hypothesis retained by the caller. E03 neither
+selects nor ranks hypotheses. Both are required. They agree only when their exact enum values are
+equal. Any difference, including directional versus neutral, is a primary/alternate conflict.
+
+Direct reconstruction passes the six public fields to the constructor. Fixed fields require no
+collection ordering. Reconstruction preserves equality and runtime hash.
+
+#### Directional eligibility and resolution
+
+E03 consumes exactly one `StrategyPolicy`, one `EvidenceValidation`, and one `DirectionalFacts`.
+The evidence validation's `binding.policy` must equal the supplied policy. A mismatch is malformed
+cross-predecessor state and raises `DataIntegrityError`; it is not `NO_TRADE`. E03 consumes
+`EvidenceValidation.valid` as a frozen fact and never recomputes binding conditions or propagates
+individual E02 diagnostic codes.
+
+Define `facts` as the ordered six-tuple of `DirectionalFacts` values in documented field order.
+Define actionable consensus for direction `D` exactly as:
+
+```text
+D is BUY or SELL
+and every member of facts is D
+```
+
+There is no majority vote, weighting, advisory fact, analytical precedence, or pairwise override.
+All six facts are mandatory confirmations. Structure does not override trend, Elliott does not
+override MTF, and primary does not override alternate.
+
+The exact BUY predicate is:
+
+```text
+evidence_validation.valid is True
+and every member of facts is StrategyDirection.BUY
+and StrategyDirection.BUY is in policy.enabled_directions
+```
+
+The exact SELL predicate is:
+
+```text
+evidence_validation.valid is True
+and every member of facts is StrategyDirection.SELL
+and StrategyDirection.SELL is in policy.enabled_directions
+```
+
+BUY and SELL are symmetrical independent predicates; SELL is not inferred from failure of BUY.
+The result is `NO_TRADE` if and only if neither exact actionable predicate is true. Consequently,
+the complete `NO_TRADE` trigger set is: invalid E02 evidence validation; at least one neutral fact;
+any disagreement among the six facts; primary/alternate conflict; or unanimous BUY/SELL consensus
+whose direction is disabled by policy. These triggers may coexist. Malformed structure is never a
+`NO_TRADE` trigger.
+
+Directional conflict is deterministic. `PRIMARY_ALTERNATE_CONFLICT` applies whenever the two
+hypothesis fields differ. `DIRECTIONAL_CONFLICT` applies whenever both BUY and SELL occur anywhere
+in the six facts. `NO_DIRECTIONAL_CONSENSUS` applies whenever the six facts are not unanimously
+the same actionable direction, including all-neutral, mixed-neutral, and conflicting states.
+Neutral versus directional state is lack of consensus rather than directional precedence.
+
+#### `DirectionalDecision`
+
+The exact fields, in equality order, are:
+
+| Field | Type | Ownership |
+| --- | --- | --- |
+| `policy` | `StrategyPolicy` | Caller supplied; exact frozen E01 object. |
+| `evidence_validation` | `EvidenceValidation` | Caller supplied; exact frozen E02 object. |
+| `directional_facts` | `DirectionalFacts` | Caller supplied; exact E03 fact object. |
+| `direction` | `StrategyDirection` | Derived by the exact predicates above. |
+
+The public constructor accepts only the first three fields and derives `direction`. Exact runtime
+types are required. Reconstruction accepts all four public fields, reconstructs from the three
+caller fields, and rejects a supplied direction that differs from the recomputed direction with
+`DataIntegrityError`. No decision diagnostics are stored; validation owns diagnostics.
+
+#### `DirectionDiagnostics`
+
+Its sole field is `diagnostics: tuple[str, ...]`. The tuple may be empty, must be an actual tuple,
+contains exact non-empty strings, is lexicographically sorted, and rejects duplicates and unknown
+codes. E03 defines exactly:
+
+- `DIRECTIONAL_CONFLICT`: both BUY and SELL occur among the six directional facts.
+- `DIRECTION_DISABLED_BY_POLICY`: the facts unanimously resolve BUY or SELL, but that direction is
+  absent from `policy.enabled_directions`.
+- `EVIDENCE_INVALID`: the frozen `EvidenceValidation.valid` value is false.
+- `NO_DIRECTIONAL_CONSENSUS`: the facts are not unanimously one actionable direction.
+- `PRIMARY_ALTERNATE_CONFLICT`: primary and alternate directions differ.
+
+Codes are aggregate conditions and each occurs at most once. Every applicable code is emitted; no
+short-circuit or diagnostic precedence suppresses another code. E03 summarizes invalid evidence
+only as `EVIDENCE_INVALID` and never embeds or re-exports E02 diagnostic codes. Empty diagnostics
+means the decision is an enabled BUY or SELL with valid evidence and complete consensus.
+Reconstruction directly from the tuple revalidates and canonicalizes it.
+
+#### `DirectionValidation`
+
+Its exact derived public fields, in equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `decision` | `DirectionalDecision` | Exact caller-supplied E03 decision. |
+| `valid` | `bool` | True exactly when derived E03 diagnostics are empty. |
+| `diagnostics` | `DirectionDiagnostics` | All aggregate conditions derived from the decision. |
+
+The public constructor accepts only `decision`. Here `valid` means directionally actionable: valid
+evidence, unanimous non-neutral facts, policy-enabled resolution, and therefore direction BUY or
+SELL. Every `NO_TRADE` decision is a well-formed domain outcome with `valid is False`; it is not
+structural corruption. BUY and SELL decisions have `valid is True`. Reconstruction accepts all
+three public fields, recomputes validity and diagnostics from the decision, and rejects any
+contradiction with `DataIntegrityError`.
+
+#### Error classification, reconstruction, and determinism
+
+Wrong policy, evidence-validation, decision, fact, enum, tuple, or diagnostic types; missing or
+unknown fields; unknown or duplicate diagnostics; predecessor policy mismatch; and contradictory
+reconstruction are construction failures. They are never caught and converted to `NO_TRADE`.
+Invalid predecessor evidence, neutral facts, disagreement, primary/alternate conflict, and a
+policy-disabled consensus are well-formed negative domain outcomes.
+
+Python signatures reject missing and unexpected reconstruction fields. Every derived field is
+recomputed, every supplied derived field is verified, and every successful round trip preserves
+exact equality, hash, canonical diagnostics, and direction. Diagnostics are the only collection
+and use lexicographic order; input facts have fixed semantic field order. Equivalent reconstructed
+predecessors and repeated construction produce identical results.
+
+E03 behavior is independent of wall clock, timezone, locale, filesystem, network, environment,
+randomness, process identity, unordered iteration, mutable registries, and caches. The same
+semantic inputs always produce the same direction, validation, diagnostics, equality, hash, and
+reconstruction result.
+
+#### Required E03 tests and closure
+
+The future E03 test module must cover every public field and exact type; valid BUY and SELL;
+invalid E02 evidence; BUY and SELL disabled independently; each neutral fact position; all-neutral
+facts; every BUY/SELL disagreement position; primary/alternate conflict including neutral versus
+directional; simultaneous diagnostic reasons; the absence of majority voting and analytical
+precedence; exact diagnostic triggers, ordering, duplicates, unknown codes, and empty state;
+malformed input versus domain outcomes; policy/evidence cross-predecessor mismatch; equality,
+exact-type inequality, hashing, immutability, nested immutability, reconstruction, contradictory
+reconstruction, missing and unexpected arguments, repeated execution, external-state
+independence, E00/E01/E02 compatibility, direct-import enforcement, and proof of no E04+ behavior.
+No exact test count is prescribed.
+
+E03 may close only after its two authorized files alone are committed; focused, E00, E01, E02,
+A05, A06, collection, full-regression, coverage, static, determinism, immutability, fail-closed,
+reconstruction, ownership, and successor-isolation gates pass; publication succeeds; and every
+applicable exact-SHA remote gate is green. E03 closure authorizes no E04 implementation.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
