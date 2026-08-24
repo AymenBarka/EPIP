@@ -156,3 +156,14 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0018](../adr/ADR-0018-TypedStrategyMappingAndAvailabilityBoundaries.md)
 - **Specification:**
   [P02-F00 Additive Strategy Mapping Foundation](P02_F00_ADDITIVE_MAPPING_FOUNDATION.md)
+
+## ADR-0019 — Immutable Semantic Rule Execution and Exact-Version Resolution
+
+- **Milestone:** P02-F02 additive execution contract
+- **Status:** Accepted
+- **Purpose:** separate persistent rule identity/manifests from explicitly injected executable
+  implementations, freeze exact profile closure and adapter invocation binding, and preserve P04
+  and P05 ownership of concrete semantic content.
+- **ADR:** [ADR-0019](../adr/ADR-0019-ImmutableSemanticRuleExecution.md)
+- **Specification:**
+  [P02-F02 Semantic Rule Execution Contract](P02_F02_SEMANTIC_RULE_EXECUTION_CONTRACT.md)

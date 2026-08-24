@@ -43,6 +43,7 @@ nav:
       - P01 Contract Specification: project/P01_CONTRACT_SPECIFICATION.md
       - P01 Implementation Plan: project/P01_IMPLEMENTATION_PLAN.md
       - P02-F00 Mapping Foundation: project/P02_F00_ADDITIVE_MAPPING_FOUNDATION.md
+      - P02-F02 Rule Execution Contract: project/P02_F02_SEMANTIC_RULE_EXECUTION_CONTRACT.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md
@@ -219,6 +220,7 @@ nav:
   - ADR:
       - Decision Record Index: project/DECISIONS.md
       - ADR-0018 Strategy Mapping and Availability: adr/ADR-0018-TypedStrategyMappingAndAvailabilityBoundaries.md
+      - ADR-0019 Immutable Semantic Rule Execution: adr/ADR-0019-ImmutableSemanticRuleExecution.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md

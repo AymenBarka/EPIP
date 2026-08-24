@@ -90,16 +90,18 @@ timeline
 
 ## Post-v1.6 program
 
-P00 publishes canonical architecture and semantic ownership. P01 is closed and frozen. P02-F00
-defines the additive contract foundation required before P02. Every implementation phase requires
-separate authorization.
+P00 publishes canonical architecture and semantic ownership. P01, P02-F00, and P02-F01 are closed
+and frozen. P02-F02 defines the additive execution contract required before P02. Every
+implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
 | P00 | COMPLETE / CLOSED / FROZEN by this governance publication | Architecture governance |
 | P01 | CLOSED / FROZEN | Runtime and Fact Adapter contracts |
-| P02-F00 | NORMATIVE CONTRACT RECONCILED / IMPLEMENTATION PENDING | Typed mapping foundation |
-| P02 | BLOCKED ON P02-F00 IMPLEMENTATION | Generic analysis-to-A07 fact adapter |
+| P02-F00 | CLOSED / FROZEN | Typed mapping foundation governance |
+| P02-F01 | CLOSED / FROZEN | Typed mapping foundation implementation |
+| P02-F02 | NORMATIVE CONTRACT RECONCILED / IMPLEMENTATION PENDING | Semantic rule execution and adapter invocation contract |
+| P02 | BLOCKED ON P02-F02 IMPLEMENTATION | Generic analysis-to-A07 fact adapter |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |
 | P05 | Planned | Multi-timeframe context |
@@ -114,6 +116,6 @@ separate authorization.
 | P14 | Planned | Dashboard |
 | P15 | Planned | Live readiness |
 
-Dependency order is P00 -> P01 -> P02-F00 -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09 -> P10
--> P11 -> P12 -> P13 -> P14 -> P15. P01 is contract/governance only. No phase authorizes a later
+Dependency order is P00 -> P01 -> P02-F00 -> P02-F01 -> P02-F02 -> P02 -> P03 -> P04 -> P05 ->
+P06 -> P07 -> P08 -> P09 -> P10 -> P11 -> P12 -> P13 -> P14 -> P15. No phase authorizes a later
 phase, live deployment, or release by implication.
