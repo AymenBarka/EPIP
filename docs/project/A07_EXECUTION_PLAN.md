@@ -44,17 +44,17 @@ predecessor internals, or successor imports are allowed.
 ## 4. Dependency DAG
 
 ```text
-E00 -> E01 -> E02 -> E03
-                 |\
-                 | +-> E04
-                 | +-> E05
-                 | +-> E06
+E00 -> E01 -> E02 -> E03 -> E04
+                              |\
+                              | +-> E05
+                              | +-> E06
 E03 + E04 + E05 + E06 -> E07
 E02 + E03 + E07 -> E08
 E02 + E03 + E04 + E05 + E06 + E07 + E08 -> E09
 ```
 
-E04, E05, and E06 are siblings and must not import one another.
+E05 and E06 are independent siblings that both consume E04 `EntryValidation`; they must not
+import one another. E07 consumes their resulting canonical geometry.
 
 ## 5. Unit contracts
 
@@ -75,8 +75,9 @@ E04 derives and validates supported entry geometry only.
 E05 derives stops with precedence: Elliott invalidation, structure/swing, supported
 volatility, explicit policy buffer. BUY stop is below entry; SELL stop is above entry.
 
-E06 derives targets with precedence: Elliott projection, Fibonacci extension,
-structure/liquidity, and policy-authorized RR fallback. It may not manufacture targets.
+E06 normalizes and validates exactly one final upstream-authorized target price. Upstream resolves
+all Elliott, Fibonacci, structure, liquidity, or other analytical candidates before E06. E06 has
+no candidate precedence, target selection, or RR-derived fallback.
 
 E07 validates finite positive risk/reward and `RR >= minimum_rr`, plus immutable risk acceptance.
 
@@ -1002,6 +1003,189 @@ its authorized files alone are committed; focused, predecessor, collection, full
 coverage, static, determinism, immutability, fail-closed, reconstruction, ownership, and successor-
 isolation gates pass; publication succeeds; and every applicable exact-SHA remote gate is green.
 E05 closure authorizes no E06 implementation.
+
+### 5.6 E06 normative target contract
+
+#### Purpose, ownership, files, and dependency topology
+
+E06 converts exactly one final upstream-authorized target price into one canonical executable
+take-profit price and verifies its strict directional relationship to the frozen E04 entry. It is
+a geometry-normalization stage only. It owns target-fact validation, policy-precision
+normalization, target-side validation, target integrity validation, and E06 diagnostics. It does
+not calculate analytical targets or own risk, reward, RR, `minimum_rr` acceptance, confidence,
+expiration, signal closure, or execution.
+
+The future implementation scope is exactly `epip/a07/target.py` and
+`tests/a07/test_target.py`; neither file is part of this governance reconciliation. E06 exports
+exactly `TargetFacts`, `TakeProfit`, `TargetValidation`, and `TargetDiagnostics`; helpers and
+constants remain private.
+
+E06 consumes exactly E04 `EntryValidation`. E05 and E06 are independent siblings: both consume
+E04, E06 never consumes or imports E05, and E05 never consumes or imports E06. Their canonical
+outputs converge in E07. The frozen topology is:
+
+```text
+E03 -> E04 entry
+       |-> E05 stop
+       `-> E06 target
+
+E05 + E06 -> E07
+```
+
+Allowed production imports are narrow Python standard-library numeric, immutable-value, and
+typing facilities; `StrategyDirection` from E00; `EntryValidation` from E04; and
+`DataIntegrityError` from `epip.core.integrity`. E06 must not directly import E01, E02, E03, E05,
+A05, A06, E07 or any later unit, analytics, providers, market data, execution, broker, or MT5.
+Direction, canonical entry price, and policy precision are reached only through:
+
+```text
+entry_validation.entry.direction_validation.decision.direction
+entry_validation.entry.price
+entry_validation.entry.direction_validation.decision.policy.numeric_precision
+```
+
+E06 may read only `policy.numeric_precision`, solely for canonical target-price normalization. It
+must not read `minimum_rr` or evaluate risk, reward, RR, or RR acceptance.
+
+#### Final target source and single-target model
+
+E06 accepts exactly one opaque final target price. Upstream analytical authority resolves every
+candidate, precedence, tie, absence, or conflict before E06. There is no TP1/TP2/TP3 model, target
+list, candidate collection, ranking, voting, best-target selection, or fallback within E06. If no
+upstream-authorized final target exists, the caller cannot construct `TargetFacts` or
+`TakeProfit`; E06 creates no `None`, zero, NaN, or sentinel target.
+
+E06 performs no Elliott-wave analysis, wave detection or projection, Fibonacci analysis or
+extension calculation, structure or liquidity analysis, swing detection, support/resistance
+analysis, or market-data analysis. Those sources may contribute upstream, but E06 sees their
+resolved result only as `TargetFacts.target_price` and stores no analytical provenance.
+
+There is no policy-authorized RR fallback. E06 does not use `minimum_rr` to derive, select, move,
+validate, or reject a target. E07 exclusively owns risk, reward, RR, and `minimum_rr` acceptance.
+
+#### Numeric normalization and directional geometry
+
+Every caller-supplied price must have exact runtime type `float`; booleans, integers, `Decimal`,
+strings, `None`, and foreign numeric wrappers fail. It must be finite and strictly positive, so
+NaN, both infinities, positive or negative zero, and negative values fail.
+
+Normalization converts the raw value through `Decimal(str(value))`, quantizes it to
+`Decimal(1).scaleb(-numeric_precision)` using `ROUND_HALF_EVEN`, and converts the result back to
+exact built-in `float`. A zero result, including negative zero, is canonicalized to positive
+`0.0`; because an executable target must remain strictly positive, normalization to zero raises
+`DataIntegrityError`. Comparison occurs after normalization against E04's already canonical entry,
+which E06 neither renormalizes nor recomputes.
+
+The exact target formula for both actionable directions is:
+
+```text
+target price = normalized TargetFacts.target_price
+```
+
+For BUY, canonical `target price > entry price` is required; equality and a target below entry
+raise `DataIntegrityError`. For SELL, canonical `target price < entry price` is required; equality
+and a target above entry raise `DataIntegrityError`. If distinct raw target and entry values become
+equal at policy precision, the precision collapse raises `DataIntegrityError`. There is no minimum
+distance beyond strict canonical separation.
+
+E06 defines no target-to-stop invariant and does not inspect a stop. It may compare target with
+entry only to establish geometric side. It neither calculates nor exposes target-stop distance,
+risk, reward, reward distance, target distance, profit distance, or RR.
+
+#### Public object matrix
+
+All E06 public objects are immutable and runtime-hashable, compare by exact type and every public
+field in documented order, contain no mutable nested state, and own no persistent fingerprint or
+digest.
+
+| Object | Purpose and owner | Public fields and exact runtime types | Caller supplied / derived | Validation and canonicalization | Equality, hashing, immutability, reconstruction |
+| --- | --- | --- | --- | --- | --- |
+| `TargetFacts` | E06-owned final upstream-authorized raw target geometry. | `target_price: float` | Caller supplies `target_price`; no derived field. | Exact built-in finite, strictly positive float; stored unchanged and given no analytical meaning. | Exact-type equality and hash use the field; immutable; direct reconstruction from `target_price`. |
+| `TakeProfit` | E06-owned canonical executable target geometry. | `entry_validation: EntryValidation`; `target_facts: TargetFacts`; `price: float` | Caller supplies exact predecessor and facts; `price` is derived and is never caller-authoritative. | Requires an actionable canonical E04 predecessor; normalizes the fact at predecessor policy precision with half-even rounding and enforces the strict BUY/SELL entry relation. | Exact-type equality and hash use all fields; immutable; reconstruction from predecessor and facts recomputes price, and any optionally supplied price must be an exact float equal to the recomputation. |
+| `TargetValidation` | E06-owned integrity validation of an executable target. | `target: TakeProfit`; `valid: bool`; `diagnostics: TargetDiagnostics` | Caller supplies exact `target`; `valid=True` and `diagnostics=TargetDiagnostics(())` are derived. | A successfully constructed canonical `TakeProfit` is integrity-valid; RR semantics do not participate. | Exact-type equality and hash use all fields; immutable; reconstruction recomputes derived fields and rejects contradictions. |
+| `TargetDiagnostics` | E06-owned closed diagnostic value. | `diagnostics: tuple[str, ...]` | Caller supplies the tuple; only `()` is canonical. | Exact tuple required; the vocabulary is empty, so non-empty values, unknown or malformed codes, duplicates, and mutable containers fail. | Exact-type equality and hash use the tuple; immutable; only `()` reconstructs successfully. |
+
+#### Predecessor actionability and `TakeProfit`
+
+`TakeProfit` requires the exact `EntryValidation` type and exact `TargetFacts` type. The predecessor
+must have `valid is True`, canonical empty E04 diagnostics, a canonical executable `EntryPrice`,
+and direction exactly `StrategyDirection.BUY` or `StrategyDirection.SELL`. A wrong, malformed,
+invalid, non-actionable, or `NO_TRADE` predecessor raises `DataIntegrityError`; E06 never
+recomputes E03 direction or E04 entry.
+
+The exact public fields, constructor/equality order, and ownership are:
+
+| Field | Type | Ownership |
+| --- | --- | --- |
+| `entry_validation` | `EntryValidation` | Caller supplied; exact frozen E04 object. |
+| `target_facts` | `TargetFacts` | Caller supplied; exact E06 raw fact object. |
+| `price` | `float` | Derived normalized target price. |
+
+The ordinary construction API accepts only `entry_validation` and `target_facts` and recomputes
+`price`. A reconstruction API may accept all public fields, but supplied `price` must have exact
+float type and exactly equal the recomputed canonical price. A noncanonical or contradictory
+derived price raises `DataIntegrityError`.
+
+#### `TargetValidation` and `TargetDiagnostics`
+
+`TargetValidation` is canonical-geometry integrity validation, not trade, reward, or RR
+acceptance. Its public constructor accepts only an exact `TakeProfit`. A successfully constructed
+target always derives `valid=True` and canonical empty diagnostics. Reconstruction from all public
+fields recomputes those values and rejects wrong types or any contradiction with
+`DataIntegrityError`.
+
+`TargetDiagnostics` has the sole field `diagnostics: tuple[str, ...]`. Its closed vocabulary is
+empty and its sole canonical value is `()`. The input must be an actual tuple. Every non-empty
+tuple, unknown or malformed code, duplicate code, and mutable diagnostic container raises
+`DataIntegrityError`. Direct reconstruction from `()` preserves exact equality and hash. All
+E06-invalid states are construction-time structural/integrity failures rather than diagnostic
+outcomes.
+
+#### Error model, equality, reconstruction, and determinism
+
+Wrong `TargetFacts`, `EntryValidation`, or other public types; invalid or non-actionable
+predecessors; `NO_TRADE`; wrong numeric runtime types; NaN; infinities; zero or negative values;
+BUY equality or wrong-side values; SELL equality or wrong-side values; precision collapse;
+non-empty or mutable diagnostics; and contradictory reconstruction all raise
+`DataIntegrityError`. A missing required target fact follows normal Python missing-argument
+behavior. RR below policy minimum and `minimum_rr` failure are not E06 states; E07 owns them.
+
+Every object uses exact-type value equality with all public fields participating, and all public
+fields participate in runtime hashing. Round-trip reconstruction preserves exact equality, hash,
+canonical price, and predecessor identity. `TargetFacts` reconstructs directly from its public
+field; `TakeProfit` recomputes price; `TargetValidation` recomputes true validity and empty
+diagnostics; and only empty `TargetDiagnostics` reconstructs.
+
+Output depends only on immutable input. Repeated equivalent construction produces identical
+values and is independent of clock, timezone, locale, environment variables, filesystem, network,
+provider, market feed, broker, MT5, randomness, process-global mutable state, registry, and cache.
+
+#### Successor isolation and future test contract
+
+Risk, reward, RR, and `minimum_rr` acceptance belong to E07. Confidence and expiration belong to
+E08. Signal assembly, validation, and closure belong to E09. Execution is outside E06. E06 exposes,
+calculates, validates, or imports none of this successor behavior.
+
+Future E06 tests must cover exact public API and runtime types; `TargetFacts` validation; valid BUY
+and SELL targets; BUY equality and wrong-side rejection; SELL equality and wrong-side rejection;
+numeric precision and `ROUND_HALF_EVEN`; precision collapse; zero, negative zero, negative values,
+NaN, positive infinity, negative infinity, bool, int, `Decimal`, string, and `None`; invalid and
+`NO_TRADE` predecessors; precision access through the predecessor policy chain;
+`TargetValidation` semantics; empty diagnostics and diagnostic rejection; equality, exact-type
+inequality, hashing, immutability, nested immutability, reconstruction and contradictory
+reconstruction; determinism and external-state independence; E04 compatibility; absence of an E05
+dependency, RR calculation, `minimum_rr` access, Fibonacci calculation, Elliott calculation, and
+analytical candidate selection; E07+ isolation; and the direct dependency/import boundary. No
+arbitrary exact E06 test count is prescribed.
+
+The canonical pre-E06 baseline is 2405. This governance reconciliation adds no tests, so its
+required collection is `2405 + 0 = 2405`, with no predecessor node removal. A future E06
+implementation reports its actual collected contribution and requires post-E06 collection to
+equal `2405 + actual E06 contribution`. E06 may close only after its two authorized implementation
+files alone are committed; focused, predecessor, collection, full-regression, coverage, static,
+determinism, immutability, fail-closed, reconstruction, ownership, and successor-isolation gates
+pass; publication succeeds; and every applicable exact-SHA remote gate is green. E06 closure
+authorizes no E07 implementation.
 
 ## 6. Hard gates and diagnostics
 
