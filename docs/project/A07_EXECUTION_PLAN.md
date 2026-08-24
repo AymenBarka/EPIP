@@ -1,10 +1,10 @@
 # A07 Execution Plan
 
-Status: IMPLEMENTATION COMPLETE / FINAL GOVERNANCE CLOSURE PENDING
+Status: COMPLETE / CLOSED / FROZEN
 
 Baseline: A05-v1.0.0 / A06 v1.5.21 / A07 final collection 2643
 
-Reserved release: v1.6.0  
+Release state: v1.6.0 PREPARED / AWAITING RELEASE AUTHORIZATION / NOT RELEASED
 Implementation state: E00-E09 CLOSED / FROZEN
 
 ## 1. Mission and boundaries
@@ -1971,9 +1971,9 @@ is clean; `HEAD == origin/develop`; no blockers remain; the final package matrix
 required completion documentation is published and validated on its exact commit SHA. Release
 preparation and tag-triggered release validation remain separate actions after A07 closure.
 
-`v1.6.0` remains RESERVED until E00-E09 close and A07 final closure succeeds. Creating release
-notes, changing the package version, creating or pushing the tag, running tag-triggered release
-validation, and creating the release are separate explicitly authorized actions.
+Following E00-E09 closure and A07 final governance closure, `v1.6.0` metadata may be prepared.
+Creating or pushing the annotated tag, running tag-triggered release validation, and creating the
+GitHub release are separate explicitly authorized actions.
 
 #### Final package matrix and closure evidence
 
@@ -1991,9 +1991,9 @@ validation, and creating the release are separate explicitly authorized actions.
 | E09 | CLOSED / FROZEN |
 
 The final technical evidence is published in
-[`A07_COMPLETION_EVIDENCE.md`](A07_COMPLETION_EVIDENCE.md). A07 final governance closure remains
-pending until that artifact, this reconciled plan, and the reconciled roadmap are committed,
-published, and pass all applicable exact-SHA remote gates with a clean synchronized tracked tree.
+[`A07_COMPLETION_EVIDENCE.md`](A07_COMPLETION_EVIDENCE.md). The artifact, this reconciled plan, and
+the reconciled roadmap passed all applicable exact-SHA remote gates on governance commit
+`246e34770c4f3c7c3de5fa95911deab4670dc047`. A07 is COMPLETE / CLOSED / FROZEN.
 
 ## 6. Hard gates and diagnostics
 
@@ -2052,11 +2052,9 @@ then mark the unit CLOSED/FROZEN. Frozen predecessors cannot be silently modifie
 
 ## 10. Release model
 
-`v1.6.0` remains RESERVED and untagged during final A07 governance reconciliation. Release notes,
-the version bump, annotated tag, tag-triggered release validation, and GitHub release belong to a
-separate explicitly authorized release-preparation action after E00-E09 are CLOSED/FROZEN and A07
-final closure, full regression, coverage, Quality, CodeQL, Documentation, and clean synchronization
-all pass.
+`v1.6.0` version metadata, changelog, roadmap state, and release notes may be prepared after A07
+closure. The annotated tag, tag push, tag-triggered release validation, and GitHub release remain
+separate explicitly authorized actions.
 
 ## 11. Governance acceptance
 

@@ -88,10 +88,10 @@ timeline
 
 ## Planned releases
 
-- **v1.6.0 - Strategy Engine:** A07 implementation is complete with E00-E09 CLOSED / FROZEN and a
-  canonical 2643-test baseline. Final A07 governance closure is pending publication and exact-SHA
-  validation of its completion evidence. Release notes, version update, annotated tag, release
-  validation, and publication require separate release authorization.
+- **v1.6.0 - Strategy Engine:** PREPARED / AWAITING RELEASE AUTHORIZATION. A07 is COMPLETE / CLOSED /
+  FROZEN with E00-E09 closed and a canonical 2643-test baseline. Version metadata, release notes,
+  and changelog are prepared; the annotated tag, tag-triggered validation, and publication require
+  separate release authorization.
 - **v1.7.0 — Monitoring & Observability:** metrics, tracing, health, audit streams, operational
   dashboards, and alerting across engine boundaries.
 - **v2.0.0 — AI Engine:** explainable AI assistance over official snapshots and histories, subject

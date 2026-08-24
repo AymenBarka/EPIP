@@ -1,8 +1,8 @@
 # A07 Completion Evidence
 
-Status: IMPLEMENTATION COMPLETE / FINAL GOVERNANCE CLOSURE PENDING
+Status: COMPLETE / CLOSED / FROZEN
 
-Release reservation: v1.6.0 / NOT RELEASED
+Release state: v1.6.0 PREPARED / AWAITING RELEASE AUTHORIZATION / NOT RELEASED
 
 Technical evidence SHA: `6a83f4d0151ce23a463c6c9297f4cb088cc623b4`
 
@@ -57,8 +57,9 @@ coverage and the separately executed EventBus stress test, and
 [CodeQL run 32731881388](https://github.com/AymenBarka/EPIP/actions/runs/32731881388). Documentation
 was not applicable to that Python-only E09 commit; no Documentation run is claimed for it.
 
-This completion-evidence reconciliation must itself pass Quality, CodeQL, and Documentation on its
-exact published SHA before A07 final governance closure.
+The completion-evidence reconciliation passed Quality run 32734833650, CodeQL run 32734833463, and
+Documentation run 32734833516 on exact governance SHA
+`246e34770c4f3c7c3de5fa95911deab4670dc047`.
 
 ## Contract integrity
 
@@ -75,14 +76,7 @@ the A07 boundary.
 
 ## Release readiness boundary
 
-The package version remains `1.5.21`. No `v1.6.0` tag or GitHub release exists. Under the release
-policy, release notes are required for the later annotated tag, not for this A07 completion-evidence
-commit. Release notes, the version update, changelog and other applicable release metadata, the
-annotated tag, tag push, tag-triggered release validation, and GitHub release are deferred to a
-separate explicitly authorized release-preparation action.
-
-A07 may become COMPLETE / CLOSED / FROZEN only after this artifact, the reconciled execution plan,
-and the reconciled roadmap are committed and published; Quality, CodeQL, and Documentation pass on
-that exact commit; the tracked tree is clean; `HEAD == origin/develop`; and no documentation or
-completion-governance blocker remains. Successful A07 closure makes v1.6.0 ready for separate
-release preparation or authorization; it does not release v1.6.0.
+The package version and release metadata are prepared for `1.6.0`. The canonical release notes are
+published at [`releases/v1.6.0.md`](releases/v1.6.0.md), but no `v1.6.0` tag or GitHub release
+exists. The annotated tag, tag push, tag-triggered release validation, and GitHub release require a
+separate explicit release authorization. A07 closure does not itself release v1.6.0.

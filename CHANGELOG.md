@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.6.0
+
+### Added
+
+- Delivered the deterministic A07 Strategy Engine through packages E00-E09.
+- Added immutable strategy foundation, policy, evidence binding, direction resolution, entry,
+  stop, target, reward-risk, confidence, expiration, and final signal contracts.
+- Added final broker-agnostic BUY/SELL signal closure without execution responsibilities.
+
+### Compatibility
+
+- Preserved A05 temporal and A06 architectural contracts.
+- Kept order execution, broker and MT5 integration, position management, sizing, slippage, and
+  live wall-clock expiry checks outside A07.
+
+### Quality
+
+- Canonical regression: 2643 passed.
+- Aggregate coverage: 96.40%.
+- A07 E00-E09: CLOSED / FROZEN.
+- Black, Ruff, strict MyPy, EventBus stress, Quality, CodeQL, and Documentation: PASS.
+
 ## v1.5.21
 
 ### Fixed
