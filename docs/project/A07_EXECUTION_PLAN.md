@@ -50,7 +50,7 @@ E00 -> E01 -> E02 -> E03 -> E04
                               | +-> E06
 E03 + E04 + E05 + E06 -> E07
 E00 + E02 + E03 + E07 -> E08
-E02 + E03 + E04 + E05 + E06 + E07 + E08 -> E09
+E08 -> E09
 ```
 
 E05 and E06 are independent siblings that both consume E04 `EntryValidation`; they must not
@@ -85,8 +85,9 @@ E08 canonicalizes one caller-supplied confidence fact in `[0,1]`, applies
 `confidence >= minimum_confidence`, derives expiry from the immutable E00 evaluation request and
 policy, and never reads the wall clock.
 
-E09 validates identity, policy, evidence, provenance, direction, geometry, RR, confidence,
-expiry, and diagnostics without recomputation. BUY/SELL require complete geometry.
+E09 consumes one accepted E08 `ConfidenceValidation`, assembles the final immutable BUY/SELL
+signal, and closes the deterministic strategy-evaluation pipeline without predecessor
+recomputation or execution behavior. Rejected and `NO_TRADE` chains produce no E09 signal.
 
 ### 5.1 E01 normative policy contract
 
@@ -1717,6 +1718,257 @@ predecessor, collection, full-regression, coverage, static, documentation, deter
 immutability, fail-closed, reconstruction, ownership, and successor-isolation gates pass;
 publication succeeds; and every applicable exact-SHA remote gate is green. E08 closure authorizes
 no E09 implementation.
+
+### 5.9 E09 normative signal closure contract
+
+#### Purpose, ownership, files, and dependencies
+
+E09 is deterministic final A07 signal assembly, validation, and pipeline closure over already
+canonical predecessor semantics. It assembles one immutable actionable BUY or SELL
+`StrategySignal` and its success-only `SignalValidation`. Closure means completing the A07 strategy
+evaluation pipeline; it never means closing a position, order, or trade.
+
+E09 does not compute evidence, direction, entry, stop, target, risk, reward, RR, confidence, or
+expiration. It owns no broker execution, order creation, position management, sizing, spread,
+slippage, or MT5 behavior. The future implementation scope is exactly `epip/a07/signal.py` and
+`tests/a07/test_signal.py`. E09 exports exactly `StrategySignal`, `SignalValidation`, and
+`SignalDiagnostics`; helpers remain private. This contract authorizes no implementation.
+
+The sole direct predecessor is exact E08 `ConfidenceValidation`. E09 does not accept E02-E07
+objects, policy, geometry, confidence, timestamps, or thresholds independently. Allowed direct
+imports are deterministic Python standard-library immutable-value and typing facilities; E08
+`ConfidenceValidation`; E00 `StrategyIdentity` and `StrategyDirection` only for exact public-field
+typing and direction membership; and core `DataIntegrityError`. `StrategyConfidence` and
+`SignalExpiration` are accessed through `ConfidenceValidation` and need no direct import. E01-E07
+are indirect only. Direct A05, A06, analytics, providers, market data, execution, broker, MT5,
+filesystem, network, clock, and successor imports are forbidden.
+
+#### Common object rules
+
+All three public objects are immutable and runtime-hashable, compare only by exact type and every
+public field in documented order, and contain only immutable nested values. Every public field
+participates in equality and `hash()`. E09 owns no persistent signal ID, UUID, reference,
+fingerprint, or digest; runtime `hash()` is in-process value hashing only.
+
+Ordinary constructors accept only documented caller-supplied fields and derive every other field.
+Each class provides `reconstruct`, accepting all public fields in documented order plus the
+authoritative predecessor where needed. Reconstruction independently derives canonical state and
+requires exact type and value equality with every supplied derived field. A contradiction raises
+`DataIntegrityError`. Successful round trips preserve exact equality, hash, all semantic fields,
+and predecessor continuity.
+
+#### Exact predecessor, canonicality, and continuity
+
+`StrategySignal` accepts one exact `ConfidenceValidation`. It requires `valid is True`, exact empty
+E08 diagnostics, and canonical E08 state. Canonicality is delegated to the frozen owner by requiring
+that:
+
+```text
+ConfidenceValidation.reconstruct(
+    confidence_validation.strategy_confidence,
+    confidence_validation.signal_expiration,
+    confidence_validation.valid,
+    confidence_validation.diagnostics,
+) == confidence_validation
+```
+
+E09 does not reproduce E08 threshold or expiration logic. The E08 reconstruction operation is the
+authoritative canonicality check. It also requires the frozen continuity already expressed by:
+
+```text
+confidence_validation.signal_expiration.strategy_confidence
+    == confidence_validation.strategy_confidence
+```
+
+Value equality is normative; Python object identity is not required. A wrong type, false E08
+validation, non-empty E08 diagnostics, malformed chain, failed reconstruction, or continuity
+mismatch raises `DataIntegrityError`. E07 RR rejection, E08 confidence rejection, and E03
+`NO_TRADE` therefore never produce an E09 signal. They remain pipeline-negative predecessor
+states, not final signals or E09 diagnostics.
+
+#### Final direction and source graph
+
+Let these private access aliases describe the frozen chain:
+
+```text
+cv = confidence_validation
+sc = cv.strategy_confidence
+expiration = cv.signal_expiration
+direction_validation = sc.direction_validation
+rr_validation = sc.reward_risk_validation
+rr_outcome = rr_validation.outcome
+entry_validation = rr_outcome.entry_validation
+stop_validation = rr_outcome.stop_validation
+target_validation = rr_outcome.target_validation
+policy = direction_validation.decision.policy
+```
+
+Final direction is copied exactly from `direction_validation.decision.direction`. It must be exact
+`StrategyDirection.BUY` or `StrategyDirection.SELL`. E09 never recomputes, votes, changes, or
+normalizes direction. `NO_TRADE` is structural corruption at this boundary and raises
+`DataIntegrityError`.
+
+E09 supports no `NO_TRADE` `StrategySignal` and no rejected `StrategySignal`. Actionable E04-E08
+geometry exists only for accepted BUY/SELL chains. E09 has no domain-negative output state.
+
+#### `StrategySignal`
+
+Its exact twelve public fields, constructor/equality order, types, and canonical sources are:
+
+| Field | Exact runtime type | Canonical source |
+| --- | --- | --- |
+| `strategy_identity` | `StrategyIdentity` | `policy.strategy_identity` |
+| `policy_reference` | `str` | `policy.identity.reference` |
+| `direction` | `StrategyDirection` | `direction_validation.decision.direction` |
+| `entry_price` | `float` | `entry_validation.entry.price` |
+| `stop_price` | `float` | `stop_validation.stop.price` |
+| `target_price` | `float` | `target_validation.target.price` |
+| `risk` | `float` | `rr_outcome.risk` |
+| `reward` | `float` | `rr_outcome.reward` |
+| `rr` | `float` | `rr_outcome.rr` |
+| `confidence` | `float` | `sc.confidence` |
+| `evaluation_timestamp` | `str` | `expiration.evaluation_timestamp` |
+| `expires_at` | `str` | `expiration.expires_at` |
+
+Every field is derived; the ordinary constructor accepts only `confidence_validation`. E09 copies
+the exact canonical values and performs no numeric, text, identity, or timestamp transformation.
+It does not recompute the policy fingerprint, normalize prices, derive geometry, divide reward by
+risk, compare RR or confidence thresholds, or parse expiration again.
+
+Before publication, minimal structural extraction requires every field to have the exact runtime
+type shown, the direction to be BUY or SELL, and the following already-frozen value continuity:
+
+```text
+stop_validation.stop.entry_validation == entry_validation
+target_validation.target.entry_validation == entry_validation
+entry_validation.entry.direction_validation == direction_validation
+expiration.strategy_confidence == sc
+expiration.request.strategy_identity == policy.strategy_identity
+expiration.request.policy_reference == policy.identity.reference
+```
+
+These are equality checks, not predecessor recomputation. A missing field, wrong type, malformed
+nested state, or mismatch raises `DataIntegrityError`.
+
+For BUY, construction requires only canonical valid `cv` plus final direction BUY. For SELL, it
+requires only canonical valid `cv` plus final direction SELL. No E09-specific directional,
+geometry, RR, confidence, or expiration acceptance rule exists.
+
+`StrategySignal.reconstruct` accepts `confidence_validation` followed by the twelve serialized
+public fields in their documented order. It calls the ordinary constructor, recomputes all twelve
+fields from the predecessor chain, and requires exact equality with each supplied field. Any wrong
+type or contradiction raises `DataIntegrityError`.
+
+The signal deliberately contains no symbol or instrument field because E00-E08 publish no canonical
+instrument identity selected for E09. It contains no diagnostics, validity, closure status,
+`generated_at`, `created_at`, `closed_at`, live-expired flag, remaining TTL, broker field, volume,
+lot size, order type, or execution instruction.
+
+#### Expiration and timestamp boundary
+
+E09 carries only E08 canonical `evaluation_timestamp` and `expires_at` strings. It owns no new
+timestamp and performs no parsing or normalization. It does not evaluate whether the signal is
+expired now. No `datetime.now()`, `datetime.utcnow()`, `time.time()`, wall clock, replay clock, or
+implicit current time is permitted. Live expiry requires a future authorized runtime boundary with
+an explicit immutable comparison timestamp.
+
+#### `SignalDiagnostics` and `SignalValidation`
+
+`SignalDiagnostics` has the sole field `diagnostics: tuple[str, ...]`. The closed vocabulary is
+empty and the only canonical state is `()`. Input must be an exact tuple. Non-empty tuples, unknown
+or malformed entries, duplicates, and mutable containers raise `DataIntegrityError`. Construction
+and reconstruction accept the single tuple field and enforce the same rule. No E02, E03, E07, or
+E08 diagnostic is propagated because rejected predecessor validations cannot construct a signal.
+
+`SignalValidation` has exactly these fields in constructor/equality order:
+
+| Field | Exact runtime type | Source and derivation |
+| --- | --- | --- |
+| `signal` | `StrategySignal` | Caller-supplied exact canonical E09 signal. |
+| `valid` | `bool` | Derived exactly `True`. |
+| `diagnostics` | `SignalDiagnostics` | Derived exactly `SignalDiagnostics(())`. |
+
+The ordinary constructor accepts only exact `StrategySignal`. A successfully constructed signal is
+already the final accepted A07 output, so E09 has no false validation state. `valid=True` means the
+signal is structurally canonical, every E00-E08 gate represented in its predecessor chain already
+succeeded, and E09 assembly is internally consistent. It does not mean a broker accepted an order,
+a trade executed, a position opened, or the signal remains unexpired relative to live time.
+
+`SignalValidation.reconstruct` accepts `signal`, `valid`, and `diagnostics`, requires exact built-in
+`bool` and exact `SignalDiagnostics`, derives `True` and empty diagnostics again, and rejects any
+contradiction. Round trips preserve equality and hash.
+
+#### Malformed and negative-state classification
+
+| Condition | Exact behavior |
+| --- | --- |
+| Wrong `ConfidenceValidation` type | Structural `DataIntegrityError`. |
+| Non-canonical or `valid=False` `ConfidenceValidation` | Structural `DataIntegrityError`; no signal. |
+| E03 `NO_TRADE`, E07 rejection, or E08 rejection | Predecessor pipeline-negative state; no E09 signal. |
+| Wrong direction type or `NO_TRADE` in an E09 chain | Structural `DataIntegrityError`. |
+| Missing or wrong-type canonical signal field | Structural `DataIntegrityError`. |
+| Geometry, identity, policy, confidence, or expiration continuity mismatch | Structural `DataIntegrityError`. |
+| Contradictory reconstructed `StrategySignal` field | Structural `DataIntegrityError`. |
+| Wrong `StrategySignal` supplied to `SignalValidation` | Structural `DataIntegrityError`. |
+| False/non-bool or contradictory validation reconstruction | Structural `DataIntegrityError`. |
+| Non-empty, unknown, duplicate, malformed, or mutable diagnostics | Structural `DataIntegrityError`. |
+| Expiration relative to external current time | Not evaluated by E09; future/runtime responsibility. |
+
+No structural error becomes `NO_TRADE`, no rejected signal is created, and E09 exposes no
+domain-negative validation or diagnostic state.
+
+#### Determinism, predecessor trust, and execution isolation
+
+E09 accepts canonical E08 validation, delegates its canonicality check to E08 reconstruction,
+extracts canonical facts, performs only the documented value-continuity and type checks, assembles
+the immutable signal, and constructs success-only validation. It never recomputes E02 evidence,
+E03 direction, E04 entry, E05 stop, E06 target, E07 risk/reward/RR, or E08 confidence/expiration.
+
+Equivalent value-equal immutable predecessors produce identical signal fields, validation,
+diagnostics, equality, hash, and reconstruction. E09 is independent of wall clock, locale,
+filesystem, network, environment, market data, providers, broker, MT5, randomness, process state,
+mutable globals, registries, and caches.
+
+E09 implements no order creation or submission, broker or MT5 call, lot or position sizing, broker
+selection, market/pending order choice, spread or slippage check, execution price, position
+management, stop/target modification, or position closure. The final A07 signal is broker-agnostic
+and execution-independent.
+
+#### Future E09 test contract and closure
+
+Future tests must cover exact exports, fields, order, runtime types, and constructor signatures;
+valid BUY and SELL signals; `NO_TRADE`, rejected E07, rejected E08, wrong E08 type, and malformed E08
+rejection; every canonical source field; exact policy reference and strategy identity; entry, stop,
+target, risk, reward, RR, confidence, evaluation timestamp, and expiry copying without
+transformation; canonical E08 reconstruction delegation; value-equal independently reconstructed
+predecessor acceptance; all continuity mismatches; absent symbol, persistent identity, generated
+timestamp, live-expiry, and execution fields; exact-type equality and inequality; hashing;
+immutability and nested immutability; signal reconstruction and each field contradiction;
+success-only validation; empty diagnostics and rejection of every non-empty or mutable state;
+validation reconstruction contradictions; determinism and external-state independence; no
+predecessor recomputation; and broker, MT5, execution, position, sizing, spread, and slippage
+isolation. No arbitrary E09 test count is prescribed.
+
+The canonical pre-E09 baseline is 2581. This governance reconciliation adds no tests, so collection
+remains `2581 + 0 = 2581`, with zero predecessor-node removal. Future E09 implementation reports
+its actual contribution and requires post-E09 collection to equal
+`2581 + actual E09 contribution`. E09 may close only after its two implementation files alone are
+committed; all focused, predecessor, collection, full-regression, coverage, static, documentation,
+determinism, immutability, fail-closed, reconstruction, ownership, and execution-isolation gates
+pass; publication succeeds; and every applicable exact-SHA remote gate is green.
+
+#### A07 final-closure and release boundary
+
+E09 closure does not by itself perform A07 final closure. A07 may become COMPLETE / CLOSED / FROZEN
+only after E09 closes; E00-E09 are all CLOSED / FROZEN; collection arithmetic reconciles with zero
+predecessor removal; the full regression passes; overall coverage meets the repository threshold;
+E09 statement coverage is 100% and branch coverage is 100% where measured; EventBus stress, Black,
+Ruff, MyPy, `git diff --check`, and all applicable exact-SHA remote workflows pass; the tracked tree
+is clean; `HEAD == origin/develop`; no blockers remain; the final package matrix is complete;
+required completion documentation is published; and release verification is complete.
+
+`v1.6.0` remains RESERVED until E00-E09 close, A07 final closure succeeds, and release verification
+succeeds. Creating or pushing the tag and release is a separate explicitly authorized action.
 
 ## 6. Hard gates and diagnostics
 
