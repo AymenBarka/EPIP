@@ -1,65 +1,61 @@
 # Architecture Principles
 
-## Domain-driven design
+## Single semantic owner
 
-Each EPIP module is a bounded context with its own vocabulary, invariants, public models, engine,
-events, history, graph, and metrics where appropriate. Calculations belong to exactly one domain.
-Decision owns action selection, Risk owns position sizing, and Execution owns broker interaction.
+Every calculation and decision has one owner. A07 is the sole final strategy authority. Historical
+Decision and Core Kernel Decision are analytical inputs only. Parallel final authorities are
+forbidden.
 
-## SOLID design
+## No downstream recomputation
 
-- **Single responsibility:** engines orchestrate; analyzers calculate; validators enforce; adapters
-  integrate.
-- **Open/closed:** protocols and strategies allow extensions without rewriting stable consumers.
-- **Liskov substitution:** protocol implementations preserve input/output and failure semantics.
-- **Interface segregation:** narrow ports avoid forcing consumers to depend on unrelated operations.
-- **Dependency inversion:** domain code depends on protocols and immutable upstream contracts rather
-  than concrete vendors or downstream engines.
+Consumers use official upstream outputs. Capital Risk does not recompute strategy geometry or RR;
+Execution does not recompute strategy or analysis; Portfolio does not select trades.
 
-## Event-driven integration
+## Rejection instead of semantic repair
 
-EventBus carries immutable lifecycle facts in deterministic publication order. Events decouple
-producers from audit, monitoring, reporting, and future integrations. Domain correctness must not
-depend on an optional listener, and listeners must not mutate published objects.
+When a canonical signal violates capital, venue, or portfolio constraints, the downstream domain
+rejects it. It does not change direction, geometry, confidence, expiration, or RR to make it pass.
 
-## Immutable objects
+## Frozen A07 strategy authority
 
-Published values, snapshots, histories, graph nodes/edges, decisions, position plans, orders, and
-reports are immutable. Engines may maintain private registries, but callers receive stable values.
-Copy-on-append history and graph operations preserve earlier versions.
+A07 E00-E09 own policy gating, evidence eligibility, final direction, entry, stop, target,
+risk/reward distance, RR acceptance, confidence binding, expiration, and `StrategySignal`. Runtime,
+Risk, Execution, Portfolio, broker, and MT5 dependencies must not enter A07.
 
-## No duplicated calculations
+## Immutable boundary contracts
 
-Consumers use official outputs. Structure is not recalculated in Liquidity; Decision is not
-recreated in Risk; sizing is not repeated in Execution; broker communication is not performed by
-Portfolio. Duplication creates contradictory truths and invalidates replay and auditability.
+Published outputs, fact bundles, evaluation context, signal envelopes, capital-risk views, and
+execution/portfolio snapshots are immutable, versioned, reconstructable, and fail closed. Mutable
+implementation state stays private.
 
-## Layer isolation
+## Explicit evaluation time
 
-Core has no domain-engine dependency. Upstream analysis does not import downstream actions.
-External vendors and brokers remain behind adapters. Domain models contain no transport,
-credentials, network calls, or framework orchestration.
+Deterministic evaluation receives time explicitly from ReplayClock or an injected event/venue
+clock. Strategy evaluation does not use ambient wall time. Receipt time is distinct from event time.
 
-## Versioning and serialization
+## Shared runtime across modes
 
-Snapshots carry stream versions and engine/schema metadata. Sequential histories validate version
-progression. Deterministic dictionary and JSON round trips preserve enum and nested object types.
-Compatibility changes follow the API stability and release policies.
+Backtest, paper, MT5 demo, and live use one Strategy Runtime and the same domain semantics. Only
+data, clock, broker, persistence, safety, and telemetry adapters vary.
 
-## Thread safety
+## Broker types stay at the boundary
 
-Stateful engines protect private mutable state with `RLock`, take consistent snapshots under lock,
-and publish immutable results. Domain services should remain pure when possible. Thread safety does
-not imply distributed transaction safety; adapters define their own external consistency semantics.
+Vendor and MT5 types do not leak into domain contracts. Broker normalization records requested and
+normalized representations and preserves strategy intent and protective ordering.
 
-## Public APIs
+## One-way dependencies
 
-Package-root exports in `__all__`, documented protocols, snapshots, official domain outputs, events,
-graphs, histories, and configuration models are public contracts. Internal helpers are replaceable.
-Stable APIs change only through additive evolution or governed deprecation.
+Infrastructure feeds analysis; analysis feeds Fact Adapters; adapters and A07 feed Strategy
+Runtime; its signal envelope feeds Capital Risk; an accepted plan feeds Execution; fills feed
+Portfolio. Immutable read views and domain-owned protocols prevent cycles.
 
-## Architecture acceptance criteria
+## Determinism and provenance
 
-A change must have one owner, legal dependencies, immutable published contracts, deterministic
-behavior, typed failures, tests, documentation, and quality evidence. Engine-level architecture
-changes require an ADR and Chief Architect approval.
+The same immutable inputs, policy/profile versions, and evaluation timestamp produce the same
+result. Every downstream output retains enough identity and provenance to audit its sources.
+
+## Compatibility and governance
+
+Existing Decision, Risk, and `PositionPlan` APIs remain compatibility APIs until separately
+migrated. Public API changes require governed deprecation. Architecture changes require an ADR,
+documentation, tests, quality evidence, and architecture approval.

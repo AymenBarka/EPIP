@@ -4,7 +4,7 @@ Status: COMPLETE / CLOSED / FROZEN
 
 Baseline: A05-v1.0.0 / A06 v1.5.21 / A07 final collection 2643
 
-Release state: v1.6.0 PREPARED / AWAITING RELEASE AUTHORIZATION / NOT RELEASED
+Release state: v1.6.0 RELEASED
 Implementation state: E00-E09 CLOSED / FROZEN
 
 ## 1. Mission and boundaries

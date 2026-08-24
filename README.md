@@ -4,8 +4,8 @@
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://black.readthedocs.io/)
 [![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![MyPy strict](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)](https://mypy.readthedocs.io/)
-[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](docs/project/QUALITY.md)
-[![Release](https://img.shields.io/badge/release-v1.4.0-blue)](docs/project/releases/v1.4.0.md)
+[![Coverage](https://img.shields.io/badge/coverage-96.4%25-brightgreen)](docs/project/QUALITY.md)
+[![Release](https://img.shields.io/badge/release-v1.6.0-blue)](docs/project/releases/v1.6.0.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Quality](https://github.com/AymenBarka/EPIP/actions/workflows/quality.yml/badge.svg)](https://github.com/AymenBarka/EPIP/actions/workflows/quality.yml)
 [![Documentation](https://github.com/AymenBarka/EPIP/actions/workflows/documentation.yml/badge.svg)](https://github.com/AymenBarka/EPIP/actions/workflows/documentation.yml)
@@ -29,10 +29,13 @@ flowchart LR
     LQ --> FB[Fibonacci]
     FB --> CT[Market Context]
     CT --> EW[Elliott Wave]
-    EW --> DE[Decision]
-    DE --> RK[Risk]
+    EW --> DE[Analytical Decision]
+    DE --> FA[Strategy Fact Adapter - future]
+    FA --> A07[A07 Strategy Engine]
+    A07 --> RK[Capital Risk]
     RK --> EX[Execution]
     EX --> BA[Broker Adapter]
+    EX --> PF[Portfolio]
 ```
 
 The framework applies domain-driven design, SOLID boundaries, immutable value objects, explicit
@@ -56,6 +59,15 @@ versioning, deterministic serialization, thread-safe engines, and EventBus-based
 | 012 | Decision Engine | Trade decisions |
 | 013 | Risk Engine | Position plans |
 | 014 | Execution Engine | Execution snapshots |
+| 015 | Portfolio Engine | Portfolio snapshots |
+| A07 | Strategy Engine E00-E09 | Strategy signals |
+
+A07 is **COMPLETE / CLOSED / FROZEN**. In the canonical post-v1.6.0 architecture, historical
+Decision and Core Kernel decisions are analytical inputs; A07 is the sole final strategy authority.
+The Strategy Fact Adapter and shared Strategy Runtime required to join analysis to A07 are the next
+governed program and are not yet implemented. See the
+[canonical architecture](docs/project/ARCHITECTURE.md) and
+[ADR-0016](docs/adr/ADR-0016-CanonicalStrategyPipeline.md).
 
 ## Installation
 
@@ -123,13 +135,14 @@ Module-level design documents and architecture decisions are available under
 
 ## Releases
 
-The current framework milestone is `v1.4.0`, containing the pipeline through execution. Release
-notes are maintained in [`docs/project/releases/`](docs/project/releases/).
+The current stable release is `v1.6.0`, containing the completed and frozen A07 Strategy Engine.
+Release notes are maintained in [`docs/project/releases/`](docs/project/releases/).
 
 ## Roadmap
 
-The next planned modules are Portfolio (`v1.5.0`), Strategy (`v1.6.0`), Monitoring and
-Observability (`v1.7.0`), and AI (`v2.0.0`).
+The next program begins with P01, the Canonical Strategy Runtime and Fact Adapter Contract. Later,
+separately authorized phases cover adapters, runtime orchestration, MTF context, E2E signals,
+backtesting, paper/MT5 modes, observability, dashboards, and live readiness.
 
 ## Contributing
 

@@ -37,6 +37,8 @@ timeline
 
 ## Completed releases
 
+- **v1.6.0:** released the A07 Strategy Engine. E00-E09 are COMPLETE / CLOSED / FROZEN at the
+  canonical 2643-test technical baseline.
 - **v1.5.18:** A06 architectural closure, with E00-E09 CLOSED / FROZEN. The release preserves
   the v1.6.0 Strategy Engine reservation.
 
@@ -86,15 +88,30 @@ timeline
 - **v1.5.17:** aligns all release metadata for the EPIP-016 delivery while preserving the
   already-published v1.5.16 tag.
 
-## Planned releases
+## Post-v1.6 program
 
-- **v1.6.0 - Strategy Engine:** PREPARED / AWAITING RELEASE AUTHORIZATION. A07 is COMPLETE / CLOSED /
-  FROZEN with E00-E09 closed and a canonical 2643-test baseline. Version metadata, release notes,
-  and changelog are prepared; the annotated tag, tag-triggered validation, and publication require
-  separate release authorization.
-- **v1.7.0 — Monitoring & Observability:** metrics, tracing, health, audit streams, operational
-  dashboards, and alerting across engine boundaries.
-- **v2.0.0 — AI Engine:** explainable AI assistance over official snapshots and histories, subject
-  to deterministic safety, governance, and human-control boundaries.
+P00 publishes the canonical architecture and semantic ownership. P01 is the next milestone and is
+not implemented. Every implementation phase requires separate authorization.
 
-Roadmap items are intentions, not compatibility guarantees, until accepted by an ADR and released.
+| Phase | State | Purpose |
+| --- | --- | --- |
+| P00 | COMPLETE / CLOSED / FROZEN by this governance publication | Architecture governance |
+| P01 | READY FOR CONTRACT AUTHORIZATION | Runtime and Fact Adapter contracts |
+| P02 | Planned | Analysis-to-A07 fact adapters |
+| P03 | Planned | Shared Strategy Runtime |
+| P04 | Planned | Elliott/Fibonacci strategy profile |
+| P05 | Planned | Multi-timeframe context |
+| P06 | Planned | E2E signal integration |
+| P07 | Planned | Shared-runtime backtesting |
+| P08 | Planned | Trade ledger and metrics |
+| P09 | Planned | Walk-forward evaluation |
+| P10 | Planned | Quantitative validation |
+| P11 | Planned | Paper mode |
+| P12 | Planned | MT5 demo adapters |
+| P13 | Planned | Observability |
+| P14 | Planned | Dashboard |
+| P15 | Planned | Live readiness |
+
+Dependency order is P00 -> P01 -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09 -> P10
+-> P11 -> P12 -> P13 -> P14 -> P15. P01 is contract/governance only. No phase authorizes a later
+phase, live deployment, or release by implication.

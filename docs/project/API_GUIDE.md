@@ -9,25 +9,33 @@ models. Internal analyzers and helpers are extension details unless explicitly r
 ## Snapshots
 
 Snapshots are immutable, versioned records of an engine result. Major snapshot families are
-Structure, Liquidity, Fibonacci, Market Context, Wave, Decision, Risk, and Execution. They carry
+Structure, Liquidity, Fibonacci, Market Context, Wave, Decision, Risk, Execution, and Portfolio.
+They carry
 stream identity (for example symbol/timeframe), timestamp, monotonic version, engine version, and
 the official domain result. Downstream consumers keep the snapshot or its official contained object
 instead of copying its calculation.
 
-The action boundary is:
+The currently implemented historical compatibility boundary is:
 
 ```text
 MarketContextSnapshot + WaveSnapshot -> DecisionSnapshot/TradeDecision
 TradeDecision -> RiskSnapshot/PositionPlan
 PositionPlan -> ExecutionSnapshot/ExecutionReport
+ExecutionSnapshot -> PortfolioSnapshot
 ```
+
+For new post-v1.6.0 integrations, `DecisionSnapshot`, `TradeDecision`, and Core Kernel `Decision`
+are analytical outputs, not final strategy signals. A07 `StrategySignal` is the final strategy
+output. The future boundary is Strategy Runtime -> `StrategySignal`/`StrategySignalEnvelope` ->
+Capital Risk. Strategy Runtime, `StrategySignalEnvelope`, and the Capital Risk successor are
+**NOT YET IMPLEMENTED**.
 
 ## Graphs
 
 Structure, Liquidity, Fibonacci, Context, Wave, Decision, Risk, and Execution graphs preserve
 lineage. Nodes contain immutable snapshots; typed edges represent previous/next, parent/child, or
-links to source-domain objects. Graph methods expose deterministic traversal and prepare later
-Portfolio and AI consumers without embedding those future modules.
+links to source-domain objects. Graph methods expose deterministic traversal and prepare
+downstream consumers without embedding them. Portfolio is implemented; AI remains future.
 
 ## Histories
 

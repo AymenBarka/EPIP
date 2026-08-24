@@ -1,8 +1,8 @@
 # Public Object Catalog
 
-This catalog covers all 330 symbols exported through package-root `__all__` declarations. Symbols
-within a row share the documented domain contract; enum members, fields, and signatures remain
-defined by the typed source and API guide. Versions identify the EPIP module that owns the API.
+This catalog identifies public domain families and architectural roles. The historical 330-symbol
+count was generated for v1.4.0 and is retained in `ARCHITECTURE_STATISTICS.md`; it is not asserted
+as the post-v1.6.0 count. Current exports remain defined by typed source.
 
 ## Catalog by bounded context
 
@@ -143,7 +143,8 @@ defined by the typed source and API guide. Versions identify the EPIP module tha
 - **Produces:** rule results, scores, confidence/probability, priority, zones, reasons,
   `TradeDecision`, snapshot, graph/history and metrics.
 - **Version:** EPIP-012 (`v1.2.0`).
-- **Relationships:** sole intent producer for Risk; no position sizing or execution.
+- **Relationships:** historical input to legacy Risk. In the post-v1.6.0 canonical runtime this is
+  analytical candidate/evidence output, not a final strategy signal.
 - **Public objects:** `DecisionAction`, `DecisionConfidence`, `DecisionConfig`, `DecisionEdge`,
   `DecisionEngine`, `DecisionGraph`, `DecisionHistory`, `DecisionMetrics`, `DecisionNode`,
   `DecisionProbability`, `DecisionProtocol`, `DecisionQuality`, `DecisionReason`, `DecisionScore`,
@@ -156,7 +157,8 @@ defined by the typed source and API guide. Versions identify the EPIP module tha
 - **Produces:** sizing, exposure/drawdown, leverage/margin, stops/targets, risk score/reasons,
   `PositionPlan`, snapshot, graph/history, events and metrics.
 - **Version:** EPIP-013 (`v1.3.0`).
-- **Relationships:** sole sizing authority; official input to Execution and future Portfolio/AI.
+- **Relationships:** legacy sizing path and official input to current Execution. Its future Capital
+  Risk successor preserves A07 geometry and owns capital allocation and constraints.
 - **Public objects:** `Drawdown`, `DrawdownExceeded`, `Exposure`, `ExposureExceeded`, `Leverage`,
   `Margin`, `PortfolioLimits`, `PositionPlan`, `PositionPlanned`, `PositionSize`, `RiskAccepted`,
   `RiskConfig`, `RiskEdge`, `RiskEngine`, `RiskGraph`, `RiskHistory`, `RiskLevel`, `RiskMetrics`,
@@ -169,13 +171,45 @@ defined by the typed source and API guide. Versions identify the EPIP module tha
 - **Produces:** orders/fills, broker responses, reports, official `ExecutionSnapshot`, graph/history,
   events and statistics.
 - **Version:** EPIP-014 (`v1.4.0`).
-- **Relationships:** sole broker boundary; official input to future Portfolio, Monitoring and AI.
+- **Relationships:** sole broker boundary; official input to implemented Portfolio and future
+  Monitoring/AI consumers.
 - **Public objects:** `BrokerAdapterProtocol`, `BrokerResponse`, `CommissionMode`,
   `ExecutionCompleted`, `ExecutionConfig`, `ExecutionEdge`, `ExecutionEngine`, `ExecutionGraph`,
   `ExecutionHistory`, `ExecutionNode`, `ExecutionReason`, `ExecutionRelation`, `ExecutionReport`,
   `ExecutionSnapshot`, `ExecutionStatistics`, `MT5Adapter`, `Order`, `OrderCancelled`,
   `OrderCreated`, `OrderFill`, `OrderFilled`, `OrderRejected`, `OrderSide`, `OrderState`,
   `OrderSubmitted`, `OrderType`, `PaperTradingAdapter`, `SlippageMode`.
+
+### EPIP-015 — Portfolio
+
+- **Consumes:** completed `ExecutionSnapshot` objects and fills.
+- **Produces:** positions, cash/equity, PnL, allocations, exposure, correlation, limit reasons, and
+  `PortfolioSnapshot`.
+- **Version:** EPIP-015 (`v1.5.0`).
+- **Relationships:** post-fill accounting and portfolio-constraint authority, not strategy
+  authority. A future immutable constraint view may feed Capital Risk.
+
+### A07 — Strategy Engine E00-E09
+
+- **Consumes:** immutable caller-supplied identity, policy, evidence, direction, geometry,
+  reward-risk, confidence, expiration, and evaluation-request contracts.
+- **Produces:** validated predecessor objects and final immutable `StrategySignal`.
+- **Version:** A07 (`v1.6.0`), COMPLETE / CLOSED / FROZEN.
+- **Relationships:** sole canonical final strategy authority; broker-, execution-, sizing-,
+  portfolio-, and wall-clock-independent.
+
+## Proposed post-v1.6 contracts
+
+These are **PROPOSED / FUTURE CONTRACTS**, not implemented APIs. P01 owns their fields:
+
+- `EvaluationContext` and a snapshot/provenance bundle.
+- `StrategyFactBundle`, strategy-profile identity/version, and adapter protocols.
+- `StrategyRuntimeRequest`, `StrategyRuntimeResult`, and runtime diagnostics.
+- `StrategySignalEnvelope` binding a signal to instrument, timeframe, and sources.
+- `PortfolioRiskSnapshot` or another immutable constraint view.
+- A Capital Risk plan successor preserving A07 direction and geometry.
+
+The existing `PositionPlan` remains a legacy compatibility output until separately migrated.
 
 ## Stability note
 

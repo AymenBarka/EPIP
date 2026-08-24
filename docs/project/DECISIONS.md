@@ -119,3 +119,20 @@ history or create it through the normal ADR review process.
 - **Purpose:** make `ExecutionSnapshot` the official execution outcome and isolate all broker access
   behind `BrokerAdapterProtocol`.
 - **ADR:** [ADR-0014](../adr/ADR-0014-ExecutionEngine.md)
+
+## ADR-0015 — Portfolio Engine
+
+- **Release:** `v1.5.0`
+- **Status:** Accepted
+- **Purpose:** establish `PortfolioSnapshot` as the official post-fill positions, capital, PnL,
+  allocation, exposure, correlation, and portfolio-limit boundary.
+- **ADR:** [ADR-0015](../adr/ADR-0015-PortfolioEngine.md)
+
+## ADR-0016 — Post-v1.6.0 Canonical Strategy Pipeline and Semantic Ownership
+
+- **Release:** post-`v1.6.0` governance
+- **Status:** Accepted
+- **Purpose:** establish A07 as the sole final strategy authority, reclassify Decision/Core Kernel
+  outputs as analytical inputs, separate strategy geometry from Capital Risk, and govern the future
+  Fact Adapter/Profile and shared Strategy Runtime boundaries.
+- **ADR:** [ADR-0016](../adr/ADR-0016-CanonicalStrategyPipeline.md)

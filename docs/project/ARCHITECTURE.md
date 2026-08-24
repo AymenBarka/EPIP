@@ -1,94 +1,103 @@
 # Architecture
 
-## Overall architecture
+## Canonical authority
+
+[ADR-0016](../adr/ADR-0016-CanonicalStrategyPipeline.md) is the normative post-v1.6.0 authority.
+A07 E00-E09 are COMPLETE / CLOSED / FROZEN and A07 is the sole final strategy authority. The
+Strategy Fact Adapter/Profile and Strategy Runtime shown below are future boundaries, not existing
+implementations.
+
+## Canonical target pipeline
 
 ```mermaid
 flowchart TB
-    subgraph Foundation
-      Core[Core Domain] --> Bus[EventBus and Kernel]
-      Core --> FS[Feature Store]
-    end
-    subgraph Analysis
-      MD[Market Data] --> RP[Replay]
-      RP --> SW[Swing]
-      SW --> ST[Market Structure]
-      ST --> LQ[Liquidity]
-      LQ --> FB[Fibonacci]
-      FB --> CT[Market Context]
-      CT --> EW[Elliott Wave]
-    end
-    subgraph Action
-      EW --> DE[Decision]
-      DE --> RK[Risk]
-      RK --> EX[Execution]
-      EX --> BA[Broker Adapter]
-    end
-    Bus -. domain events .-> Analysis
-    Bus -. domain events .-> Action
-    FS -. features .-> Analysis
+    DS[DataSource] --> CD[Candle]
+    CD --> CL[Replay / Evaluation Clock]
+    CL --> SW[SwingSequence]
+    SW --> MS[MarketStructureSnapshot]
+    MS --> LQ[LiquiditySnapshot]
+    LQ --> FB[FibonacciSnapshot]
+    FB --> CT[MarketContextSnapshot]
+    CT --> EW[WaveSnapshot]
+    EW --> DA[Analytical Candidate / Evidence Assessment]
+    DA --> FA[Strategy Fact Adapter + Profile - future]
+    FA --> BF[StrategyFactBundle - future]
+    BF --> RT[Strategy Runtime - future]
+    RT --> A7[A07 E00-E09]
+    A7 --> SS[StrategySignal]
+    SS --> SE[StrategySignalEnvelope - future]
+    SE --> CR[Capital Risk - future successor boundary]
+    CR --> PP[Sized / constrained plan]
+    PP --> EX[Execution]
+    EX --> BA[Broker Adapter]
+    BA --> FL[Fill / ExecutionSnapshot]
+    FL --> PF[Portfolio accounting]
+    PF --> PS[PortfolioSnapshot]
 ```
 
-## Layered architecture
+Core Kernel may supply governed analytical evidence through a Fact Adapter. Its `Decision` and the
+historical `DecisionSnapshot` are analytical compatibility outputs, not final strategy signals.
+The implemented Replay engine does not orchestrate this complete target pipeline.
 
-```mermaid
-flowchart TB
-    API[Public API: immutable models, protocols, snapshots] --> APP[Application: engines]
-    APP --> DOMAIN[Domain: analyzers, validators, state machines]
-    APP --> PORTS[Ports: EventBus and adapter protocols]
-    ADAPTERS[Adapters: market data, paper broker, future brokers] --> PORTS
-    DOMAIN --> CORE[Core values and contracts]
-```
+## Semantic layers and ownership
 
-The public layer defines stable objects and protocols. Application engines coordinate domain
-services. Domain code owns calculations and invariants. Ports invert dependencies toward adapters.
-Core provides shared value objects, event infrastructure, plugin contracts, and kernel services.
+- **Infrastructure:** Market Data, Replay/evaluation clocks, EventBus, external adapters,
+  persistence, and telemetry.
+- **Domain analysis:** Swing, Market Structure, Liquidity, Fibonacci, Context, Elliott, historical
+  Decision, and governed Core Kernel evidence.
+- **Strategy fact adaptation:** future versioned adapters/profiles that translate official analysis
+  into caller-authoritative A07 facts.
+- **Strategy policy and signal:** frozen A07 policy, eligibility, direction, geometry, RR,
+  confidence binding, expiration, and `StrategySignal`.
+- **Capital Risk:** future signal-envelope consumer responsible for capital allocation, sizing,
+  exposure, leverage, margin, drawdown, and portfolio constraints.
+- **Execution:** accepted-plan validation, order lifecycle, broker access, fills, costs, and
+  `ExecutionSnapshot`.
+- **Portfolio:** positions, cash, equity, PnL, allocations, exposure, correlation, limits, and
+  `PortfolioSnapshot`.
 
-## Module dependency graph
+Historical Decision owns analytical candidates, scores, probabilities, quality, priority,
+reasoning, evidence, and suggested geometry. A07 exclusively owns final direction, entry, stop,
+target, risk/reward distance, RR and acceptance, confidence binding, expiration, and final signal.
+Capital Risk rejects constraint violations instead of repairing strategy semantics. Execution does
+not recompute strategy. Portfolio consumes fills and may publish an immutable pre-trade constraint
+view; it does not decide trades.
 
-```mermaid
-flowchart LR
-    C[Core] --> E[EventBus]
-    C --> F[Feature Store]
-    C --> M[Market Data]
-    M --> R[Replay]
-    R --> S[Swing]
-    S --> U[Structure]
-    U --> L[Liquidity]
-    L --> B[Fibonacci]
-    B --> X[Context]
-    X --> W[Elliott]
-    X --> D[Decision]
-    W --> D
-    D --> K[Risk]
-    K --> Q[Execution]
-    E -. events .-> S
-    E -. events .-> U
-    E -. events .-> L
-    E -. events .-> D
-    E -. events .-> K
-    E -. events .-> Q
-```
+## Strategy Runtime and time
 
-Dependencies follow the direction of official domain outputs. No downstream module reaches back to
-recompute upstream state. Risk consumes `TradeDecision`; Execution consumes `PositionPlan`.
+The future Strategy Runtime validates immutable evaluation context, provenance, and temporal
+coherence; selects a profile; invokes adapters; orchestrates A07 E00-E09; and emits a signal-context
+envelope and diagnostics. It does not analyze markets, size capital, execute, read broker state, or
+use ambient wall time.
 
-## Data flow
+Replay/backtest use `ReplayClock` or event time. Paper uses injected market/event time. MT5 demo
+and live use normalized venue/event time with receipt time separate when required. Identical input
+bundles, versions, and evaluation timestamps must produce identical strategy results.
 
-Data enters through provider protocols, is normalized, optionally replayed, and progressively
-enriched. Analytical modules produce immutable snapshots, graph links, histories, metrics, and
-events. Context aggregates analysis; Elliott interprets wave structure; Decision produces intent;
-Risk produces an executable plan; Execution interacts with a broker adapter and records outcomes.
+## Dependency direction
 
-## Why each engine exists
+Infrastructure feeds domain inputs; analysis consumes earlier public outputs; Fact Adapters consume
+analysis and A07 fact contracts; Strategy Runtime consumes adapters and A07; Capital Risk consumes
+signal envelopes and immutable portfolio-risk facts; Execution consumes an accepted plan;
+Portfolio consumes execution/fills.
 
-Each engine isolates a reason to change: Replay controls time; Swing extracts pivots; Structure
-classifies market behavior; Liquidity models pools and sweeps; Fibonacci models price geometry;
-Context aggregates evidence; Elliott models wave hypotheses; Decision owns action selection; Risk
-owns sizing and constraints; Execution owns order lifecycle and broker access. This division makes
-the system replaceable, testable, and auditable without collapsing concerns into one service.
+A07 must not depend on Runtime, Risk, Execution, Portfolio, brokers, or MT5. Analytics must not
+depend on downstream execution state. Broker types stay outside domain contracts. Immutable read
+models and domain-owned protocols prevent dependency cycles.
 
-## Cross-cutting rules
+## Shared deployment runtime
 
-Public outputs are immutable and versioned. Serialization is deterministic. Histories append rather
-than mutate. Graphs preserve lineage. Stateful operations are protected with `RLock`. Events are
-facts, not commands hidden inside domain objects. Adapters contain external-system concerns.
+Backtest, paper, MT5 demo, and live use the same analytical engines, adapters/profiles, Strategy
+Runtime, A07 evaluation, Capital Risk contracts, and execution-plan contracts. Historical data,
+clocks, broker transports, persistence, safety controls, and telemetry are replaceable adapters.
+Mode-specific strategy implementations are forbidden.
+
+## Public contracts and evolution
+
+Existing snapshots and A07 objects remain governed public contracts. `EvaluationContext`,
+`StrategyFactBundle`, runtime request/result and diagnostics, `StrategySignalEnvelope`, an immutable
+portfolio-risk view, and a Capital Risk plan successor are FUTURE CONTRACTS owned by P01. Stable
+APIs change only through additive evolution or governed compatibility/deprecation.
+
+Architecture changes require one semantic owner, legal dependencies, immutable boundaries,
+explicit time, typed failure, tests, documentation, an ADR, and architecture approval.

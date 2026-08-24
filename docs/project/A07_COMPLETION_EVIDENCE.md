@@ -2,7 +2,7 @@
 
 Status: COMPLETE / CLOSED / FROZEN
 
-Release state: v1.6.0 PREPARED / AWAITING RELEASE AUTHORIZATION / NOT RELEASED
+Release state: v1.6.0 RELEASED
 
 Technical evidence SHA: `6a83f4d0151ce23a463c6c9297f4cb088cc623b4`
 
@@ -74,9 +74,8 @@ immutability, exact reconstruction, rejection of contradictory state, and absenc
 order, position, sizing, slippage, filesystem, network, randomness, and wall-clock dependencies at
 the A07 boundary.
 
-## Release readiness boundary
+## Release state
 
-The package version and release metadata are prepared for `1.6.0`. The canonical release notes are
-published at [`releases/v1.6.0.md`](releases/v1.6.0.md), but no `v1.6.0` tag or GitHub release
-exists. The annotated tag, tag push, tag-triggered release validation, and GitHub release require a
-separate explicit release authorization. A07 closure does not itself release v1.6.0.
+The immutable A07 implementation and closure evidence were released as `v1.6.0`. The canonical
+release notes are published at [`releases/v1.6.0.md`](releases/v1.6.0.md). This post-release status
+update does not alter any E00-E09 contract or technical closure evidence.
