@@ -266,6 +266,213 @@ pass, Black/Ruff/MyPy and documentation checks pass, determinism/immutability/fa
 successor-leakage audits pass, publication succeeds, and every applicable exact-SHA remote gate is
 green. Closure authorizes no E02 work.
 
+### 5.2 E02 normative evidence contract
+
+#### Purpose, ownership, files, and dependencies
+
+E02 is the deterministic adapter and binder of caller-supplied immutable evidence facts. It owns
+canonical evidence-key binding, reconciliation of E01 required and optional keys, preservation of
+E00 identity/provenance and supplied freshness/temporal facts, the immutable binding result,
+validation result, and diagnostics. It never acquires evidence or computes predecessor facts.
+
+Its only production and test files are `epip/a07/evidence.py` and
+`tests/a07/test_evidence.py`. It exports exactly `StrategyEvidenceSnapshot`, `EvidenceBinding`,
+`EvidenceValidation`, and `EvidenceDiagnostics`; helpers and constants remain private. Allowed
+imports are the Python standard library; `StrategyIdentity` and `StrategyEvidenceIdentity` from
+E00; `StrategyPolicy` from E01; and `DataIntegrityError`,
+`MissingFieldError`, and `require_text` from `epip.core.integrity`. Direct A05/A06 imports are
+forbidden: callers adapt their frozen facts into the E02 snapshot contract, and the opaque
+`StrategyEvidenceIdentity.provenance` preserves their source continuity. E02 must not parse or
+validate E01 policy references or recompute E01 fingerprints. These three types are the exact A07
+predecessor objects E02 consumes; it does not consume `StrategyEvaluationRequest`,
+`PolicyValidation`, or either predecessor diagnostics object. Policy-reference validation must
+already have succeeded at the E01 boundary before E02 receives the policy.
+
+E02 does not own market analysis, evidence acquisition, evidence taxonomy, strategy eligibility or
+direction resolution, `NO_TRADE`, Elliott interpretation, Fibonacci or liquidity interpretation,
+entry/stop/target geometry, risk or reward calculation, RR acceptance, confidence, live expiration
+derivation, signal construction or closure, execution, or broker/MT5 behavior. It must not import
+E03 or any later A07 package, analytical engines, providers, adapters, registries, or external-state
+services.
+
+#### Common value and error rules
+
+All four public objects are immutable, hashable, use exact-type equality over every declared public
+field in the documented order, contain only immutable nested state, and support deterministic
+reconstruction. Runtime `hash()` is not persistent identity; E02 owns no persistent fingerprint or
+digest.
+
+Text uses E01 evidence-identifier semantics: an actual `str`, stripped at both ends, non-empty
+after stripping, preserved without case folding or other normalization. This is the complete
+evidence-key and provenance-text grammar; E02 does not narrow opaque E01 keys to a taxonomy.
+Malformed type/shape/text, mutable containers, duplicate/conflicting evidence, or inconsistent
+reconstruction are construction contract failures. Missing/empty required text raises
+`MissingFieldError`; every other contract failure raises `DataIntegrityError`. Well-formed but
+policy-unsatisfied evidence produces `EvidenceValidation(valid=False)` and diagnostics, not an
+exception.
+
+#### `StrategyEvidenceSnapshot`
+
+The exact fields, constructor order, equality order, and reconstruction order are:
+
+| Field | Type | Required | Contract |
+| --- | --- | --- | --- |
+| `strategy_identity` | `StrategyIdentity` | Yes | Exact frozen E00 type identifying the strategy to which this evidence fact is attributed. |
+| `evidence_identity` | `StrategyEvidenceIdentity` | Yes | Exact frozen E00 identity; its `evidence_id` is the immutable evidence-instance identity and its `provenance` is the required opaque predecessor provenance reference. |
+| `evidence_key` | `str` | Yes | Opaque canonical key matched exactly against E01 required/optional evidence identifiers. |
+| `fresh` | `bool` | Yes | Actual bool supplied by the predecessor adapter; false means stale. |
+| `temporally_eligible` | `bool` | Yes | Actual bool supplied by the predecessor adapter. |
+
+No payload is stored: analytical content remains predecessor-owned and is neither required for
+binding nor interpreted by E02. `strategy_identity` and `evidence_identity` must be exact types;
+duck-typed replacements fail. Boolean fields reject integers and truthy coercion. Provenance is
+preserved only through `evidence_identity.provenance`, whose frozen E00 construction already
+requires canonical non-empty text; E02 neither duplicates nor recomputes it. Direct reconstruction
+from the five public fields must preserve equality and hash.
+
+#### Evidence key and available-evidence input
+
+`EvidenceBinding` receives `available_evidence` as exactly
+`tuple[StrategyEvidenceSnapshot, ...]`; an empty tuple is valid. Lists, mappings, sets, generators,
+and wrong element types fail. Input permutations are canonicalized by ascending
+`(evidence_key, evidence_identity.evidence_id, evidence_identity.provenance,
+strategy_identity.strategy_id, strategy_identity.strategy_version)`. The additional values are
+total-order safeguards only; duplicate/conflict checks occur first.
+
+Within one binding input, each `evidence_key` and each complete `StrategyEvidenceIdentity` may occur
+at most once. Repeating an equal snapshot is still a duplicate. Two snapshots sharing a key are a
+key conflict regardless of their other fields. One evidence identity associated with two keys or
+two semantic snapshots is an identity conflict. All such container-level duplicate/conflict states
+raise `DataIntegrityError`; there is no first/last-wins rule and no diagnostic result is created.
+
+#### Required, optional, and unexpected evidence
+
+Keys match by exact canonical string equality. For every `StrategyPolicy.required_evidence` key,
+exactly one matching snapshot is required. A required key is satisfied only when its snapshot is
+present, has `strategy_identity == policy.strategy_identity`, `fresh is True`, and
+`temporally_eligible is True`. Absence is well formed but unsatisfied and produces
+`MISSING_REQUIRED_EVIDENCE`. A present stale required snapshot produces
+`STALE_REQUIRED_EVIDENCE`; a present temporally ineligible required snapshot produces
+`TEMPORALLY_INELIGIBLE_REQUIRED_EVIDENCE`. A snapshot may produce both freshness and temporal
+diagnostics. A well-formed strategy mismatch produces `STRATEGY_IDENTITY_MISMATCH`.
+
+An optional key may be absent without diagnostic or validity impact. A present optional snapshot
+is preserved and bound, but remains part of the validated contract: stale optional evidence
+produces `STALE_OPTIONAL_EVIDENCE`, temporally ineligible optional evidence produces
+`TEMPORALLY_INELIGIBLE_OPTIONAL_EVIDENCE`, and strategy mismatch produces
+`STRATEGY_IDENTITY_MISMATCH`; each makes validation false. Malformed optional evidence is a
+construction error, never silently ignored.
+
+An unexpected snapshot has a key in neither policy tuple. It is preserved in the binding's
+`unexpected_evidence`, produces `UNEXPECTED_EVIDENCE`, and makes validation false. E02 must not
+silently discard, promote, reinterpret, or bind it. Because E01 guarantees disjoint required and
+optional keys, a supplied nonconforming `StrategyPolicy` is impossible through the frozen public
+E01 contract; E02 accepts only an exact `StrategyPolicy`.
+
+#### `EvidenceBinding`
+
+`EvidenceBinding` is the immutable canonical reconciliation result. Its public constructor accepts
+exactly a `StrategyPolicy` and the available-evidence tuple. Its exact derived public fields, in
+equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `policy` | `StrategyPolicy` | Exact frozen policy supplied to the constructor; it preserves policy identity, strategy identity, and authoritative required/optional configuration without duplication. |
+| `available_evidence` | `tuple[StrategyEvidenceSnapshot, ...]` | Every supplied snapshot in canonical order. |
+| `bound_required` | `tuple[StrategyEvidenceSnapshot, ...]` | Available snapshots whose keys occur in `policy.required_evidence`, ordered by evidence key. Presence does not imply freshness, temporal eligibility, or strategy compatibility. |
+| `bound_optional` | `tuple[StrategyEvidenceSnapshot, ...]` | Available snapshots whose keys occur in `policy.optional_evidence`, ordered by evidence key. |
+| `missing_required` | `tuple[str, ...]` | Required policy keys with no matching snapshot, in E01's canonical lexicographic order. |
+| `unexpected_evidence` | `tuple[StrategyEvidenceSnapshot, ...]` | Available snapshots in neither policy collection, in canonical evidence order. |
+
+Binding performs classification and preservation only; it does not decide validity or discard
+invalid facts. Reconstruction uses a class method accepting all six public fields in their
+documented order. It recomputes a binding from `policy` and `available_evidence`, requires every
+supplied derived field to equal the recomputed field, and raises `DataIntegrityError` on
+inconsistency. This preserves the complete frozen E01 policy as the authoritative source without
+duplicating its configuration or trusting caller-supplied summaries.
+
+#### `EvidenceDiagnostics`
+
+Its sole field is `diagnostics: tuple[str, ...]`. The tuple may be empty, must be an actual tuple,
+contains actual non-empty strings from exactly the frozen code set below, is lexicographically
+sorted, and rejects duplicates and unknown codes:
+
+- `MISSING_REQUIRED_EVIDENCE`: at least one required policy key has no snapshot.
+- `STALE_REQUIRED_EVIDENCE`: at least one bound required snapshot has `fresh is False`.
+- `STALE_OPTIONAL_EVIDENCE`: at least one bound optional snapshot has `fresh is False`.
+- `TEMPORALLY_INELIGIBLE_REQUIRED_EVIDENCE`: at least one bound required snapshot has
+  `temporally_eligible is False`.
+- `TEMPORALLY_INELIGIBLE_OPTIONAL_EVIDENCE`: at least one bound optional snapshot has
+  `temporally_eligible is False`.
+- `STRATEGY_IDENTITY_MISMATCH`: at least one supplied snapshot's strategy identity differs from
+  `binding.policy.strategy_identity`.
+- `UNEXPECTED_EVIDENCE`: at least one unexpected snapshot is present.
+
+Codes are aggregate deterministic conditions, not per-key messages; multiple distinct codes may
+coexist, but each code occurs at most once. Duplicate/conflicting input is a construction error and
+therefore has no diagnostic code. Empty diagnostics means all E02 binding conditions are satisfied;
+it says nothing about E03+ eligibility or tradeability. Reconstruction directly from the tuple
+revalidates and canonicalizes the codes.
+
+#### `EvidenceValidation`
+
+`EvidenceValidation` is an immutable derived result value object, not a service. Its constructor
+accepts exactly one `EvidenceBinding`. Its public fields, in equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `binding` | `EvidenceBinding` | Exact validated binding, preserving complete E02 attribution. |
+| `valid` | `bool` | True if and only if the derived diagnostics tuple is empty. |
+| `diagnostics` | `EvidenceDiagnostics` | Canonical aggregate codes derived from the binding according to the rules above. |
+
+Callers cannot supply `valid` or diagnostics to the public constructor. Validation inspects only
+the binding's preserved identities and supplied boolean facts; it performs no lookup, policy
+reference parsing, clock comparison, or analytics. Reconstruction accepts `binding`, `valid`, and
+`diagnostics`, recomputes the latter two, and rejects any inconsistency with `DataIntegrityError`.
+
+#### Canonicalization, reconstruction, and external state
+
+Every E02 collection uses the canonical orders above. Equivalent permutations produce equal
+bindings, hashes, validation results, and diagnostics. Snapshot reconstruction accepts its five
+fields; binding and validation reconstruction recompute all derived facts; diagnostics
+reconstruction accepts its sole tuple. Python signatures reject unknown or missing fields, and
+wrong types fail through the declared integrity model. Every successful round trip preserves exact
+value equality and runtime hash.
+
+E02 behavior is independent of current time, `datetime.now()`, `time.time()`, timezone environment,
+locale, filesystem, network, environment variables, randomness, process/hash iteration order,
+mutable caches, and global registries. Freshness and temporal eligibility are supplied immutable
+facts and never derived from timestamps. Evidence identity, provenance, policy identity, and
+strategy identity are consumed and preserved without mutation or reinterpretation.
+
+#### Required E02 tests and closure
+
+The E02 test module must cover valid/invalid snapshot construction; exact predecessor types;
+evidence-key and provenance preservation; strict booleans; equality, hash, immutability, nested
+immutability, and reconstruction for all public objects; empty and permuted available tuples;
+mutable/wrong containers and elements; canonical total ordering; duplicate equal snapshots, keys,
+and identities; conflicts; fully satisfied and multiple-missing required keys; optional absence and
+presence; required/optional separation; unexpected evidence; stale required and optional evidence;
+temporally ineligible required and optional evidence; strategy mismatch; simultaneous diagnostic
+conditions; known/unknown/duplicate diagnostics; derived-validity consistency; inconsistent
+binding/validation reconstruction; unknown/missing/wrong reconstruction arguments; external-state
+and repeated-construction determinism; E00/E01 compatibility; opaque A05/A06 continuity without
+direct imports or recomputation; direct-import enforcement; and proof that no E03+ behavior exists.
+No exact test count is prescribed.
+
+E02 invariants are: consume and never recompute or mutate predecessor facts; opaque evidence keys;
+tuple-only available evidence; no duplicate/conflicting evidence; deterministic required/optional
+semantics; optional absence differs from required absence; malformed input is an exception while
+well-formed policy dissatisfaction is a validation result; supplied freshness and temporal
+eligibility; canonical ordering; frozen diagnostic codes; no silent precedence or last-write-wins;
+no persistent E02 digest; and no successor semantics.
+
+E02 may close only after its two authorized files alone are committed; focused, E00, E01, A05,
+A06, and full regressions pass; collection arithmetic reconciles with no predecessor test removal;
+coverage and static/documentation gates pass; determinism, immutability, fail-closed,
+reconstruction, dependency, and successor-leakage audits pass; publication succeeds; and all
+applicable exact-SHA remote gates are green. Closure authorizes no E03 work.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
