@@ -835,6 +835,174 @@ predecessor, collection, full-regression, coverage, static, determinism, immutab
 reconstruction, ownership, and successor-isolation gates pass; publication succeeds; and every
 applicable exact-SHA remote gate is green. E04 closure authorizes no E05 implementation.
 
+### 5.5 E05 normative stop contract
+
+#### Purpose, ownership, files, and dependencies
+
+E05 converts one caller-authorized immutable invalidation price into one canonical executable stop
+price and verifies its strict directional relationship to the frozen E04 entry. It owns stop-fact
+validation, policy-precision normalization, stop-side validation, stop integrity validation, and
+E05 diagnostics. It does not discover invalidation, choose among candidates, or calculate entry,
+target, risk, reward, RR, `minimum_rr` acceptance, confidence, expiration, signals, or execution.
+
+Its only production and test files are `epip/a07/stop.py` and `tests/a07/test_stop.py`. It exports
+exactly `StopFacts`, `StopLoss`, `StopValidation`, and `StopDiagnostics`; helpers and constants
+remain private. Allowed imports are Python standard-library decimal, finite-number, dataclass, and
+typing facilities; `StrategyDirection` from E00; `EntryValidation` from E04; and
+`DataIntegrityError` from `epip.core.integrity`. E05 reaches direction and
+`policy.numeric_precision` only through the frozen entry-validation chain. It imports no E01-E03
+type directly, no A05/A06, no E06+, and no analytical engine, market data, provider, filesystem,
+network, clock, environment, random, broker, MT5, or execution facility.
+
+All four public objects are immutable and hashable, compare by exact type and every declared
+public field in documented order, contain no mutable nested state, and own no persistent
+fingerprint or digest. Wrong types, malformed prices, non-actionable predecessors, invalid stop
+geometry, or contradictory reconstruction raise `DataIntegrityError`; none becomes a sentinel or
+diagnostic fallback.
+
+#### Invalidation source and `StopFacts`
+
+E05 accepts exactly one final invalidation price per evaluation. Upstream authority has already
+selected it and incorporated any authorized Elliott invalidation, structure/swing invalidation,
+supported volatility adjustment, or buffer. E05 does not receive those as alternatives, expose
+their taxonomy, reproduce their precedence, or apply another offset. The broad precedence in the
+unit summary describes upstream selection before this boundary, not E05 candidate selection.
+
+`StopFacts` has exactly one caller-supplied public field:
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `invalidation_price` | `float` | Yes | Final upstream-authorized raw stop/invalidation price, with every analytical adjustment already applied. |
+
+The value must have exact runtime type `float`, be finite, and be strictly greater than zero.
+Booleans, integers, strings, `Decimal`, foreign numeric wrappers, NaN, infinities, zero, and
+negative values fail. It is stored unchanged; `StopFacts` has no policy or precision input.
+Direct reconstruction passes the public field to the constructor and preserves equality and hash.
+
+There is no candidate collection, precedence algorithm, tie, duplicate, missing-candidate, or
+conflict state inside E05. A caller that has no authorized invalidation price cannot construct
+`StopFacts`. Multiple-candidate ranking, nearest/widest stop selection, RR optimization, and market
+optimization remain upstream or unsupported.
+
+E01 contains no stop-buffer field and is not modified. Any fixed, volatility, ATR, spread, swing,
+structure, Elliott, or policy-authorized buffer must already be reflected in
+`invalidation_price`. E05 calculates no ATR, volatility, Fibonacci, wave rule, swing, structure,
+spread, tick offset, or broker stop level.
+
+#### Numeric normalization and directional geometry
+
+E05 uses the exact E04 numeric profile. It converts the raw invalidation price through
+`Decimal(str(value))`, quantizes to `Decimal(1).scaleb(-numeric_precision)` using
+`ROUND_HALF_EVEN`, converts the result to built-in `float`, and canonicalizes negative zero to
+positive `0.0`. The canonical stop must remain finite and strictly positive; normalization to zero
+raises `DataIntegrityError`.
+
+Normalization occurs before storage, comparison with the canonical entry, reconstruction
+verification, equality of the derived stop, and validation. The canonical entry is already
+normalized by E04 and is not renormalized or recomputed.
+
+The exact stop formula for both actionable directions is:
+
+```text
+stop price = normalized StopFacts.invalidation_price
+```
+
+For BUY, the resulting stop must satisfy `stop price < entry price`. For SELL, it must satisfy
+`stop price > entry price`. Equality and the wrong side raise `DataIntegrityError`. If raw entry
+and stop are distinct but precision makes their canonical prices equal, this is precision collapse
+and raises `DataIntegrityError`. There is no minimum distance beyond strict canonical separation.
+E05 does not enforce pip, tick, ATR, spread, exchange, or broker minimums.
+
+E05 may compare prices to establish the strict relationship but exposes no distance field and owns
+no public risk semantic. E07 later derives risk from frozen geometry. E05 neither calculates nor
+stores entry-minus-stop, stop-minus-entry, monetary risk, reward, or ratio.
+
+#### Predecessor contract and `StopLoss`
+
+E05 consumes exactly one `EntryValidation`, not a separate entry, direction, or policy. The exact
+predecessor must have `valid is True`, empty E04 diagnostics, and a canonical `EntryPrice`. Its
+direction, entry price, and precision are reached respectively through:
+
+```text
+entry_validation.entry.direction_validation.decision.direction
+entry_validation.entry.price
+entry_validation.entry.direction_validation.decision.policy.numeric_precision
+```
+
+Only BUY and SELL are actionable. Wrong predecessor types, invalid validations, or a `NO_TRADE`
+chain raise `DataIntegrityError`. E05 never recomputes E03 direction or E04 entry.
+
+`StopLoss` has the exact public fields, in equality order:
+
+| Field | Type | Ownership |
+| --- | --- | --- |
+| `entry_validation` | `EntryValidation` | Caller supplied; exact frozen E04 object. |
+| `stop_facts` | `StopFacts` | Caller supplied; exact E05 raw fact object. |
+| `price` | `float` | Derived normalized stop price. |
+
+The public constructor accepts only `entry_validation` and `stop_facts`, validates the predecessor,
+normalizes the invalidation price, enforces the exact directional inequality, and stores the
+canonical price. Reconstruction accepts all three public fields, requires exact float type for the
+supplied price, recomputes from the first two, and requires exact equality with the canonical
+derived price. Noncanonical or contradictory price raises `DataIntegrityError`.
+
+#### `StopDiagnostics` and `StopValidation`
+
+`StopDiagnostics` has the sole field `diagnostics: tuple[str, ...]`. Its closed E05 vocabulary is
+intentionally empty because every E05-invalid state prevents construction of executable stop
+geometry. Only the empty tuple is valid. The input must be an actual tuple; mutable containers,
+non-empty tuples, unknown or malformed members, and duplicates raise `DataIntegrityError`. Direct
+reconstruction from `()` preserves equality and hash.
+
+`StopValidation` is immutable canonical-geometry integrity validation, not risk acceptance. Its
+exact derived public fields, in equality order, are:
+
+| Field | Type | Derivation |
+| --- | --- | --- |
+| `stop` | `StopLoss` | Exact caller-supplied canonical executable stop. |
+| `valid` | `bool` | Always true for a successfully constructed canonical `StopLoss`. |
+| `diagnostics` | `StopDiagnostics` | Always the canonical empty diagnostics object. |
+
+The public constructor accepts only `stop`, requires its exact type, and verifies it equals a fresh
+canonical reconstruction from its predecessor and facts. Reconstruction accepts all three public
+fields, recomputes `valid` and diagnostics, and rejects wrong types or contradictions. Invalid
+stop geometry has no `StopLoss` and therefore no `StopValidation`.
+
+#### Error model, determinism, successor isolation, and future tests
+
+Wrong predecessor/fact/public types; missing or unexpected arguments; wrong numeric types;
+non-finite, zero, negative, equal-to-entry, wrong-side, or precision-collapsed stop prices;
+non-actionable predecessors; absent/multiple/conflicting candidate representations; non-empty or
+mutable diagnostics; and contradictory reconstruction are structural failures raising
+`DataIntegrityError`. RR below policy minimum is not an E05 error or diagnostic; it is E07-owned.
+
+The same reconstructed entry validation, raw stop fact, and frozen policy precision always produce
+the same stop, validation, diagnostics, equality, hash, and reconstruction. Behavior is independent
+of current price, clock, timezone, locale, environment, filesystem, network, provider, broker,
+spread, MT5, randomness, process state, registry, and cache.
+
+E06 owns target geometry. E07 owns risk, reward, RR, and `minimum_rr` acceptance. E08 owns
+confidence and expiration. E09 owns signal assembly, validation, and closure. E05 calculates or
+validates none of those and exposes no successor-derived field.
+
+Future E05 tests must cover exact public fields, types, and exports; valid BUY and SELL stops;
+strict side inequalities; equality and both wrong-side cases; exact float enforcement; zero,
+negative, NaN, and both infinities; precision zero, positive precision, half-even ties, negative
+zero/normalization-to-zero, and entry/stop precision collapse; valid and malformed/non-actionable
+predecessors; wrong fact types; missing/unexpected arguments; empty diagnostics and every forbidden
+non-empty/mutable input; equality, exact-type inequality, hashing, immutability, nested
+immutability, reconstruction, contradictory/noncanonical reconstruction, repeated execution,
+external-state independence, E04 compatibility, direct-import enforcement, one-fact-only behavior,
+and proof of no ATR, buffer calculation, target, risk, reward, RR, `minimum_rr`, confidence,
+expiration, signal, execution, E06+, broker, or MT5 behavior. No exact test count is prescribed.
+
+The canonical pre-E05 baseline is 2368. A future implementation requires post-E05 collection to
+equal `2368 + actual E05 contribution`, with no predecessor node removal. E05 may close only after
+its authorized files alone are committed; focused, predecessor, collection, full-regression,
+coverage, static, determinism, immutability, fail-closed, reconstruction, ownership, and successor-
+isolation gates pass; publication succeeds; and every applicable exact-SHA remote gate is green.
+E05 closure authorizes no E06 implementation.
+
 ## 6. Hard gates and diagnostics
 
 Hard gates are: identity, provenance, policy, temporal eligibility, freshness, direction
