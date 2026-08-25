@@ -177,3 +177,13 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0020](../adr/ADR-0020-EvidenceMappingAndFailFastSemanticExecution.md)
 - **Specification:**
   [P02-F04 Evidence and Failure Control Contract](P02_F04_EVIDENCE_AND_FAILURE_CONTROL_CONTRACT.md)
+
+## ADR-0021 — Evidence Identity Separation and Governed Semantic Transitions
+
+- **Milestone:** P02-F06 additive governance reconciliation
+- **Status:** Accepted
+- **Purpose:** separate evidence-item and evidence-set identities, preserve governed evidence
+  order, bind per-frame direction generation, and freeze entry/stop/target cardinality transitions.
+- **ADR:** [ADR-0021](../adr/ADR-0021-EvidenceIdentityAndSemanticTransitions.md)
+- **Specification:**
+  [P02-F06 Transition and Evidence Identity Contract](P02_F06_TRANSITION_AND_EVIDENCE_IDENTITY_CONTRACT.md)
