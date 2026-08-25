@@ -167,3 +167,13 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0019](../adr/ADR-0019-ImmutableSemanticRuleExecution.md)
 - **Specification:**
   [P02-F02 Semantic Rule Execution Contract](P02_F02_SEMANTIC_RULE_EXECUTION_CONTRACT.md)
+
+## ADR-0020 — Evidence Mapping and Fail-Fast Semantic Execution
+
+- **Milestone:** P02-F04 additive governance reconciliation
+- **Status:** Accepted
+- **Purpose:** bind executable evidence mapping per taxonomy key and freeze dependency-aware
+  fail-fast execution, exception sanitization, and deterministic diagnostic translation.
+- **ADR:** [ADR-0020](../adr/ADR-0020-EvidenceMappingAndFailFastSemanticExecution.md)
+- **Specification:**
+  [P02-F04 Evidence and Failure Control Contract](P02_F04_EVIDENCE_AND_FAILURE_CONTROL_CONTRACT.md)

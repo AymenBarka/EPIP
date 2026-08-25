@@ -90,9 +90,9 @@ timeline
 
 ## Post-v1.6 program
 
-P00 publishes canonical architecture and semantic ownership. P01, P02-F00, and P02-F01 are closed
-and frozen. P02-F02 defines the additive execution contract required before P02. Every
-implementation phase requires separate authorization.
+P00 publishes canonical architecture and semantic ownership. P01, P02-F00, P02-F01, and P02-F03
+are closed and frozen. P02-F04 reconciles the additive evidence-mapping and failure-control changes
+that P02-F05 must implement before P02. Every implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -100,8 +100,11 @@ implementation phase requires separate authorization.
 | P01 | CLOSED / FROZEN | Runtime and Fact Adapter contracts |
 | P02-F00 | CLOSED / FROZEN | Typed mapping foundation governance |
 | P02-F01 | CLOSED / FROZEN | Typed mapping foundation implementation |
-| P02-F02 | NORMATIVE CONTRACT RECONCILED / IMPLEMENTATION PENDING | Semantic rule execution and adapter invocation contract |
-| P02 | BLOCKED ON P02-F02 IMPLEMENTATION | Generic analysis-to-A07 fact adapter |
+| P02-F02 | CLOSED AT GOVERNANCE LEVEL | Semantic rule execution and adapter invocation contract |
+| P02-F03 | CLOSED / FROZEN | Semantic rule execution contract implementation |
+| P02-F04 | NORMATIVE CONTRACT RECONCILED | Evidence mapping and semantic failure control flow |
+| P02-F05 | READY FOR IMPLEMENTATION AUTHORIZATION | Implement P02-F04 additive contract changes |
+| P02 | BLOCKED ON P02-F05 IMPLEMENTATION | Generic analysis-to-A07 fact adapter |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |
 | P05 | Planned | Multi-timeframe context |
@@ -116,6 +119,6 @@ implementation phase requires separate authorization.
 | P14 | Planned | Dashboard |
 | P15 | Planned | Live readiness |
 
-Dependency order is P00 -> P01 -> P02-F00 -> P02-F01 -> P02-F02 -> P02 -> P03 -> P04 -> P05 ->
-P06 -> P07 -> P08 -> P09 -> P10 -> P11 -> P12 -> P13 -> P14 -> P15. No phase authorizes a later
-phase, live deployment, or release by implication.
+Dependency order is P00 -> P01 -> P02-F00 -> P02-F01 -> P02-F02 -> P02-F03 -> P02-F04 -> P02-F05
+-> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09 -> P10 -> P11 -> P12 -> P13 -> P14 ->
+P15. No phase authorizes a later phase, live deployment, or release by implication.
