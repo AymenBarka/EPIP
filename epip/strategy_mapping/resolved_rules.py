@@ -200,6 +200,7 @@ class ResolvedSemanticRuleSet:
             add(profile.confidence_policy.calibration_identity, SemanticRuleFamily.CONFIDENCE)
         for item in profile.evidence_taxonomy.keys:
             add(item.source_selector.selector_rule, SemanticRuleFamily.SOURCE_EXTRACTION)
+            add(item.mapping_rule, SemanticRuleFamily.EVIDENCE_MAPPING)
             add(
                 item.temporal_eligibility_policy.validity_rule,
                 SemanticRuleFamily.TEMPORAL_ELIGIBILITY,

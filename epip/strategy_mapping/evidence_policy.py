@@ -64,6 +64,7 @@ class EvidenceKeyPolicy:
     evidence_key: str
     requirement: EvidenceRequirement
     source_selector: SourceSelector
+    mapping_rule: RuleIdentity
     freshness_policy: FreshnessPolicy
     temporal_eligibility_policy: TemporalEligibilityPolicy
     require_provenance: bool
@@ -72,6 +73,7 @@ class EvidenceKeyPolicy:
         object.__setattr__(self, "evidence_key", text(self.evidence_key, "evidence_key"))
         exact(self.requirement, EvidenceRequirement, "requirement")
         exact(self.source_selector, SourceSelector, "source_selector")
+        exact(self.mapping_rule, RuleIdentity, "mapping_rule")
         exact(self.freshness_policy, FreshnessPolicy, "freshness_policy")
         exact(
             self.temporal_eligibility_policy,

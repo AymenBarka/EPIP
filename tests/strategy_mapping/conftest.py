@@ -69,7 +69,7 @@ def policies(rule: RuleIdentity, selector: SourceSelector) -> dict[str, object]:
         rule,
         (
             EvidenceKeyPolicy(
-                "key", EvidenceRequirement.REQUIRED, selector, freshness, temporal, True
+                "key", EvidenceRequirement.REQUIRED, selector, rule, freshness, temporal, True
             ),
         ),
         *actions,
