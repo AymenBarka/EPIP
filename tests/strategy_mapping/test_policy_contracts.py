@@ -88,6 +88,7 @@ def test_mtf_direction_policy_validation(rule: RuleIdentity) -> None:
     obj = MtfDirectionPolicyRef(
         (TimeframeRole.PRIMARY, TimeframeRole.HIGHER),
         ("H4", "H1"),
+        DirectionFactName.PRIMARY,
         rule,
         NonAcceptanceAction.REJECT,
         NonAcceptanceAction.REQUIRE_SINGLE,
@@ -99,6 +100,8 @@ def test_mtf_direction_policy_validation(rule: RuleIdentity) -> None:
         {"required_roles": (TimeframeRole.HIGHER,)},
         {"required_roles": (TimeframeRole.PRIMARY,) * 2},
         {"required_timeframes": ()},
+        {"frame_direction_fact": DirectionFactName.MTF},
+        {"frame_direction_fact": "PRIMARY"},
         {"rule_identity": object()},
         {"conflict_action": "x"},
     ):

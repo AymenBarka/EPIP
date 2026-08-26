@@ -75,7 +75,9 @@ def policies(rule: RuleIdentity, selector: SourceSelector) -> dict[str, object]:
         *actions,
         rule,
     )
-    mtf = MtfDirectionPolicyRef((TimeframeRole.PRIMARY,), ("H1",), rule, *actions)
+    mtf = MtfDirectionPolicyRef(
+        (TimeframeRole.PRIMARY,), ("H1",), DirectionFactName.PRIMARY, rule, *actions
+    )
     return {
         "directions": directions,
         "entry": entry,

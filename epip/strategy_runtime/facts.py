@@ -115,12 +115,12 @@ class StrategyFactBundle:
             raise DataIntegrityError("evidence must be a non-empty tuple")
         if any(type(item) is not StrategyEvidenceSnapshot for item in self.evidence):
             raise DataIntegrityError("evidence contains an invalid contract")
-        if any(
-            item.strategy_identity != self.strategy_identity
-            or item.evidence_identity != self.evidence_identity
-            for item in self.evidence
-        ):
-            raise DataIntegrityError("evidence identity mismatch")
+        if any(item.strategy_identity != self.strategy_identity for item in self.evidence):
+            raise DataIntegrityError("evidence strategy identity mismatch")
+        if len({item.evidence_key for item in self.evidence}) != len(self.evidence):
+            raise DataIntegrityError("evidence keys must be unique")
+        if len({item.evidence_identity for item in self.evidence}) != len(self.evidence):
+            raise DataIntegrityError("evidence item identities must be unique")
         confidence = finite(self.confidence, "confidence")
         if not 0.0 <= confidence <= 1.0:
             raise DataIntegrityError("confidence must be within [0, 1]")

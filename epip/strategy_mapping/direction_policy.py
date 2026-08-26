@@ -125,6 +125,7 @@ class DirectionFactPolicy:
 class MtfDirectionPolicyRef:
     required_roles: tuple[TimeframeRole, ...]
     required_timeframes: tuple[str, ...]
+    frame_direction_fact: DirectionFactName
     rule_identity: RuleIdentity
     missing_action: NonAcceptanceAction
     conflict_action: NonAcceptanceAction
@@ -147,6 +148,9 @@ class MtfDirectionPolicyRef:
             "required_timeframes",
             unique_texts(self.required_timeframes, "required_timeframes", allow_empty=False),
         )
+        exact(self.frame_direction_fact, DirectionFactName, "frame_direction_fact")
+        if self.frame_direction_fact is DirectionFactName.MTF:
+            raise DataIntegrityError("frame_direction_fact must reference a non-MTF policy")
         exact(self.rule_identity, RuleIdentity, "rule_identity")
         exact(self.missing_action, NonAcceptanceAction, "missing_action")
         exact(self.conflict_action, NonAcceptanceAction, "conflict_action")

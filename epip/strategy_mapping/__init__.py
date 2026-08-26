@@ -18,7 +18,9 @@ from epip.strategy_mapping.direction_policy import (
     SourceSelectorKind,
 )
 from epip.strategy_mapping.evidence_identity import (
+    EVIDENCE_ITEM_IDENTITY_DOMAIN,
     EVIDENCE_SET_IDENTITY_DOMAIN,
+    derive_evidence_item_identity,
     derive_evidence_set_identity,
 )
 from epip.strategy_mapping.evidence_policy import (
@@ -96,8 +98,15 @@ from epip.strategy_mapping.rule_values import (
 )
 from epip.strategy_mapping.serialization import from_dict, from_json, to_dict, to_json
 from epip.strategy_mapping.source_binding import AnalyticalSourceBinding, RevisionIdentity
+from epip.strategy_mapping.transitions import (
+    boundary_entry_range,
+    materialize_evidence_order,
+    ranking_winner,
+    selection_winner,
+)
 
 __all__ = [
+    "EVIDENCE_ITEM_IDENTITY_DOMAIN",
     "EVIDENCE_SET_IDENTITY_DOMAIN",
     "EXECUTION_SCHEMA_VERSION",
     "FOUNDATION_SCHEMA_VERSION",
@@ -173,9 +182,14 @@ __all__ = [
     "TemporalEligibilityResult",
     "TimeframeAnalyticalFrame",
     "TimeframeDirectionValue",
+    "boundary_entry_range",
+    "derive_evidence_item_identity",
     "derive_evidence_set_identity",
     "from_dict",
     "from_json",
+    "materialize_evidence_order",
+    "ranking_winner",
+    "selection_winner",
     "to_dict",
     "to_json",
 ]
