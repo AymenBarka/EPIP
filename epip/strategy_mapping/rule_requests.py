@@ -136,6 +136,24 @@ class CandidateSelectionRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class RankedCandidateSelectionRequest:
+    """Selection request whose caller-provided candidate order is semantic."""
+
+    context: SemanticRuleInvocationContext
+    candidates: tuple[SemanticCandidate, ...]
+    direction: StrategyDirection | None
+
+    def __post_init__(self) -> None:
+        exact(self.context, SemanticRuleInvocationContext, "context")
+        candidates = _typed_tuple(self.candidates, SemanticCandidate, "candidates")
+        if len({item.candidate_id for item in candidates}) != len(candidates):
+            raise DataIntegrityError("candidates contains duplicate candidates")
+        object.__setattr__(self, "candidates", candidates)
+        if self.direction is not None:
+            exact(self.direction, StrategyDirection, "direction")
+
+
+@dataclass(frozen=True, slots=True)
 class CandidateRankingRequest(CandidateSelectionRequest):
     pass
 
@@ -271,6 +289,7 @@ SemanticRuleRequest: TypeAlias = (
     SourceExtractionRequest
     | DirectionRuleRequest
     | CandidateSelectionRequest
+    | RankedCandidateSelectionRequest
     | CandidateRankingRequest
     | BoundarySelectionRequest
     | ApplicabilityRequest
@@ -293,6 +312,7 @@ __all__ = [
     "EvidenceOrderingRequest",
     "MtfAggregationRequest",
     "PriceTransformationRequest",
+    "RankedCandidateSelectionRequest",
     "SemanticRuleInvocationContext",
     "SemanticRuleRequest",
     "SourceExtractionRequest",

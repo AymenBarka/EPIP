@@ -8,6 +8,7 @@ from epip.strategy_mapping.rule_requests import (
     CandidateRankingRequest,
     CandidateSelectionRequest,
     EvidenceOrderingRequest,
+    RankedCandidateSelectionRequest,
 )
 from epip.strategy_mapping.rule_results import (
     BoundaryRuleResult,
@@ -70,13 +71,16 @@ def ranking_winner(
 
 
 def selection_winner(
-    request: CandidateSelectionRequest,
+    request: CandidateSelectionRequest | RankedCandidateSelectionRequest,
     result: SelectionRuleResult,
     *,
     require_price: bool = False,
 ) -> SemanticCandidate:
     """Resolve an exact-one request-member winner for precedence or extension."""
-    if type(request) is not CandidateSelectionRequest or type(result) is not SelectionRuleResult:
+    if (
+        type(request) not in (CandidateSelectionRequest, RankedCandidateSelectionRequest)
+        or type(result) is not SelectionRuleResult
+    ):
         raise DataIntegrityError("selection contracts have invalid types")
     selected = result.selected_candidate_ids
     by_id = {item.candidate_id: item for item in request.candidates}

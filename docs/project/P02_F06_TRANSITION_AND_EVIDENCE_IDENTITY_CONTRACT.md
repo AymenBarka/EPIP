@@ -188,8 +188,9 @@ Applicability and selection follow entry. Ranking returns an exact permutation; 
 the governed base winner. Configured threshold runs once on that winner; `False` is required
 non-match and `REJECTED`. Absence skips it.
 
-Without extension, the base winner must contain `PRICE`. With extension, its
-`CandidateSelectionRequest` contains the complete ranked candidate tuple in ranking-rule order.
+Without extension, the base winner must contain `PRICE`. With extension, the P02-F08 reconciliation
+requires `RankedCandidateSelectionRequest` to contain the complete ranked candidate tuple in
+ranking-rule order; canonical `CandidateSelectionRequest` remains reserved for unordered selection.
 Success must name exactly one request candidate. Zero, multiple, duplicate, or unknown winners are
 invalid output. That exact candidate must contain `PRICE` and becomes `TargetFacts.target_price`.
 Extension selects; it does not implicitly transform or choose by magnitude or distance. A derived

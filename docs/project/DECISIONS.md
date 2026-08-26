@@ -187,3 +187,13 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0021](../adr/ADR-0021-EvidenceIdentityAndSemanticTransitions.md)
 - **Specification:**
   [P02-F06 Transition and Evidence Identity Contract](P02_F06_TRANSITION_AND_EVIDENCE_IDENTITY_CONTRACT.md)
+
+## ADR-0022 — Ordered Candidate Selection for Semantic Ranking
+
+- **Milestone:** P02-F08 additive governance reconciliation
+- **Status:** Accepted
+- **Purpose:** preserve canonical unordered selection while adding an exact-order request for the
+  Target extension transition, without changing rule taxonomy, resolution, P01, or A07.
+- **ADR:** [ADR-0022](../adr/ADR-0022-OrderedCandidateSelectionForSemanticRanking.md)
+- **Specification:**
+  [P02-F08 Ranked Candidate Selection Contract](P02_F08_RANKED_CANDIDATE_SELECTION_CONTRACT.md)

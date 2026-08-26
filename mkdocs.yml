@@ -46,6 +46,7 @@ nav:
       - P02-F02 Rule Execution Contract: project/P02_F02_SEMANTIC_RULE_EXECUTION_CONTRACT.md
       - P02-F04 Evidence and Failure Control: project/P02_F04_EVIDENCE_AND_FAILURE_CONTROL_CONTRACT.md
       - P02-F06 Transitions and Evidence Identity: project/P02_F06_TRANSITION_AND_EVIDENCE_IDENTITY_CONTRACT.md
+      - P02-F08 Ranked Candidate Selection: project/P02_F08_RANKED_CANDIDATE_SELECTION_CONTRACT.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md
@@ -225,6 +226,7 @@ nav:
       - ADR-0019 Immutable Semantic Rule Execution: adr/ADR-0019-ImmutableSemanticRuleExecution.md
       - ADR-0020 Evidence Mapping and Fail-Fast Execution: adr/ADR-0020-EvidenceMappingAndFailFastSemanticExecution.md
       - ADR-0021 Evidence Identity and Semantic Transitions: adr/ADR-0021-EvidenceIdentityAndSemanticTransitions.md
+      - ADR-0022 Ordered Candidate Selection: adr/ADR-0022-OrderedCandidateSelectionForSemanticRanking.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md

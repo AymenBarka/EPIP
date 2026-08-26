@@ -90,10 +90,10 @@ timeline
 
 ## Post-v1.6 program
 
-P00 publishes canonical architecture and semantic ownership. P01, P02-F00, P02-F01, P02-F03, and
-P02-F05 are closed and frozen. P02-F06 reconciles the remaining identity and semantic-transition
-contracts that P02-F07 must implement before P02. Every implementation phase requires separate
-authorization.
+P00 publishes canonical architecture and semantic ownership. P01 and P02-F00 through P02-F07 are
+closed at their governed levels. P02-F08 reconciles canonical unordered selection with the ordered
+Target extension transition before P02 implementation resumes. Every implementation phase requires
+separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -106,8 +106,9 @@ authorization.
 | P02-F04 | NORMATIVE CONTRACT RECONCILED | Evidence mapping and semantic failure control flow |
 | P02-F05 | CLOSED / FROZEN | Evidence mapping binding implementation |
 | P02-F06 | NORMATIVE CONTRACT RECONCILED | Evidence identity and semantic transitions |
-| P02-F07 | READY FOR IMPLEMENTATION AUTHORIZATION | Implement P02-F06 additive corrections |
-| P02 | BLOCKED UNTIL P02-F07 | Generic analysis-to-A07 fact adapter |
+| P02-F07 | CLOSED / FROZEN | P02-F06 additive corrections implemented |
+| P02-F08 | CLOSED / FROZEN | Ranked candidate selection reconciliation |
+| P02 | READY FOR IMPLEMENTATION RESUMPTION | Generic analysis-to-A07 fact adapter |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |
 | P05 | Planned | Multi-timeframe context |
@@ -123,6 +124,6 @@ authorization.
 | P15 | Planned | Live readiness |
 
 Dependency order is P00 -> P01 -> P02-F00 -> P02-F01 -> P02-F02 -> P02-F03 -> P02-F04 -> P02-F05
--> P02-F06 -> P02-F07 -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09 -> P10 -> P11 ->
-P12 -> P13 -> P14 -> P15. No phase authorizes a later phase, live deployment, or release by
-implication.
+-> P02-F06 -> P02-F07 -> P02-F08 -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09 -> P10
+-> P11 -> P12 -> P13 -> P14 -> P15. No phase authorizes a later phase, live deployment, or release
+by implication.
