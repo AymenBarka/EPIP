@@ -91,9 +91,7 @@ def test_complete_evidence_identity_is_permutation_invariant(semantic_profile, r
     assert EVIDENCE_SET_IDENTITY_DOMAIN == "epip.strategy-evidence-set.p02-f06-v1"
 
 
-def test_evidence_identity_rejects_duplicate_keys(
-    semantic_profile, rule
-) -> None:
+def test_evidence_identity_rejects_duplicate_keys(semantic_profile, rule) -> None:
     common = _common(semantic_profile)
     item = derive_evidence_item_identity(**_item_args(semantic_profile, rule))
     entry = ("alpha", item, ("c",), ("s",), ("p",))
