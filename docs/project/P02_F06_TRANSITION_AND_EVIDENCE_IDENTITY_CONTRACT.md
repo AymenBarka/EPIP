@@ -144,6 +144,10 @@ source-binding order, then performs the exact direct enum map or invokes the exa
 frame, source, and provenance values form one `TimeframeDirectionValue`. The canonical tuple is
 supplied unchanged to `MTF_AGGREGATION`. P02 performs no aggregation.
 
+P02-F10 reconciles this with mandatory `SourceSelector.frame_roles`. Per-frame execution uses the
+same structural resolver narrowed to the active frame, and the reused direction selector must
+explicitly admit that role. Ordinary selector execution is never implicitly narrowed to PRIMARY.
+
 ## 5. Entry transition and cardinality
 
 The exact entry sequence is applicability, candidate selection, ranking, boundary, and

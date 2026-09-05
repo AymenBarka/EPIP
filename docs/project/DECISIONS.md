@@ -197,3 +197,13 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0022](../adr/ADR-0022-OrderedCandidateSelectionForSemanticRanking.md)
 - **Specification:**
   [P02-F08 Ranked Candidate Selection Contract](P02_F08_RANKED_CANDIDATE_SELECTION_CONTRACT.md)
+
+## ADR-0023 — Explicit Frame Scope for Source Selectors
+
+- **Milestone:** P02-F10 governance reconciliation
+- **Status:** Accepted
+- **Purpose:** make every ordinary selector's visible timeframe roles explicit, deterministic, and
+  profile-identified while preserving F06 per-frame narrowing and P04/P05 semantic ownership.
+- **ADR:** [ADR-0023](../adr/ADR-0023-ExplicitFrameScopeForSourceSelectors.md)
+- **Specification:**
+  [P02-F10 Source Selector Frame Scope Contract](P02_F10_SOURCE_SELECTOR_FRAME_SCOPE_CONTRACT.md)
