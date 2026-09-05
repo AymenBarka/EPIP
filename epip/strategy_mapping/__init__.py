@@ -1,6 +1,7 @@
 """Public additive strategy-mapping contracts."""
 
 from epip.strategy_mapping._base import FOUNDATION_SCHEMA_VERSION
+from epip.strategy_mapping.adapter import CanonicalFactAdapter
 from epip.strategy_mapping.confidence_policy import (
     ConfidenceInput,
     ConfidenceModelKind,
@@ -122,6 +123,7 @@ __all__ = [
     "CandidateRankingRequest",
     "CandidateRuleResult",
     "CandidateSelectionRequest",
+    "CanonicalFactAdapter",
     "ConfidenceInput",
     "ConfidenceInputValue",
     "ConfidenceModelKind",

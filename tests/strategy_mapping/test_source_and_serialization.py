@@ -312,5 +312,9 @@ def test_dependency_and_phase_isolation() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
         assert not forbidden & imports
-    assert not Path("epip/strategy_mapping/adapter.py").exists()
+    adapter = Path("epip/strategy_mapping/adapter.py")
+    assert adapter.exists()
+    tree = ast.parse(adapter.read_text(encoding="utf-8"))
+    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    assert not forbidden & imports
     assert not Path("epip/strategy_mapping/runtime.py").exists()
