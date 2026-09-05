@@ -51,6 +51,13 @@ class DirectionFactName(Enum):
     MTF = "MTF"
 
 
+_ROLE_ORDER = {
+    TimeframeRole.PRIMARY: 0,
+    TimeframeRole.HIGHER: 1,
+    TimeframeRole.LOWER: 2,
+}
+
+
 @dataclass(frozen=True, slots=True)
 class SourceSelector:
     source_kind: AnalyticalSourceKind
@@ -58,12 +65,14 @@ class SourceSelector:
     selector_kind: SourceSelectorKind
     selector_rule: RuleIdentity
     required_provenance: bool
+    frame_roles: tuple[TimeframeRole, ...]
 
-    def canonical_key(self) -> tuple[str, str, str, RuleIdentity]:
+    def canonical_key(self) -> tuple[str, str, str, tuple[str, ...], RuleIdentity]:
         return (
             self.source_kind.value,
             self.source_contract,
             self.selector_kind.value,
+            tuple(role.value for role in self.frame_roles),
             self.selector_rule,
         )
 
@@ -74,6 +83,16 @@ class SourceSelector:
         exact(self.selector_rule, RuleIdentity, "selector_rule")
         if not boolean(self.required_provenance, "required_provenance"):
             raise DataIntegrityError("fact-producing selectors require provenance")
+        if (
+            type(self.frame_roles) is not tuple
+            or not self.frame_roles
+            or any(type(role) is not TimeframeRole for role in self.frame_roles)
+            or len(set(self.frame_roles)) != len(self.frame_roles)
+        ):
+            raise DataIntegrityError("frame_roles must be a non-empty unique TimeframeRole tuple")
+        object.__setattr__(
+            self, "frame_roles", tuple(sorted(self.frame_roles, key=_ROLE_ORDER.__getitem__))
+        )
 
 
 @dataclass(frozen=True, slots=True, order=True)

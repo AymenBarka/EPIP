@@ -25,6 +25,7 @@ def selector(rule: RuleIdentity) -> SourceSelector:
         SourceSelectorKind.DIRECT_ENUM,
         rule,
         True,
+        (TimeframeRole.PRIMARY,),
     )
 
 

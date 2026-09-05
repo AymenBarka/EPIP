@@ -99,6 +99,7 @@ from epip.strategy_mapping.rule_values import (
 )
 from epip.strategy_mapping.serialization import from_dict, from_json, to_dict, to_json
 from epip.strategy_mapping.source_binding import AnalyticalSourceBinding, RevisionIdentity
+from epip.strategy_mapping.source_resolution import resolve_source_bindings
 from epip.strategy_mapping.transitions import (
     boundary_entry_range,
     materialize_evidence_order,
@@ -191,6 +192,7 @@ __all__ = [
     "from_json",
     "materialize_evidence_order",
     "ranking_winner",
+    "resolve_source_bindings",
     "selection_winner",
     "to_dict",
     "to_json",
