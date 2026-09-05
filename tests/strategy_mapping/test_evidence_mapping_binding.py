@@ -148,6 +148,11 @@ def _closure(mapping_rules: tuple[RuleIdentity, ...] = ()):
         profile,
         "confidence_policy",
         SimpleNamespace(
+            inputs=(
+                SimpleNamespace(
+                    source_selector=SimpleNamespace(selector_rule=identities["extract"])
+                ),
+            ),
             model_identity=identities["confidence"],
             calibration_identity=None,
         ),

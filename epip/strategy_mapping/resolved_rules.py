@@ -195,18 +195,23 @@ class ResolvedSemanticRuleSet:
             add(profile.target_policy.threshold_rule, SemanticRuleFamily.APPLICABILITY)
         if profile.target_policy.extension_rule is not None:
             add(profile.target_policy.extension_rule, SemanticRuleFamily.CANDIDATE_SELECTION)
+        for confidence_input in profile.confidence_policy.inputs:
+            add(
+                confidence_input.source_selector.selector_rule,
+                SemanticRuleFamily.SOURCE_EXTRACTION,
+            )
         add(profile.confidence_policy.model_identity, SemanticRuleFamily.CONFIDENCE)
         if profile.confidence_policy.calibration_identity is not None:
             add(profile.confidence_policy.calibration_identity, SemanticRuleFamily.CONFIDENCE)
-        for item in profile.evidence_taxonomy.keys:
-            add(item.source_selector.selector_rule, SemanticRuleFamily.SOURCE_EXTRACTION)
-            add(item.mapping_rule, SemanticRuleFamily.EVIDENCE_MAPPING)
+        for evidence_item in profile.evidence_taxonomy.keys:
+            add(evidence_item.source_selector.selector_rule, SemanticRuleFamily.SOURCE_EXTRACTION)
+            add(evidence_item.mapping_rule, SemanticRuleFamily.EVIDENCE_MAPPING)
             add(
-                item.temporal_eligibility_policy.validity_rule,
+                evidence_item.temporal_eligibility_policy.validity_rule,
                 SemanticRuleFamily.TEMPORAL_ELIGIBILITY,
             )
             add(
-                item.temporal_eligibility_policy.revision_rule,
+                evidence_item.temporal_eligibility_policy.revision_rule,
                 SemanticRuleFamily.TEMPORAL_ELIGIBILITY,
             )
         add(profile.evidence_taxonomy.ordering_rule, SemanticRuleFamily.EVIDENCE_ORDERING)
