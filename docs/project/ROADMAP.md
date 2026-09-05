@@ -109,7 +109,7 @@ implementation closes. Every implementation phase requires separate authorizatio
 | P02-F06 | NORMATIVE CONTRACT RECONCILED | Evidence identity and semantic transitions |
 | P02-F07 | CLOSED / FROZEN | P02-F06 additive corrections implemented |
 | P02-F08 | CLOSED / FROZEN | Ranked candidate selection reconciliation |
-| P02-F09 | BLOCKED UNTIL P02-F17 | Generic analysis-to-A07 fact adapter implementation |
+| P02-F09 | READY FOR IMPLEMENTATION RESUMPTION | Generic analysis-to-A07 fact adapter implementation |
 | P02-F10 | NORMATIVE CONTRACT RECONCILED | Explicit source-selector frame scope |
 | P02-F11 | CLOSED / FROZEN | Implemented P02-F10 additive correction |
 | P02-F12 | NORMATIVE CONTRACT RECONCILED | Confidence extraction exact-closure edge |
@@ -117,7 +117,7 @@ implementation closes. Every implementation phase requires separate authorizatio
 | P02-F14 | NORMATIVE CONTRACT RECONCILED | Confidence input candidate cardinality |
 | P02-F15 | CLOSED / FROZEN | Implemented P02-F14 cardinality boundary |
 | P02-F16 | NORMATIVE CONTRACT RECONCILED | Evidence freshness cardinality and conjunction semantics |
-| P02-F17 | READY FOR IMPLEMENTATION AUTHORIZATION | Private evidence freshness cardinality implementation |
+| P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
 | P02 | NOT COMPLETE | Generic analysis-to-A07 fact adapter |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |
