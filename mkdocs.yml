@@ -229,6 +229,8 @@ nav:
       - ADR-0021 Evidence Identity and Semantic Transitions: adr/ADR-0021-EvidenceIdentityAndSemanticTransitions.md
       - ADR-0022 Ordered Candidate Selection: adr/ADR-0022-OrderedCandidateSelectionForSemanticRanking.md
       - ADR-0023 Explicit Selector Frame Scope: adr/ADR-0023-ExplicitFrameScopeForSourceSelectors.md
+      - ADR-0024 Confidence Extraction Closure: adr/ADR-0024-ConfidenceSourceExtractionParticipatesInExactRuleClosure.md
+      - P02-F12 Confidence Extraction Closure Contract: project/P02_F12_CONFIDENCE_SOURCE_EXTRACTION_CLOSURE_CONTRACT.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md

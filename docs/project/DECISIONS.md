@@ -207,3 +207,14 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0023](../adr/ADR-0023-ExplicitFrameScopeForSourceSelectors.md)
 - **Specification:**
   [P02-F10 Source Selector Frame Scope Contract](P02_F10_SOURCE_SELECTOR_FRAME_SCOPE_CONTRACT.md)
+
+## ADR-0024 — Confidence Source Extraction Participates in Exact Rule Closure
+
+- **Milestone:** P02-F12 governance reconciliation
+- **Status:** Accepted
+- **Purpose:** require every confidence input selector's existing source-extraction rule in exact
+  profile closure while preserving generic rule reuse and frozen P01/A07 boundaries.
+- **ADR:**
+  [ADR-0024](../adr/ADR-0024-ConfidenceSourceExtractionParticipatesInExactRuleClosure.md)
+- **Specification:**
+  [P02-F12 Confidence Source Extraction Closure Contract](P02_F12_CONFIDENCE_SOURCE_EXTRACTION_CLOSURE_CONTRACT.md)
