@@ -247,4 +247,6 @@ The contracts reject duplicate item identity, duplicate/unknown/omitted ordering
 or inconsistent MTF pairs, missing frame-direction implementation, malformed entry ranges, zero
 or multiple stop winners, ambiguous target extension, and unknown candidate references.
 
-Remaining implementation-significant ambiguities: **NONE**.
+The later multi-source freshness reduction gap is reconciled by
+[P02-F16](P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md). No other
+implementation-significant ambiguity remains in this contract.

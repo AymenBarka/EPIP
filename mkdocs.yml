@@ -233,6 +233,8 @@ nav:
       - P02-F12 Confidence Extraction Closure Contract: project/P02_F12_CONFIDENCE_SOURCE_EXTRACTION_CLOSURE_CONTRACT.md
       - ADR-0025 Confidence Input Cardinality: adr/ADR-0025-ConfidenceInputExtractionCardinalityUsesExistingActions.md
       - P02-F14 Confidence Input Cardinality Contract: project/P02_F14_CONFIDENCE_INPUT_CANDIDATE_CARDINALITY_CONTRACT.md
+      - ADR-0026 Evidence Freshness Cardinality: adr/ADR-0026-EvidenceFreshnessRequiresAllSelectedSourcesToBeFresh.md
+      - P02-F16 Evidence Freshness Cardinality Contract: project/P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md

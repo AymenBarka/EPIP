@@ -230,3 +230,14 @@ history or create it through the normal ADR review process.
   [ADR-0025](../adr/ADR-0025-ConfidenceInputExtractionCardinalityUsesExistingActions.md)
 - **Specification:**
   [P02-F14 Confidence Input Candidate Cardinality Contract](P02_F14_CONFIDENCE_INPUT_CANDIDATE_CARDINALITY_CONTRACT.md)
+
+## ADR-0026 — Evidence Freshness Requires All Selected Sources To Be Fresh
+
+- **Milestone:** P02-F16 governance reconciliation
+- **Status:** Accepted
+- **Purpose:** reduce freshness across every unique source binding contributing to one mapped
+  evidence item by deterministic conjunction, without source preference or public contract change.
+- **ADR:**
+  [ADR-0026](../adr/ADR-0026-EvidenceFreshnessRequiresAllSelectedSourcesToBeFresh.md)
+- **Specification:**
+  [P02-F16 Evidence Freshness Cardinality Contract](P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md)

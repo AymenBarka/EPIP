@@ -95,10 +95,11 @@ required/optional reconciliation authority and P02 does not reproduce A07 valida
 
 ## 6. Freshness and temporal ownership
 
-Freshness remains native deterministic P02 behavior. It uses the selected source's observation or
-availability timestamp according to `FreshnessBasis`, compares it with the explicit canonical
-evaluation timestamp, and is fresh exactly when whole-second age is non-negative and no greater
-than `max_age_seconds`. Future timestamps are structural invalid input. No wall clock is read.
+Freshness remains native deterministic P02 behavior. For one or more mapped selected sources, the
+per-source calculation and final conjunction are frozen by
+[P02-F16](P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md). Each source uses the configured
+`FreshnessBasis`, the explicit canonical evaluation timestamp, and the inclusive
+`max_age_seconds` boundary. Future timestamps are structural invalid input. No wall clock is read.
 
 Temporal validity and revision eligibility remain semantic rule behavior. Mapping precedes both;
 freshness precedes temporal invocation. A temporal rule never runs without successfully mapped,
