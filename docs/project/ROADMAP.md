@@ -91,10 +91,9 @@ timeline
 ## Post-v1.6 program
 
 P00 publishes canonical architecture and semantic ownership. P02-F10/F11 closed explicit selector
-frame scope, and P02-F12/F13 closed confidence extraction exact closure. P02-F14 reconciles the
-remaining confidence-input zero/one/many cardinality boundary. P02-F09 remains blocked until a
-separately authorized P02-F15 implements that boundary. Every implementation phase requires
-separate authorization.
+frame scope, P02-F12/F13 closed confidence extraction exact closure, and P02-F14/F15 closed the
+confidence-input zero/one/many cardinality boundary. P02-F09 is ready for a separate implementation
+resumption authorization. Every implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -109,13 +108,13 @@ separate authorization.
 | P02-F06 | NORMATIVE CONTRACT RECONCILED | Evidence identity and semantic transitions |
 | P02-F07 | CLOSED / FROZEN | P02-F06 additive corrections implemented |
 | P02-F08 | CLOSED / FROZEN | Ranked candidate selection reconciliation |
-| P02-F09 | BLOCKED UNTIL P02-F15 | Generic analysis-to-A07 fact adapter implementation |
+| P02-F09 | READY FOR IMPLEMENTATION RESUMPTION | Generic analysis-to-A07 fact adapter implementation |
 | P02-F10 | NORMATIVE CONTRACT RECONCILED | Explicit source-selector frame scope |
 | P02-F11 | CLOSED / FROZEN | Implemented P02-F10 additive correction |
 | P02-F12 | NORMATIVE CONTRACT RECONCILED | Confidence extraction exact-closure edge |
 | P02-F13 | CLOSED / FROZEN | Implemented P02-F12 additive correction |
 | P02-F14 | NORMATIVE CONTRACT RECONCILED | Confidence input candidate cardinality |
-| P02-F15 | READY FOR IMPLEMENTATION AUTHORIZATION | Implement P02-F14 cardinality boundary |
+| P02-F15 | CLOSED / FROZEN | Implemented P02-F14 cardinality boundary |
 | P02 | NOT COMPLETE | Generic analysis-to-A07 fact adapter |
 | P03 | Planned | Shared Strategy Runtime |
 | P04 | Planned | Elliott/Fibonacci strategy profile |
