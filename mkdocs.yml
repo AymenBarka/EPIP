@@ -231,6 +231,8 @@ nav:
       - ADR-0023 Explicit Selector Frame Scope: adr/ADR-0023-ExplicitFrameScopeForSourceSelectors.md
       - ADR-0024 Confidence Extraction Closure: adr/ADR-0024-ConfidenceSourceExtractionParticipatesInExactRuleClosure.md
       - P02-F12 Confidence Extraction Closure Contract: project/P02_F12_CONFIDENCE_SOURCE_EXTRACTION_CLOSURE_CONTRACT.md
+      - ADR-0025 Confidence Input Cardinality: adr/ADR-0025-ConfidenceInputExtractionCardinalityUsesExistingActions.md
+      - P02-F14 Confidence Input Cardinality Contract: project/P02_F14_CONFIDENCE_INPUT_CANDIDATE_CARDINALITY_CONTRACT.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
   - Glossary: project/GLOSSARY.md

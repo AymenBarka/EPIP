@@ -218,3 +218,15 @@ history or create it through the normal ADR review process.
   [ADR-0024](../adr/ADR-0024-ConfidenceSourceExtractionParticipatesInExactRuleClosure.md)
 - **Specification:**
   [P02-F12 Confidence Source Extraction Closure Contract](P02_F12_CONFIDENCE_SOURCE_EXTRACTION_CLOSURE_CONTRACT.md)
+
+## ADR-0025 — Confidence Input Extraction Cardinality Uses Existing Actions
+
+- **Milestone:** P02-F14 governance reconciliation
+- **Status:** Accepted
+- **Purpose:** freeze zero/one/many confidence-extraction cardinality through the existing
+  policy-level missing/conflict actions without implicit selection, ranking, or public contract
+  expansion.
+- **ADR:**
+  [ADR-0025](../adr/ADR-0025-ConfidenceInputExtractionCardinalityUsesExistingActions.md)
+- **Specification:**
+  [P02-F14 Confidence Input Candidate Cardinality Contract](P02_F14_CONFIDENCE_INPUT_CANDIDATE_CARDINALITY_CONTRACT.md)
