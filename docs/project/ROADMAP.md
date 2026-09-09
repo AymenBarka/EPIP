@@ -93,8 +93,9 @@ timeline
 P00 publishes canonical architecture and semantic ownership. P02-F10/F11 closed explicit selector
 frame scope, P02-F12/F13 closed confidence extraction exact closure, P02-F14/F15 closed the
 confidence-input zero/one/many cardinality boundary, and P02-F16/F17 closed evidence freshness
-across multi-source mapped evidence. P02-F09 now closes the generic canonical fact adapter. Every
-subsequent implementation phase requires separate authorization.
+across multi-source mapped evidence. P02-F09 closes the generic canonical fact adapter, and
+P02-F18 closes public-boundary evidence for its reachable branches. P02 may now resume its final
+closure review. Every subsequent implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -118,10 +119,11 @@ subsequent implementation phase requires separate authorization.
 | P02-F15 | CLOSED / FROZEN | Implemented P02-F14 cardinality boundary |
 | P02-F16 | NORMATIVE CONTRACT RECONCILED | Evidence freshness cardinality and conjunction semantics |
 | P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
-| P02 | IMPLEMENTATION COMPLETE / READY FOR FINAL CLOSURE REVIEW | Generic analysis-to-A07 fact adapter |
+| P02-F18 | CLOSED / FROZEN | Canonical adapter reachable-branch coverage closure |
+| P02 | READY FOR FINAL CLOSURE REVIEW RESUMPTION | Generic analysis-to-A07 fact adapter |
 | P03 | NOT AUTHORIZED | Shared Strategy Runtime |
-| P04 | Planned | Elliott/Fibonacci strategy profile |
-| P05 | Planned | Multi-timeframe context |
+| P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |
+| P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
 | P07 | Planned | Shared-runtime backtesting |
 | P08 | Planned | Trade ledger and metrics |
@@ -135,6 +137,6 @@ subsequent implementation phase requires separate authorization.
 
 Dependency order is P00 -> P01 -> P02-F00 -> P02-F01 -> P02-F02 -> P02-F03 -> P02-F04 -> P02-F05
 -> P02-F06 -> P02-F07 -> P02-F08 -> P02-F10 -> P02-F11 -> P02-F12 -> P02-F13 -> P02-F14
--> P02-F15 -> P02-F09 resumption -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09
+-> P02-F15 -> P02-F09 resumption -> P02-F18 -> P02 -> P03 -> P04 -> P05 -> P06 -> P07 -> P08 -> P09
 -> P10 -> P11 -> P12 -> P13 -> P14 -> P15. No phase authorizes a later phase, live deployment,
 or release by implication.

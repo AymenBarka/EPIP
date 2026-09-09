@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from epip.a07.foundation import StrategyDirection, StrategyIdentity
 from epip.a07.policy import StrategyPolicy
+from epip.core.integrity import DataIntegrityError
 from epip.strategy_mapping import *
 from epip.strategy_runtime._base import CONTRACT_VERSION, digest
 from epip.strategy_runtime.context import EvaluationContext, RuntimeMode
@@ -18,6 +21,7 @@ from epip.strategy_runtime.provenance import (
     ProvenanceManifest,
     SourceProvenance,
 )
+from epip.strategy_runtime.result import RuntimeDiagnosticCode
 from epip.swing import SwingSequence
 
 
@@ -42,6 +46,8 @@ class _Rule:
             outcome = self.outcomes[name]
             if isinstance(outcome, BaseException):
                 raise outcome
+            if callable(outcome):
+                return outcome(request)
             return outcome
         if self.family is SemanticRuleFamily.SOURCE_EXTRACTION:
             source = request.source
@@ -117,6 +123,10 @@ def _family_shape(family):
             SemanticInvocationKind.SOURCE_EXTRACTION,
             SemanticResultKind.CANDIDATES,
         ),
+        SemanticRuleFamily.DIRECTION_MAPPING: (
+            SemanticInvocationKind.DIRECTION,
+            SemanticResultKind.DIRECTION,
+        ),
         SemanticRuleFamily.MTF_AGGREGATION: (
             SemanticInvocationKind.MTF_AGGREGATION,
             SemanticResultKind.MTF_AGGREGATION,
@@ -164,9 +174,10 @@ def _family_shape(family):
     }[family]
 
 
-def _fixture(outcomes=None):
+def _fixture(outcomes=None, options=None):
     calls = []
     outcomes = {} if outcomes is None else outcomes
+    options = {} if options is None else options
     identities = {}
     families = {}
 
@@ -178,11 +189,18 @@ def _fixture(outcomes=None):
     primary = (TimeframeRole.PRIMARY,)
     both = (TimeframeRole.PRIMARY, TimeframeRole.HIGHER)
 
-    def selector(name, roles=primary):
+    def selector(
+        name,
+        roles=primary,
+        kind=None,
+        source_kind=AnalyticalSourceKind.SWING,
+        source_contract="epip.swing.models.SwingSequence",
+    ):
         return SourceSelector(
-            AnalyticalSourceKind.SWING,
-            "epip.swing.models.SwingSequence",
-            (
+            source_kind,
+            source_contract,
+            kind
+            or (
                 SourceSelectorKind.DIRECT_ENUM
                 if name.startswith("direction")
                 else SourceSelectorKind.PRICE_CANDIDATES
@@ -198,10 +216,23 @@ def _fixture(outcomes=None):
             selector(
                 "direction-" + name.value.lower(),
                 both if name is DirectionFactName.PRIMARY else primary,
+                (
+                    SourceSelectorKind.HYPOTHESIS_RULE
+                    if options.get("rule_direction") and name is DirectionFactName.ALTERNATE
+                    else None
+                ),
             ),
             ("VALID",),
-            (EnumDirectionMapping("UP", StrategyDirection.BUY),),
-            None,
+            (
+                ()
+                if options.get("rule_direction") and name is DirectionFactName.ALTERNATE
+                else (EnumDirectionMapping("UP", StrategyDirection.BUY),)
+            ),
+            (
+                rid("direction-rule", SemanticRuleFamily.DIRECTION_MAPPING)
+                if options.get("rule_direction") and name is DirectionFactName.ALTERNATE
+                else None
+            ),
             NonAcceptanceAction.REJECT,
             NonAcceptanceAction.REQUIRE_SINGLE,
         )
@@ -215,9 +246,23 @@ def _fixture(outcomes=None):
     )
     app = rid("applicability", SemanticRuleFamily.APPLICABILITY)
     choose = rid("selection", SemanticRuleFamily.CANDIDATE_SELECTION)
+    entry_selector = selector("entry-source")
+    entry_selectors = (entry_selector,)
+    if options.get("duplicate_geometry_selectors"):
+        entry_selectors = (
+            entry_selector,
+            SourceSelector(
+                entry_selector.source_kind,
+                entry_selector.source_contract,
+                SourceSelectorKind.DIRECT_VALUE,
+                entry_selector.selector_rule,
+                True,
+                entry_selector.frame_roles,
+            ),
+        )
     entry = EntrySourcePolicy(
         _id("entry-policy"),
-        (selector("entry-source"),),
+        entry_selectors,
         choose,
         rid("entry-rank", SemanticRuleFamily.CANDIDATE_RANKING),
         rid("boundary", SemanticRuleFamily.BOUNDARY_SELECTION),
@@ -226,13 +271,18 @@ def _fixture(outcomes=None):
         NonAcceptanceAction.REQUIRE_SINGLE,
         True,
     )
+    volatility = (
+        rid("volatility", SemanticRuleFamily.PRICE_TRANSFORMATION)
+        if options.get("volatility")
+        else None
+    )
     stop = StopSourcePolicy(
         _id("stop-policy"),
         (selector("stop-source"),),
         choose,
         rid("precedence", SemanticRuleFamily.PRECEDENCE),
         rid("buffer", SemanticRuleFamily.PRICE_TRANSFORMATION),
-        None,
+        volatility,
         app,
         NonAcceptanceAction.REJECT,
         NonAcceptanceAction.REQUIRE_SINGLE,
@@ -244,7 +294,11 @@ def _fixture(outcomes=None):
         choose,
         rid("target-rank", SemanticRuleFamily.CANDIDATE_RANKING),
         rid("threshold", SemanticRuleFamily.APPLICABILITY),
-        rid("extension", SemanticRuleFamily.CANDIDATE_SELECTION),
+        (
+            None
+            if options.get("no_target_extension")
+            else rid("extension", SemanticRuleFamily.CANDIDATE_SELECTION)
+        ),
         app,
         NonAcceptanceAction.REJECT,
         NonAcceptanceAction.REQUIRE_SINGLE,
@@ -252,45 +306,62 @@ def _fixture(outcomes=None):
     )
     confidence_primary = selector("confidence-source", primary)
     confidence_higher = selector("confidence-source", (TimeframeRole.HIGHER,))
+    calibration = (
+        rid("calibration", SemanticRuleFamily.CONFIDENCE) if options.get("calibration") else None
+    )
+    confidence_optional = bool(options.get("confidence_optional"))
     confidence = ConfidencePolicy(
         _id("confidence-policy"),
-        ConfidenceModelKind.WEIGHTED,
+        ConfidenceModelKind.CALIBRATED if calibration is not None else ConfidenceModelKind.WEIGHTED,
         rid("confidence-model", SemanticRuleFamily.CONFIDENCE),
         (
             ConfidenceInput("alpha", confidence_primary, True),
-            ConfidenceInput("beta", confidence_higher, True),
+            ConfidenceInput("beta", confidence_higher, not confidence_optional),
         ),
         (),
-        None,
+        calibration,
         0.0,
         1.0,
-        NonAcceptanceAction.REJECT,
+        NonAcceptanceAction.NO_FACT if confidence_optional else NonAcceptanceAction.REJECT,
         NonAcceptanceAction.REQUIRE_SINGLE,
     )
     fresh = FreshnessPolicy(
-        _id("fresh"), FreshnessBasis.OBSERVATION, 7200, NonAcceptanceAction.REJECT
-    )
-    temporal = TemporalEligibilityPolicy(
-        _id("temporal"),
-        both,
-        rid("validity", SemanticRuleFamily.TEMPORAL_ELIGIBILITY),
-        rid("revision", SemanticRuleFamily.TEMPORAL_ELIGIBILITY),
+        _id("fresh"),
+        FreshnessBasis.OBSERVATION,
+        options.get("freshness_seconds", 7200),
         NonAcceptanceAction.REJECT,
     )
+    requirements = options.get("evidence_requirements", {})
+
+    def evidence_policy(key):
+        temporal = TemporalEligibilityPolicy(
+            _id("temporal-" + key),
+            both,
+            rid("validity-" + key, SemanticRuleFamily.TEMPORAL_ELIGIBILITY),
+            rid("revision-" + key, SemanticRuleFamily.TEMPORAL_ELIGIBILITY),
+            NonAcceptanceAction.REJECT,
+        )
+        evidence_selector = selector("evidence-" + key, both if key == "alpha" else primary)
+        if options.get("absent_optional_evidence") and key == "alpha":
+            evidence_selector = selector(
+                "evidence-" + key,
+                both,
+                source_kind=AnalyticalSourceKind.MARKET_STRUCTURE,
+                source_contract="epip.market_structure.models.MarketStructureSnapshot",
+            )
+        return EvidenceKeyPolicy(
+            key,
+            requirements.get(key, EvidenceRequirement.REQUIRED),
+            evidence_selector,
+            rid("map-" + key, SemanticRuleFamily.EVIDENCE_MAPPING),
+            fresh,
+            temporal,
+            True,
+        )
+
     evidence = EvidenceTaxonomy(
         _id("taxonomy"),
-        tuple(
-            EvidenceKeyPolicy(
-                key,
-                EvidenceRequirement.REQUIRED,
-                selector("evidence-" + key, both if key == "alpha" else primary),
-                rid("map-" + key, SemanticRuleFamily.EVIDENCE_MAPPING),
-                fresh,
-                temporal,
-                True,
-            )
-            for key in ("alpha", "zeta")
-        ),
+        tuple(evidence_policy(key) for key in ("alpha", "zeta")),
         NonAcceptanceAction.REJECT,
         NonAcceptanceAction.REQUIRE_SINGLE,
         rid("evidence-order", SemanticRuleFamily.EVIDENCE_ORDERING),
@@ -312,8 +383,16 @@ def _fixture(outcomes=None):
         compatible_adapter_contract_versions=(CONTRACT_VERSION,),
         required_source_domains=("SWING",),
         optional_source_domains=(),
-        required_evidence_keys=("alpha", "zeta"),
-        optional_evidence_keys=(),
+        required_evidence_keys=tuple(
+            key
+            for key in ("alpha", "zeta")
+            if requirements.get(key, EvidenceRequirement.REQUIRED) is EvidenceRequirement.REQUIRED
+        ),
+        optional_evidence_keys=tuple(
+            key
+            for key in ("alpha", "zeta")
+            if requirements.get(key, EvidenceRequirement.REQUIRED) is EvidenceRequirement.OPTIONAL
+        ),
         enabled_direction_facts=tuple(sorted(x.value for x in DirectionFactName)),
         enabled_geometry_sources=("SWING",),
         confidence_model_reference=confidence.policy_identity.reference,
@@ -341,8 +420,8 @@ def _fixture(outcomes=None):
         (StrategyDirection.BUY,),
         1.0,
         0.5,
-        ("alpha", "zeta"),
-        (),
+        parent.required_evidence_keys,
+        parent.optional_evidence_keys,
         60,
         2,
         (),
@@ -370,8 +449,16 @@ def _fixture(outcomes=None):
             source_object_id=object_id,
             instrument=instrument,
             timeframe=timeframe,
-            observation_timestamp="2026-01-01T09:30:00Z",
-            availability_timestamp="2026-01-01T09:30:01Z",
+            observation_timestamp=(
+                options.get("higher_observation", "2026-01-01T09:30:00Z")
+                if role is TimeframeRole.HIGHER
+                else "2026-01-01T09:30:00Z"
+            ),
+            availability_timestamp=(
+                options.get("higher_availability", "2026-01-01T09:30:01Z")
+                if role is TimeframeRole.HIGHER
+                else "2026-01-01T09:30:01Z"
+            ),
             as_of_timestamp="2026-01-01T09:31:00Z",
             revision=RevisionIdentity(object_id, "revision-" + object_id, 0, None),
             superseded_at=None,
@@ -456,8 +543,13 @@ def _fixture(outcomes=None):
     typed = MultiTimeframeAnalyticalBundle.create(
         instrument, coherence, frames, manifest.manifest_id
     )
+    primary_payload = sources[0].payload
+    if options.get("p01_primary_mode") == "mismatch":
+        primary_payload = SwingSequence("EURUSD", "H4", ())
+    elif options.get("p01_primary_mode") == "omitted":
+        primary_payload = None
     inputs = AnalyticalInputBundle(
-        sources[0].payload, None, None, None, None, None, None, None, coherence, manifest
+        primary_payload, None, None, None, None, None, None, None, coherence, manifest
     )
     declarations = []
     implementations = []
@@ -613,12 +705,12 @@ def test_evidence_mapping_and_temporal_fail_fast():
         {"map-alpha": EvidenceMappingResult(SemanticRuleState.SUCCESS, (), ("unknown",))}
     )
     assert adapter.adapt(context, inputs, profile, policy).state is FactAdapterState.INVALID_INPUT
-    assert "validity" not in tuple(name for name, _ in calls)
+    assert "validity-alpha" not in tuple(name for name, _ in calls)
     adapter, context, inputs, profile, policy, calls = _fixture(
-        {"validity": TemporalEligibilityResult(SemanticRuleState.SUCCESS, (), False)}
+        {"validity-alpha": TemporalEligibilityResult(SemanticRuleState.SUCCESS, (), False)}
     )
     assert adapter.adapt(context, inputs, profile, policy).state is FactAdapterState.REJECTED
-    assert "revision" not in tuple(name for name, _ in calls)
+    assert "revision-alpha" not in tuple(name for name, _ in calls)
 
 
 def test_evidence_ordering_requires_exact_permutation():
@@ -626,3 +718,408 @@ def test_evidence_ordering_requires_exact_permutation():
         {"evidence-order": EvidenceOrderingResult(SemanticRuleState.SUCCESS, (), ("alpha",))}
     )
     assert adapter.adapt(context, inputs, profile, policy).state is FactAdapterState.INVALID_INPUT
+
+
+def _price_candidate(request, value, *, source_binding_id=None):
+    candidate = request.candidate
+    return SemanticCandidate.create(
+        source_binding_id=source_binding_id or candidate.source_binding_id,
+        provenance_ref=candidate.provenance_ref,
+        instrument_binding_id=candidate.instrument_binding_id,
+        timeframe=candidate.timeframe,
+        source_rule_identity=candidate.source_rule_identity,
+        value=SemanticValue(SemanticValueKind.PRICE, float_value=value),
+    )
+
+
+def test_rule_based_direction_is_propagated_without_frame_fallback():
+    direction = DirectionRuleResult(SemanticRuleState.SUCCESS, (), StrategyDirection.SELL)
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"direction-rule": direction}, {"rule_direction": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None
+    assert result.bundle.directional_facts.alternate_direction is StrategyDirection.SELL
+    name, request = next(item for item in calls if item[0] == "direction-rule")
+    assert name == "direction-rule"
+    assert request.context.timeframe_role is None
+    assert request.context.source_binding_ids
+    assert tuple(name for name, _ in calls).count("direction-rule") == 1
+
+
+def test_malformed_direction_result_fails_closed_before_geometry():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"direction-rule": object()}, {"rule_direction": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT
+    assert result.bundle is None
+    assert "entry-source" not in tuple(name for name, _ in calls)
+    assert "object" not in repr(result.diagnostics)
+
+
+def test_optional_stop_volatility_transform_receives_buffered_value():
+    def buffer(request):
+        return PriceTransformationResult(
+            SemanticRuleState.SUCCESS, (), _price_candidate(request, 93.0)
+        )
+
+    def volatility(request):
+        assert request.candidate.value.float_value == 93.0
+        return PriceTransformationResult(
+            SemanticRuleState.SUCCESS, (), _price_candidate(request, 92.0)
+        )
+
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"buffer": buffer, "volatility": volatility}, {"volatility": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None and result.bundle.stop_facts.invalidation_price == 92.0
+    names = tuple(name for name, _ in calls)
+    assert names.index("precedence") < names.index("buffer") < names.index("volatility")
+
+
+def test_terminal_stop_volatility_fails_fast_before_target():
+    terminal = PriceTransformationResult(SemanticRuleState.FAILED, (), None)
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"volatility": terminal}, {"volatility": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.FAILED and result.bundle is None
+    assert "target-source" not in tuple(name for name, _ in calls)
+
+
+def test_calibrated_confidence_receives_base_and_precedes_evidence():
+    def calibration(request):
+        assert request.base_confidence == 0.8
+        return ConfidenceRuleResult(SemanticRuleState.SUCCESS, (), 0.7)
+
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"calibration": calibration}, {"calibration": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None and result.bundle.confidence == 0.7
+    names = tuple(name for name, _ in calls)
+    assert names.count("confidence-model") == names.count("calibration") == 1
+    assert (
+        names.index("confidence-model") < names.index("calibration") < names.index("evidence-alpha")
+    )
+
+
+def test_calibration_failure_is_sanitized_and_stops_evidence():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"calibration": RuntimeError("C:\\private\\calibration")}, {"calibration": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.FAILED and result.bundle is None
+    assert "private" not in repr(result.diagnostics)
+    assert not any(name.startswith("evidence-") for name, _ in calls)
+
+
+def test_optional_confidence_no_match_is_reduced_before_model():
+    no_match = CandidateRuleResult(SemanticRuleState.NO_MATCH, (), None)
+
+    def confidence_source(request):
+        if request.source.timeframe == "H4":
+            return no_match
+        return CandidateRuleResult(
+            SemanticRuleState.SUCCESS,
+            (),
+            (
+                SemanticCandidate.create(
+                    source_binding_id=request.source.source_binding_id,
+                    provenance_ref=request.source.provenance_ref,
+                    instrument_binding_id=request.source.instrument.binding_id,
+                    timeframe=request.source.timeframe,
+                    source_rule_identity=request.context.rule_identity,
+                    value=SemanticValue(SemanticValueKind.FINITE_FLOAT, float_value=0.8),
+                ),
+            ),
+        )
+
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"confidence-source": confidence_source}, {"confidence_optional": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    model_request = next(request for name, request in calls if name == "confidence-model")
+    assert tuple(item.input_key for item in model_request.inputs) == ("alpha",)
+
+
+def test_required_confidence_no_match_rejects_before_model():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"confidence-source": CandidateRuleResult(SemanticRuleState.NO_MATCH, (), None)}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert "confidence-model" not in tuple(name for name, _ in calls)
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    (
+        (SemanticRuleState.REJECTED, FactAdapterState.REJECTED),
+        (SemanticRuleState.INVALID_INPUT, FactAdapterState.INVALID_INPUT),
+        (SemanticRuleState.FAILED, FactAdapterState.FAILED),
+    ),
+)
+def test_confidence_extraction_terminal_states_stop_model(state, expected):
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"confidence-source": CandidateRuleResult(state, (), None)}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is expected and result.bundle is None
+    assert "confidence-model" not in tuple(name for name, _ in calls)
+
+
+def test_optional_evidence_no_match_is_omitted_before_mapping_and_temporal():
+    options = {"evidence_requirements": {"alpha": EvidenceRequirement.OPTIONAL}}
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"evidence-alpha": CandidateRuleResult(SemanticRuleState.NO_MATCH, (), None)}, options
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None
+    assert tuple(item.evidence_key for item in result.bundle.evidence) == ("zeta",)
+    names = tuple(name for name, _ in calls)
+    assert (
+        "map-alpha" not in names and "validity-alpha" not in names and "revision-alpha" not in names
+    )
+    order = next(request for name, request in calls if name == "evidence-order")
+    assert order.evidence_keys == ("zeta",)
+
+
+def test_required_evidence_no_match_rejects_before_mapping():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"evidence-alpha": CandidateRuleResult(SemanticRuleState.NO_MATCH, (), None)}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert "map-alpha" not in tuple(name for name, _ in calls)
+
+
+def test_required_stale_evidence_stops_before_temporal_and_ordering():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        options={"freshness_seconds": 2000, "higher_observation": "2026-01-01T07:00:00Z"}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    names = tuple(name for name, _ in calls)
+    assert (
+        "validity-alpha" not in names
+        and "revision-alpha" not in names
+        and "evidence-order" not in names
+    )
+
+
+def test_optional_stale_evidence_is_omitted_and_remaining_evidence_continues():
+    options = {
+        "freshness_seconds": 2000,
+        "higher_observation": "2026-01-01T07:00:00Z",
+        "evidence_requirements": {"alpha": EvidenceRequirement.OPTIONAL},
+    }
+    adapter, context, inputs, profile, policy, calls = _fixture(options=options)
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None
+    assert tuple(item.evidence_key for item in result.bundle.evidence) == ("zeta",)
+    names = tuple(name for name, _ in calls)
+    assert "validity-alpha" not in names and "revision-alpha" not in names
+    assert "validity-zeta" in names and "evidence-order" in names
+
+
+def test_optional_temporal_false_omits_item_and_required_false_stops_revision():
+    false = TemporalEligibilityResult(SemanticRuleState.SUCCESS, (), False)
+    options = {"evidence_requirements": {"alpha": EvidenceRequirement.OPTIONAL}}
+    adapter, context, inputs, profile, policy, calls = _fixture({"validity-alpha": false}, options)
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None
+    assert tuple(item.evidence_key for item in result.bundle.evidence) == ("zeta",)
+    assert "revision-alpha" not in tuple(name for name, _ in calls)
+
+    adapter, context, inputs, profile, policy, calls = _fixture({"validity-alpha": false})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert "revision-alpha" not in tuple(name for name, _ in calls)
+
+
+def test_temporal_terminal_state_is_translated_without_boolean_conflation():
+    terminal = TemporalEligibilityResult(SemanticRuleState.INVALID_INPUT, (), None)
+    adapter, context, inputs, profile, policy, calls = _fixture({"validity-alpha": terminal})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "revision-alpha" not in tuple(name for name, _ in calls)
+
+
+def test_all_optional_evidence_omitted_rejects_before_ordering():
+    options = {
+        "evidence_requirements": {
+            "alpha": EvidenceRequirement.OPTIONAL,
+            "zeta": EvidenceRequirement.OPTIONAL,
+        }
+    }
+    no_match = CandidateRuleResult(SemanticRuleState.NO_MATCH, (), None)
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"evidence-alpha": no_match, "evidence-zeta": no_match}, options
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert result.diagnostics[-1].message == "SELECTOR_NO_MATCH"
+    assert "evidence-order" not in tuple(name for name, _ in calls)
+
+
+def test_wrong_rule_result_and_source_lineage_fail_closed():
+    adapter, context, inputs, profile, policy, calls = _fixture({"direction-alternate": object()})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "entry-source" not in tuple(name for name, _ in calls)
+
+    def wrong_lineage(request):
+        candidate = SemanticCandidate.create(
+            source_binding_id="wrong-source",
+            provenance_ref=request.source.provenance_ref,
+            instrument_binding_id=request.source.instrument.binding_id,
+            timeframe=request.source.timeframe,
+            source_rule_identity=request.context.rule_identity,
+            value=SemanticValue(SemanticValueKind.TEXT, text_value="UP"),
+        )
+        return CandidateRuleResult(SemanticRuleState.SUCCESS, (), (candidate,))
+
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"direction-alternate": wrong_lineage}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "entry-source" not in tuple(name for name, _ in calls)
+
+
+def test_target_ranking_value_kind_and_transform_lineage_fail_closed():
+    invalid_ranking = RankingRuleResult(SemanticRuleState.SUCCESS, (), ("unknown",))
+    adapter, context, inputs, profile, policy, _ = _fixture({"target-rank": invalid_ranking})
+    assert adapter.adapt(context, inputs, profile, policy).state is FactAdapterState.INVALID_INPUT
+
+    def text_targets(request):
+        candidate = SemanticCandidate.create(
+            source_binding_id=request.source.source_binding_id,
+            provenance_ref=request.source.provenance_ref,
+            instrument_binding_id=request.source.instrument.binding_id,
+            timeframe=request.source.timeframe,
+            source_rule_identity=request.context.rule_identity,
+            value=SemanticValue(SemanticValueKind.TEXT, text_value="target"),
+        )
+        return CandidateRuleResult(SemanticRuleState.SUCCESS, (), (candidate,))
+
+    adapter, context, inputs, profile, policy, _ = _fixture({"target-source": text_targets})
+    assert adapter.adapt(context, inputs, profile, policy).state is FactAdapterState.INVALID_INPUT
+
+    def wrong_transform_lineage(request):
+        return PriceTransformationResult(
+            SemanticRuleState.SUCCESS,
+            (),
+            _price_candidate(request, 93.0, source_binding_id="wrong-source"),
+        )
+
+    adapter, context, inputs, profile, policy, calls = _fixture({"buffer": wrong_transform_lineage})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "target-source" not in tuple(name for name, _ in calls)
+
+
+def test_structurally_absent_optional_evidence_source_uses_no_match_path():
+    options = {
+        "absent_optional_evidence": True,
+        "evidence_requirements": {"alpha": EvidenceRequirement.OPTIONAL},
+    }
+    adapter, context, inputs, profile, policy, calls = _fixture(options=options)
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.ACCEPTED
+    assert result.bundle is not None
+    assert tuple(item.evidence_key for item in result.bundle.evidence) == ("zeta",)
+    assert "evidence-alpha" not in tuple(name for name, _ in calls)
+
+
+@pytest.mark.parametrize("values", (("UP", "DOWN"), ("UNKNOWN",)))
+def test_direct_direction_ambiguity_and_unknown_value_fail_closed(values):
+    def extraction(request):
+        candidates = tuple(
+            SemanticCandidate.create(
+                source_binding_id=request.source.source_binding_id,
+                provenance_ref=request.source.provenance_ref,
+                instrument_binding_id=request.source.instrument.binding_id,
+                timeframe=request.source.timeframe,
+                source_rule_identity=request.context.rule_identity,
+                value=SemanticValue(SemanticValueKind.TEXT, text_value=value),
+            )
+            for value in values
+        )
+        return CandidateRuleResult(SemanticRuleState.SUCCESS, (), candidates)
+
+    adapter, context, inputs, profile, policy, calls = _fixture({"direction-alternate": extraction})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert "entry-source" not in tuple(name for name, _ in calls)
+
+
+def test_duplicate_geometry_candidates_fail_closed_before_applicability():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        options={"duplicate_geometry_selectors": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "applicability" not in tuple(name for name, _ in calls)
+
+
+def test_target_without_extension_rejects_non_price_winner():
+    def text_targets(request):
+        candidate = SemanticCandidate.create(
+            source_binding_id=request.source.source_binding_id,
+            provenance_ref=request.source.provenance_ref,
+            instrument_binding_id=request.source.instrument.binding_id,
+            timeframe=request.source.timeframe,
+            source_rule_identity=request.context.rule_identity,
+            value=SemanticValue(SemanticValueKind.TEXT, text_value="target"),
+        )
+        return CandidateRuleResult(SemanticRuleState.SUCCESS, (), (candidate,))
+
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"target-source": text_targets}, {"no_target_extension": True}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "confidence-source" not in tuple(name for name, _ in calls)
+
+
+def test_rule_integrity_exception_and_invalid_public_arguments_are_sanitized():
+    adapter, context, inputs, profile, policy, calls = _fixture(
+        {"direction-alternate": DataIntegrityError("private payload")}
+    )
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert "private" not in repr(result.diagnostics)
+    assert "entry-source" not in tuple(name for name, _ in calls)
+
+    adapter, context, inputs, profile, policy, calls = _fixture()
+    result = adapter.adapt(object(), inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert calls == []
+
+
+@pytest.mark.parametrize("mode", ("mismatch", "omitted"))
+def test_p01_primary_payload_must_match_typed_primary_source(mode):
+    adapter, context, inputs, profile, policy, calls = _fixture(options={"p01_primary_mode": mode})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.INVALID_INPUT and result.bundle is None
+    assert calls == []
+
+
+def test_successful_empty_direction_extraction_is_governed_as_no_match():
+    empty = CandidateRuleResult(SemanticRuleState.SUCCESS, (), ())
+    adapter, context, inputs, profile, policy, calls = _fixture({"direction-alternate": empty})
+    result = adapter.adapt(context, inputs, profile, policy)
+    assert result.state is FactAdapterState.REJECTED and result.bundle is None
+    assert result.diagnostics[-1].code is RuntimeDiagnosticCode.MISSING_FACT
+    assert "entry-source" not in tuple(name for name, _ in calls)
