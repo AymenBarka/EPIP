@@ -48,6 +48,7 @@ nav:
       - P02-F06 Transitions and Evidence Identity: project/P02_F06_TRANSITION_AND_EVIDENCE_IDENTITY_CONTRACT.md
       - P02-F08 Ranked Candidate Selection: project/P02_F08_RANKED_CANDIDATE_SELECTION_CONTRACT.md
       - P02-F10 Source Selector Frame Scope: project/P02_F10_SOURCE_SELECTOR_FRAME_SCOPE_CONTRACT.md
+      - P02 Final Closure Review: project/P02_FINAL_CLOSURE_REVIEW.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md

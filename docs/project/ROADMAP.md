@@ -120,8 +120,9 @@ closure review. Every subsequent implementation phase requires separate authoriz
 | P02-F16 | NORMATIVE CONTRACT RECONCILED | Evidence freshness cardinality and conjunction semantics |
 | P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
 | P02-F18 | CLOSED / FROZEN | Canonical adapter reachable-branch coverage closure |
-| P02 | READY FOR FINAL CLOSURE REVIEW RESUMPTION | Generic analysis-to-A07 fact adapter |
-| P03 | NOT AUTHORIZED | Shared Strategy Runtime |
+| P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
+| P03 | READY FOR GOVERNANCE AUTHORIZATION | Shared Strategy Runtime |
+| P03 implementation | NOT YET AUTHORIZED | Requires separate implementation authorization |
 | P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
