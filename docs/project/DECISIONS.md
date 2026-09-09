@@ -241,3 +241,15 @@ history or create it through the normal ADR review process.
   [ADR-0026](../adr/ADR-0026-EvidenceFreshnessRequiresAllSelectedSourcesToBeFresh.md)
 - **Specification:**
   [P02-F16 Evidence Freshness Cardinality Contract](P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md)
+
+## ADR-0027 â€” Single-Evaluation Strategy Runtime Orchestration
+
+- **Milestone:** P03 governance authorization
+- **Status:** Accepted
+- **Purpose:** reuse P01 runtime contracts for one synchronous deterministic evaluation with
+  zero-or-one adapter invocation, frozen A07 sequencing, and no independent state, binding, retry,
+  scheduling, or semantic layer.
+- **ADR:**
+  [ADR-0027](../adr/ADR-0027-SingleEvaluationStrategyRuntimeOrchestration.md)
+- **Specification:**
+  [P03 Governance Authorization](P03_GOVERNANCE_AUTHORIZATION.md)

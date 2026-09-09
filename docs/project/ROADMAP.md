@@ -94,8 +94,9 @@ P00 publishes canonical architecture and semantic ownership. P02-F10/F11 closed 
 frame scope, P02-F12/F13 closed confidence extraction exact closure, P02-F14/F15 closed the
 confidence-input zero/one/many cardinality boundary, and P02-F16/F17 closed evidence freshness
 across multi-source mapped evidence. P02-F09 closes the generic canonical fact adapter, and
-P02-F18 closes public-boundary evidence for its reachable branches. P02 may now resume its final
-closure review. Every subsequent implementation phase requires separate authorization.
+P02-F18 closes public-boundary evidence for its reachable branches, and P02 is CLOSED / FROZEN.
+P03 governance freezes the Shared Strategy Runtime boundary and authorizes only P03-F00. Every
+subsequent implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -121,8 +122,11 @@ closure review. Every subsequent implementation phase requires separate authoriz
 | P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
 | P02-F18 | CLOSED / FROZEN | Canonical adapter reachable-branch coverage closure |
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
-| P03 | READY FOR GOVERNANCE AUTHORIZATION | Shared Strategy Runtime |
-| P03 implementation | NOT YET AUTHORIZED | Requires separate implementation authorization |
+| P03 | GOVERNANCE AUTHORIZED | Shared Strategy Runtime |
+| P03 implementation | AUTHORIZED ONLY FOR P03-F00 | Later milestones require separate authorization |
+| P03-F00 | AUTHORIZED | Canonical single-evaluation runtime orchestration |
+| P03-F01 | NOT AUTHORIZED | Runtime branch, provenance, and boundary coverage closure |
+| P03-F02 | NOT AUTHORIZED | Determinism, concurrency, compliance, and final closure |
 | P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
