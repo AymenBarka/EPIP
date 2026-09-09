@@ -253,3 +253,13 @@ history or create it through the normal ADR review process.
   [ADR-0027](../adr/ADR-0027-SingleEvaluationStrategyRuntimeOrchestration.md)
 - **Specification:**
   [P03 Governance Authorization](P03_GOVERNANCE_AUTHORIZATION.md)
+
+## ADR-0028 â€” Ordered Evidence-Set Continuity Across A07
+
+- **Milestone:** A07 E02/E08 and P01/P02 continuity reconciliation
+- **Status:** Accepted
+- **Purpose:** preserve P02 semantic evidence order through A07 E02 and replace E08 item/set
+  equality with immutable member and common-manifest provenance continuity.
+- **ADR:** [ADR-0028](../adr/ADR-0028-OrderedEvidenceSetContinuityAcrossA07.md)
+- **Specification:**
+  [A07 E02/E08 Ordered Evidence-Set Continuity Reconciliation](A07_E02_E08_ORDERED_EVIDENCE_SET_CONTINUITY_RECONCILIATION.md)

@@ -95,8 +95,9 @@ frame scope, P02-F12/F13 closed confidence extraction exact closure, P02-F14/F15
 confidence-input zero/one/many cardinality boundary, and P02-F16/F17 closed evidence freshness
 across multi-source mapped evidence. P02-F09 closes the generic canonical fact adapter, and
 P02-F18 closes public-boundary evidence for its reachable branches, and P02 is CLOSED / FROZEN.
-P03 governance freezes the Shared Strategy Runtime boundary and authorizes only P03-F00. Every
-subsequent implementation phase requires separate authorization.
+P03 governance freezes the Shared Strategy Runtime boundary. P03-F00 is blocked until the
+normatively reconciled A07 E02/E08 ordered evidence-set continuity correction is implemented and
+closed. Every subsequent implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -122,9 +123,10 @@ subsequent implementation phase requires separate authorization.
 | P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
 | P02-F18 | CLOSED / FROZEN | Canonical adapter reachable-branch coverage closure |
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
-| P03 | GOVERNANCE AUTHORIZED | Shared Strategy Runtime |
-| P03 implementation | AUTHORIZED ONLY FOR P03-F00 | Later milestones require separate authorization |
-| P03-F00 | AUTHORIZED | Canonical single-evaluation runtime orchestration |
+| A07-E02/E08 continuity | NORMATIVE CONTRACT RECONCILED | Implementation ready for separate authorization |
+| P03 | GOVERNANCE AUTHORIZED / IMPLEMENTATION BLOCKED BY ORDERED EVIDENCE CONTINUITY | Shared Strategy Runtime |
+| P03 implementation | BLOCKED | Requires closed A07-E02-E08-R01 predecessor |
+| P03-F00 | BLOCKED PENDING A07 E02/E08 FIX | Canonical single-evaluation runtime orchestration |
 | P03-F01 | NOT AUTHORIZED | Runtime branch, provenance, and boundary coverage closure |
 | P03-F02 | NOT AUTHORIZED | Determinism, concurrency, compliance, and final closure |
 | P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |

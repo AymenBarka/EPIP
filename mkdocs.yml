@@ -50,6 +50,7 @@ nav:
       - P02-F10 Source Selector Frame Scope: project/P02_F10_SOURCE_SELECTOR_FRAME_SCOPE_CONTRACT.md
       - P02 Final Closure Review: project/P02_FINAL_CLOSURE_REVIEW.md
       - P03 Governance Authorization: project/P03_GOVERNANCE_AUTHORIZATION.md
+      - A07 E02/E08 Ordered Evidence Continuity: project/A07_E02_E08_ORDERED_EVIDENCE_SET_CONTINUITY_RECONCILIATION.md
       - Principles: project/ARCHITECTURE_PRINCIPLES.md
       - Data Integrity: architecture/DataIntegrity.md
       - Concurrency Contracts: architecture/ConcurrencyContracts.md
@@ -237,6 +238,7 @@ nav:
       - P02-F14 Confidence Input Cardinality Contract: project/P02_F14_CONFIDENCE_INPUT_CANDIDATE_CARDINALITY_CONTRACT.md
       - ADR-0026 Evidence Freshness Cardinality: adr/ADR-0026-EvidenceFreshnessRequiresAllSelectedSourcesToBeFresh.md
       - ADR-0027 Strategy Runtime Orchestration: adr/ADR-0027-SingleEvaluationStrategyRuntimeOrchestration.md
+      - ADR-0028 Ordered Evidence-Set Continuity: adr/ADR-0028-OrderedEvidenceSetContinuityAcrossA07.md
       - P02-F16 Evidence Freshness Cardinality Contract: project/P02_F16_EVIDENCE_FRESHNESS_CARDINALITY_CONTRACT.md
       - EPIP-016 Decision Theory: adr/ADR-EPIP016-DecisionTheory.md
       - EPIP-016 Validation: adr/ADR-EPIP016-Validation.md
