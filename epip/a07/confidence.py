@@ -181,9 +181,12 @@ class SignalExpiration(_Record):
                 raise DataIntegrityError(
                     "request policy reference does not match confidence policy"
                 )
-            if any(item.evidence_identity != request.evidence_identity for item in snapshots):
+            if any(
+                item.evidence_identity.provenance != request.evidence_identity.provenance
+                for item in snapshots
+            ):
                 raise DataIntegrityError(
-                    "request evidence identity does not match confidence evidence"
+                    "request evidence set provenance does not match confidence evidence"
                 )
             duration = policy.expiration_seconds
             evaluation_utc, evaluation_timestamp = _canonical_timestamp(

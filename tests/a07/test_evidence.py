@@ -127,17 +127,15 @@ def test_snapshot_is_immutable_and_has_no_mutable_nested_state() -> None:
         snapshot.evidence_identity.evidence_id = "changed"
 
 
-def test_binding_derives_all_fields_and_canonicalizes_permutations() -> None:
+def test_binding_preserves_semantic_order_and_does_not_canonicalize_permutations() -> None:
     policy = _policy(required=("wave", "context"), optional=("liquidity",))
     values = (_snapshot("wave"), _snapshot("other"), _snapshot("liquidity"))
     left = EvidenceBinding(policy, values)
     right = EvidenceBinding(policy, tuple(reversed(values)))
-    assert left == right and hash(left) == hash(right)
-    assert tuple(item.evidence_key for item in left.available_evidence) == (
-        "liquidity",
-        "other",
-        "wave",
-    )
+    assert left != right
+    assert hash(left) == hash(left) and hash(right) == hash(right)
+    assert left.available_evidence == values
+    assert right.available_evidence == tuple(reversed(values))
     assert tuple(item.evidence_key for item in left.bound_required) == ("wave",)
     assert tuple(item.evidence_key for item in left.bound_optional) == ("liquidity",)
     assert left.missing_required == ("context",)
@@ -202,15 +200,17 @@ def test_binding_reconstruction_round_trip_and_contradictions() -> None:
             changed[index] = ("wrong",)
         with pytest.raises(DataIntegrityError):
             EvidenceBinding.reconstruct(*changed)
-    with pytest.raises(DataIntegrityError):
-        EvidenceBinding.reconstruct(
-            value.policy,
-            tuple(reversed(value.available_evidence)),
-            value.bound_required,
-            value.bound_optional,
-            value.missing_required,
-            value.unexpected_evidence,
-        )
+    reversed_binding = EvidenceBinding(value.policy, tuple(reversed(value.available_evidence)))
+    rebuilt_reversed = EvidenceBinding.reconstruct(
+        reversed_binding.policy,
+        reversed_binding.available_evidence,
+        reversed_binding.bound_required,
+        reversed_binding.bound_optional,
+        reversed_binding.missing_required,
+        reversed_binding.unexpected_evidence,
+    )
+    assert rebuilt_reversed == reversed_binding
+    assert rebuilt_reversed != value
 
 
 def test_binding_is_immutable_and_nested_collections_are_immutable() -> None:

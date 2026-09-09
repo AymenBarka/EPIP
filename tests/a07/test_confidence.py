@@ -38,10 +38,12 @@ def inputs(
     expiration_seconds: int = 90,
     direction: StrategyDirection = StrategyDirection.BUY,
     with_evidence: bool = False,
+    evidence_count: int | None = None,
 ) -> tuple[StrategyConfidence, SignalExpiration]:
     identity = StrategyIdentity("strategy", "1")
-    evidence_identity = StrategyEvidenceIdentity("evidence", "source")
-    keys = ("required",) if with_evidence else ()
+    count = evidence_count if evidence_count is not None else int(with_evidence)
+    evidence_identity = StrategyEvidenceIdentity("evidence-set", "source")
+    keys = tuple(f"required-{index}" for index in range(count))
     policy = StrategyPolicy(
         "strategy",
         "1",
@@ -55,10 +57,15 @@ def inputs(
         6,
         (),
     )
-    available = (
-        (StrategyEvidenceSnapshot(identity, evidence_identity, "required", True, True),)
-        if with_evidence
-        else ()
+    available = tuple(
+        StrategyEvidenceSnapshot(
+            identity,
+            StrategyEvidenceIdentity(f"evidence-item-{index}", "source"),
+            key,
+            True,
+            True,
+        )
+        for index, key in enumerate(keys)
     )
     evidence = EvidenceValidation(EvidenceBinding(policy, available))
     facts = DirectionalFacts(direction, direction, direction, direction, direction, direction)
@@ -116,6 +123,21 @@ def test_public_api_and_exact_fields() -> None:
         "valid",
         "diagnostics",
     )
+
+
+@pytest.mark.parametrize("evidence_count", [1, 2, 3])
+def test_p03_blocker_distinct_item_and_set_ids_preserve_order_through_e08(
+    evidence_count: int,
+) -> None:
+    value, expiration = inputs(evidence_count=evidence_count)
+    snapshots = value.evidence_validation.binding.available_evidence
+    assert len(snapshots) == evidence_count
+    assert tuple(item.evidence_key for item in snapshots) == tuple(
+        f"required-{index}" for index in range(evidence_count)
+    )
+    assert len({item.evidence_identity for item in snapshots}) == evidence_count
+    assert all(item.evidence_identity != expiration.request.evidence_identity for item in snapshots)
+    assert expiration.strategy_confidence is value
 
 
 @pytest.mark.parametrize("confidence", [0.0, -0.0, 0.25, 0.5, 0.75, 1.0])
@@ -308,7 +330,7 @@ def test_request_continuity_mismatch(field: str) -> None:
     else:
         request = StrategyEvaluationRequest(
             request.strategy_identity,
-            StrategyEvidenceIdentity("other", "source"),
+            StrategyEvidenceIdentity("other", "other-source"),
             request.evaluation_timestamp,
             "baseline",
             request.policy_reference,

@@ -58,16 +58,6 @@ def _text(value: object, field: str) -> str:
     return require_text(value, field).strip()
 
 
-def _snapshot_key(snapshot: StrategyEvidenceSnapshot) -> tuple[str, ...]:
-    return (
-        snapshot.evidence_key,
-        snapshot.evidence_identity.evidence_id,
-        snapshot.evidence_identity.provenance,
-        snapshot.strategy_identity.strategy_id,
-        snapshot.strategy_identity.strategy_version,
-    )
-
-
 def _snapshots(value: object) -> tuple[StrategyEvidenceSnapshot, ...]:
     if not isinstance(value, tuple):
         raise DataIntegrityError("available_evidence must be an immutable tuple")
@@ -80,7 +70,7 @@ def _snapshots(value: object) -> tuple[StrategyEvidenceSnapshot, ...]:
         raise DataIntegrityError("available_evidence contains duplicate evidence keys")
     if len(identities) != len(set(identities)):
         raise DataIntegrityError("available_evidence contains duplicate evidence identities")
-    return tuple(sorted(snapshots, key=_snapshot_key))
+    return snapshots
 
 
 def _diagnostics(value: object) -> tuple[str, ...]:
