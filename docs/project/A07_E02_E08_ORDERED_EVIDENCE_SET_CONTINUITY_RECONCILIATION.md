@@ -59,15 +59,16 @@ compatible with that meaning.
 The bundle-to-A07 transition must satisfy:
 
 ```text
-request.evidence_identity == bundle.evidence_identity
+a07_request.evidence_identity == bundle.evidence_identity
 admitted_evidence == bundle.evidence
 ```
 
 The second equality is exact tuple equality, including item order and immutable content. The
 transition copies these values; it never reconstructs, sorts, collapses, or derives identities.
-The future P03 implementation owns enforcing this exact transition because it holds the validated
-bundle and constructs E00. This is preservation of the authoritative identity, not a P03 identity
-reconciliation or workaround.
+The future P03 implementation owns this exact transition because it holds the accepted bundle and
+constructs E00. `a07_request` means `StrategyEvaluationRequest`, not the P01
+`StrategyRuntimeRequest`. This is preservation of the P02-authoritative identity, not comparison
+against an independent caller expectation, P03 identity reconciliation, or workaround.
 
 ## E02 ownership and replacement invariant
 
@@ -136,9 +137,9 @@ No public diagnostic or state expansion is required.
   failures expressed by deterministic sanitized `DataIntegrityError` messages.
 - Missing required, unexpected, stale, temporally ineligible, and strategy-mismatched evidence
   retain the existing E02 validation diagnostics.
-- Wrong exact bundle/request set identity is a runtime input-continuity failure at the future P03
-  boundary and uses the existing P01 `COHERENCE_FAILURE` diagnostic and `INVALID_INPUT` state,
-  before adapter/A07 execution where applicable.
+- A mismatch introduced while constructing E00 is a P03 implementation defect. It is prevented
+  and tested by observing that the A07 request receives the exact accepted-bundle identity; it is
+  not a caller-supplied runtime coherence state and requires no new failure vocabulary.
 
 E02 needs no new diagnostic code: it either preserves a structurally valid tuple or rejects
 malformed structure. E08 likewise needs no new diagnostic record; set/member provenance or

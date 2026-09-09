@@ -28,6 +28,11 @@ identity to carry the set identity's exact manifest provenance. Exact bundle/req
 equality is validated at the boundary holding both objects. A07 never imports or duplicates P02
 identity derivation.
 
+Here, "request" means the A07 `StrategyEvaluationRequest` constructed from the accepted bundle,
+not the P01 `StrategyRuntimeRequest`, which intentionally has no evidence-set identity. The
+bundle-to-E00 equality is preservation of one P02-authoritative value, not validation against an
+independently authoritative caller value.
+
 Existing fields, public signatures, serializers, identity algorithms, fingerprints, and state
 enums remain unchanged. Structural discontinuity uses `DataIntegrityError`; existing E02 policy
 diagnostics retain their meanings.

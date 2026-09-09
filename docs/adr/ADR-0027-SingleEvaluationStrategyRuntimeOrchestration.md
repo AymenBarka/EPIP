@@ -25,6 +25,10 @@ semantic rules remain encapsulated by the configured P02 adapter/binding. The pr
 exact identity. P03 creates no semantic closure, independent state machine, binding record, or
 identity model.
 
+For evidence identity, the accepted `StrategyFactBundle` is authoritative. P03 preserves its exact
+`evidence_identity` and ordered `evidence` tuple when constructing the A07 E00 request; it does not
+compare against a pre-adaptation `StrategyRuntimeRequest` expectation or derive either identity.
+
 Unexpected exceptions become deterministic sanitized failures. The runtime is pure, stateless,
 and concurrent for independent calls subject to dependency contracts. Idempotence means equal
 results for identical immutable inputs, not caching.

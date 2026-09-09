@@ -96,8 +96,9 @@ confidence-input zero/one/many cardinality boundary, and P02-F16/F17 closed evid
 across multi-source mapped evidence. P02-F09 closes the generic canonical fact adapter, and
 P02-F18 closes public-boundary evidence for its reachable branches, and P02 is CLOSED / FROZEN.
 P03 governance freezes the Shared Strategy Runtime boundary. A07-E02-E08-R01 has implemented and
-verified ordered evidence-set continuity, so P03-F00 is ready to resume through a separate
-authorization. Every subsequent implementation phase requires separate authorization.
+verified ordered evidence-set continuity. The P03 evidence-set handoff authority is normatively
+reconciled as exact preservation from the accepted P02 bundle into A07 E00, so P03-F00 is ready to
+resume. Every subsequent implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -125,9 +126,10 @@ authorization. Every subsequent implementation phase requires separate authoriza
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
-| P03 | GOVERNANCE AUTHORIZED / IMPLEMENTATION READY TO RESUME | Shared Strategy Runtime |
+| P03 | GOVERNANCE AUTHORIZED | Shared Strategy Runtime |
+| P03 evidence-set handoff | NORMATIVE CONTRACT RECONCILED | P02 bundle-to-A07 identity preservation |
 | P03 implementation | READY FOR AUTHORIZATION | P03-F00 only; later milestones remain unauthorized |
-| P03-F00 | READY TO RESUME / READY FOR AUTHORIZATION | Canonical single-evaluation runtime orchestration |
+| P03-F00 | READY TO RESUME | Canonical single-evaluation runtime orchestration |
 | P03-F01 | NOT AUTHORIZED | Runtime branch, provenance, and boundary coverage closure |
 | P03-F02 | NOT AUTHORIZED | Determinism, concurrency, compliance, and final closure |
 | P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |

@@ -44,6 +44,11 @@ P03 owns:
 - P03-stage diagnostics and sanitized containment of unexpected implementation exceptions; and
 - identity/provenance preservation and stateless concurrent invocation.
 
+Evidence-set continuity at this layer is specifically an accepted-bundle-to-A07 preservation
+responsibility. P02 first makes the ordered evidence-set identity authoritative in
+`StrategyFactBundle`; P03 copies that exact value and ordered tuple into A07 without comparing it
+to an absent pre-adaptation request value or recomputing it.
+
 P03 consumes the explicit `EvaluationContext`; it does not create evaluation time.
 
 ## Non-responsibilities
@@ -215,6 +220,12 @@ exceptions; sanitization; adapter-diagnostic preservation; envelope continuity; 
 concurrent equivalence; immutable-input preservation; absence of clock/random/I/O/successor
 dependencies; and public API/compliance inventory. Repository regression, formatting, linting,
 typing, documentation, coverage, EventBus stress, and diff gates remain mandatory as applicable.
+
+Evidence continuity tests must capture the actual A07 E00 request and prove that its
+`evidence_identity` is exactly the accepted bundle identity, including multi-item ordered evidence
+and repeated evaluations. A public `StrategyRuntimeRequest`/bundle evidence mismatch test is not a
+valid requirement because the frozen runtime request has no evidence-set field. P03 must not add
+one, introduce a wrapper/binding, recompute the identity, or import P02 identity helpers.
 
 ## Authorization decision
 
