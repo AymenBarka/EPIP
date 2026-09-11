@@ -32,7 +32,10 @@ from epip.strategy_mapping.geometry_policy import (
     TargetSourcePolicy,
 )
 from epip.strategy_mapping.invocation_binding import AdapterInvocationBinding
-from epip.strategy_mapping.mtf_bundle import MultiTimeframeAnalyticalBundle
+from epip.strategy_mapping.mtf_bundle import (
+    MultiTimeframeAnalyticalBundle,
+    TimeframeAnalyticalFrame,
+)
 from epip.strategy_mapping.profile import StrategySemanticMappingProfile
 from epip.strategy_mapping.resolved_rules import ResolvedSemanticRuleSet
 from epip.strategy_mapping.rule_execution import (
@@ -283,6 +286,7 @@ class CanonicalFactAdapter:
         ):
             raise DataIntegrityError("invocation binding mismatch")
         self._typed_bundle.validate_for(context, inputs.provenance)
+        self._direction_frames(context)
         self._rules.validate_profile_closure(self._profile)
         primary = next(
             (
@@ -472,13 +476,7 @@ class CanonicalFactAdapter:
         frame_name = self._profile.mtf_direction_policy.frame_direction_fact
         for policy in self._profile.direction_policies:
             if policy.fact_name is frame_name:
-                matching = tuple(
-                    frame
-                    for frame in self._typed_bundle.frames
-                    if frame.frame.role in self._profile.mtf_direction_policy.required_roles
-                    and frame.frame.timeframe
-                    in self._profile.mtf_direction_policy.required_timeframes
-                )
+                matching = self._direction_frames(evaluation)
                 for frame in matching:
                     direction, candidates, _ = self._direction_policy(
                         evaluation, policy, frame.frame.role
@@ -511,7 +509,7 @@ class CanonicalFactAdapter:
             ),
             tuple(frame_values),
             mtf_policy.required_roles,
-            mtf_policy.required_timeframes,
+            self._effective_direction_timeframes(evaluation),
         )
         result = self._invoke(mtf_policy.rule_identity, request, MtfAggregationResult)
         assert isinstance(result, MtfAggregationResult) and result.direction is not None
@@ -525,6 +523,27 @@ class CanonicalFactAdapter:
             values[DirectionFactName.ALTERNATE],
         )
         return facts, result.direction
+
+    def _direction_frames(
+        self, evaluation: EvaluationContext
+    ) -> tuple[TimeframeAnalyticalFrame, ...]:
+        policy = self._profile.mtf_direction_policy
+        effective_timeframes = self._effective_direction_timeframes(evaluation)
+        matching = tuple(
+            frame
+            for frame in self._typed_bundle.frames
+            if frame.frame.role in policy.required_roles
+            and frame.frame.timeframe in effective_timeframes
+        )
+        if policy.bind_primary_timeframe and len(matching) != 1:
+            raise DataIntegrityError("caller-primary binding must resolve exactly one frame")
+        return matching
+
+    def _effective_direction_timeframes(self, evaluation: EvaluationContext) -> tuple[str, ...]:
+        policy = self._profile.mtf_direction_policy
+        if policy.bind_primary_timeframe:
+            return (evaluation.primary_timeframe,)
+        return policy.required_timeframes
 
     def _all_candidates_for_ids(self, source_ids: tuple[str, ...]) -> tuple[SemanticCandidate, ...]:
         del source_ids

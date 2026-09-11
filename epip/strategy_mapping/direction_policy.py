@@ -148,6 +148,7 @@ class MtfDirectionPolicyRef:
     rule_identity: RuleIdentity
     missing_action: NonAcceptanceAction
     conflict_action: NonAcceptanceAction
+    bind_primary_timeframe: bool = False
 
     def __post_init__(self) -> None:
         if type(self.required_roles) is not tuple or any(
@@ -162,11 +163,20 @@ class MtfDirectionPolicyRef:
         ):
             raise DataIntegrityError("MTF roles must be unique and include PRIMARY")
         object.__setattr__(self, "required_roles", roles)
-        object.__setattr__(
-            self,
+        if type(self.bind_primary_timeframe) is not bool:
+            raise DataIntegrityError("bind_primary_timeframe must be a bool")
+        timeframes = unique_texts(
+            self.required_timeframes,
             "required_timeframes",
-            unique_texts(self.required_timeframes, "required_timeframes", allow_empty=False),
+            allow_empty=self.bind_primary_timeframe,
         )
+        if self.bind_primary_timeframe and (
+            timeframes or roles != (TimeframeRole.PRIMARY,)
+        ):
+            raise DataIntegrityError(
+                "caller-primary mode requires no configured timeframes and only PRIMARY"
+            )
+        object.__setattr__(self, "required_timeframes", timeframes)
         exact(self.frame_direction_fact, DirectionFactName, "frame_direction_fact")
         if self.frame_direction_fact is DirectionFactName.MTF:
             raise DataIntegrityError("frame_direction_fact must reference a non-MTF policy")

@@ -318,3 +318,56 @@ def test_dependency_and_phase_isolation() -> None:
     imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
     assert not forbidden & imports
     assert not Path("epip/strategy_mapping/runtime.py").exists()
+
+
+def test_caller_primary_serialization_and_historical_default(
+    policies: dict[str, object],
+) -> None:
+    concrete = policies["mtf"]
+    assert isinstance(concrete, MtfDirectionPolicyRef)
+    encoded = to_dict(concrete)
+    assert encoded["fields"]["bind_primary_timeframe"] is False
+    assert from_dict(MtfDirectionPolicyRef, encoded) == concrete
+
+    historical = copy.deepcopy(encoded)
+    del historical["fields"]["bind_primary_timeframe"]
+    restored = from_dict(MtfDirectionPolicyRef, historical)
+    assert restored.bind_primary_timeframe is False
+    assert restored == concrete
+
+    caller = replace(
+        concrete,
+        required_roles=(TimeframeRole.PRIMARY,),
+        required_timeframes=(),
+        bind_primary_timeframe=True,
+    )
+    caller_payload = to_dict(caller)
+    assert caller_payload["fields"]["bind_primary_timeframe"] is True
+    assert from_json(MtfDirectionPolicyRef, to_json(caller)) == caller
+
+
+def test_semantic_profile_identity_includes_primary_binding(
+    semantic_profile: StrategySemanticMappingProfile,
+) -> None:
+    current = semantic_profile.mtf_direction_policy
+    caller = replace(
+        current,
+        required_roles=(TimeframeRole.PRIMARY,),
+        required_timeframes=(),
+        bind_primary_timeframe=True,
+    )
+    evolved = StrategySemanticMappingProfile.create(
+        semantic_profile_id=semantic_profile.identity.semantic_profile_id,
+        semantic_profile_version=semantic_profile.identity.semantic_profile_version,
+        parent_profile=semantic_profile.parent_profile,
+        direction_policies=semantic_profile.direction_policies,
+        mtf_direction_policy=caller,
+        entry_policy=semantic_profile.entry_policy,
+        stop_policy=semantic_profile.stop_policy,
+        target_policy=semantic_profile.target_policy,
+        confidence_policy=semantic_profile.confidence_policy,
+        evidence_taxonomy=semantic_profile.evidence_taxonomy,
+        global_conflict_action=semantic_profile.global_conflict_action,
+    )
+    assert evolved.identity.fingerprint != semantic_profile.identity.fingerprint
+    assert evolved != semantic_profile

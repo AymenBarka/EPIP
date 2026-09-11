@@ -127,8 +127,8 @@ authorization.
 | P02-F17 | CLOSED / FROZEN | Private evidence freshness cardinality implementation |
 | P02-F18 | CLOSED / FROZEN | Canonical adapter reachable-branch coverage closure |
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
-| P02-R02 | GOVERNANCE RECONCILED | Caller-bound PRIMARY timeframe; implementation slice ready for authorization |
-| P02-R02-I00 | AUTHORIZED / READY FOR IMPLEMENTATION | Additive caller-bound PRIMARY policy and adapter binding |
+| P02-R02 | CLOSED / FROZEN | Caller-bound PRIMARY timeframe reconciliation implemented |
+| P02-R02-I00 | CLOSED / FROZEN | Additive caller-bound PRIMARY policy and adapter binding |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
 | P03 | CLOSED / FROZEN | Shared Strategy Runtime |
@@ -141,7 +141,7 @@ authorization.
 | P04 | GOVERNANCE AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P04-F00-R01 | SUPERSEDED / BLOCKED BY R02 RESOLUTION | Initial configuration reconciliation exposed P02 caller-binding conflict |
 | P04-F00-R02 | CLOSED / FROZEN | Profile normative configuration reconciled |
-| P04-F00 | BLOCKED PENDING P02-R02-I00 | Profile/configuration foundation only |
+| P04-F00 | AUTHORIZED / READY FOR IMPLEMENTATION | Profile/configuration foundation only |
 | P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
