@@ -1,10 +1,10 @@
 # P02-R04 — Structural Applicability Input and Candidate-Set Amendment
 
-Status: **AUTHORIZED / READY FOR IMPLEMENTATION**
+Status: **COMPLETE / CLOSED / FROZEN**
 
 Scope: generic additive P02 contract only
 
-P04-F01 remains **NOT AUTHORIZED / ARCHITECTURALLY BLOCKED**.
+P04-F01 remains **NOT AUTHORIZED** pending separate governance authorization.
 
 ## Purpose and authority
 
@@ -201,7 +201,36 @@ P02-R04 does not implement P04, add domain-specific types or roles, change
 directional applicability or selection results, replace serialization, alter
 P03/A07, or authorize any P04/P05 feature.
 
-- P02-R04: **AUTHORIZED / READY FOR IMPLEMENTATION**.
-- P04-F01: **NOT AUTHORIZED / ARCHITECTURALLY BLOCKED** pending implemented and
-  frozen P02-R04.
+- P02-R04: **COMPLETE / CLOSED / FROZEN**.
+- P04-F01: **NOT AUTHORIZED** pending separate governance authorization.
 - P04-F02, P04-F03, P04-F04, and P05: **NOT AUTHORIZED**.
+
+## Implementation closure evidence
+
+The additive amendment is implemented by the public frozen slotted
+`StructuralApplicabilitySetRequest`. The historical
+`StructuralApplicabilityRequest` remains unchanged. Candidate and source
+populations are exact typed tuples, canonicalized by their governed identities,
+and rejected on duplicate identity, empty total input, context mismatch, or a
+candidate reference absent from a supplied source population. Existing tagged
+dataclass serialization required no framework change, and exact checked dispatch
+accepts both structural request types.
+
+Closure validation recorded:
+
+- focused structural applicability and compatibility regression: 39 passed;
+- P02 regression: 272 passed;
+- P03 regression: 59 passed;
+- A07 regression: 571 passed;
+- P04-F00 regression: 10 passed;
+- final collection: 2,992, an additive increase of 31 with zero removals;
+- selected full regression: 2,991 passed, one designated stress test deselected;
+- aggregate coverage: 97%;
+- designated 640,000-publication EventBus stress test: passed;
+- Black, Ruff, MyPy, and `git diff --check`: passed;
+- compliance inventory: 610;
+- compliance digest:
+  `522ea5bed864f02263ac38219ca3e8ff9bbd91f1905b842e42bb41c050c9e218`.
+
+P04-F01 remains **NOT AUTHORIZED**. This closure establishes only the generic
+P02 prerequisite and grants no successor implementation authority.

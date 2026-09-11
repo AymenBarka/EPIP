@@ -79,6 +79,7 @@ from epip.strategy_mapping.rule_requests import (
     SemanticRuleRequest,
     SourceExtractionRequest,
     StructuralApplicabilityRequest,
+    StructuralApplicabilitySetRequest,
     TemporalEligibilityRequest,
 )
 from epip.strategy_mapping.rule_results import (
@@ -191,6 +192,7 @@ __all__ = [
     "StopSourcePolicy",
     "StrategySemanticMappingProfile",
     "StructuralApplicabilityRequest",
+    "StructuralApplicabilitySetRequest",
     "TargetSourcePolicy",
     "TemporalEligibilityPolicy",
     "TemporalEligibilityRequest",

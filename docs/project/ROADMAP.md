@@ -130,7 +130,7 @@ authorization.
 | P02-R02 | CLOSED / FROZEN | Caller-bound PRIMARY timeframe reconciliation implemented |
 | P02-R02-I00 | CLOSED / FROZEN | Additive caller-bound PRIMARY policy and adapter binding |
 | P02-R03 | CLOSED / FROZEN | Generic catalogs, candidate roles, and structural applicability |
-| P02-R04 | AUTHORIZED / READY FOR IMPLEMENTATION | Structural candidate-set and typed-source request |
+| P02-R04 | COMPLETE / CLOSED / FROZEN | Structural candidate-set and typed-source request |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
 | P03 | CLOSED / FROZEN | Shared Strategy Runtime |

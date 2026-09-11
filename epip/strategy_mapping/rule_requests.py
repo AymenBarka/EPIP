@@ -186,6 +186,46 @@ class StructuralApplicabilityRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class StructuralApplicabilitySetRequest:
+    context: SemanticRuleInvocationContext
+    candidates: tuple[SemanticCandidate, ...] = ()
+    sources: tuple[AnalyticalSourceBinding, ...] = ()
+
+    def __post_init__(self) -> None:
+        exact(self.context, SemanticRuleInvocationContext, "context")
+        candidates = _candidates(self.candidates, empty=True)
+        sources = _typed_tuple(self.sources, AnalyticalSourceBinding, "sources", empty=True)
+        sources = tuple(sorted(sources, key=lambda item: item.source_binding_id))
+        if not candidates and not sources:
+            raise DataIntegrityError("structural applicability input must not be empty")
+        if len({item.source_binding_id for item in sources}) != len(sources):
+            raise DataIntegrityError("sources contains duplicate source bindings")
+        for candidate in candidates:
+            if (
+                candidate.source_binding_id not in self.context.source_binding_ids
+                or candidate.provenance_ref not in self.context.provenance_refs
+                or candidate.instrument_binding_id != self.context.instrument_binding_id
+                or candidate.timeframe != self.context.timeframe
+            ):
+                raise DataIntegrityError("candidate does not match invocation context")
+        for source in sources:
+            if (
+                source.source_binding_id not in self.context.source_binding_ids
+                or source.provenance_ref not in self.context.provenance_refs
+                or source.instrument.binding_id != self.context.instrument_binding_id
+                or source.timeframe != self.context.timeframe
+            ):
+                raise DataIntegrityError("source does not match invocation context")
+        source_ids = {item.source_binding_id for item in sources}
+        if sources and any(
+            candidate.source_binding_id not in source_ids for candidate in candidates
+        ):
+            raise DataIntegrityError("candidate does not refer to a supplied source")
+        object.__setattr__(self, "candidates", candidates)
+        object.__setattr__(self, "sources", sources)
+
+
+@dataclass(frozen=True, slots=True)
 class PriceTransformationRequest(BoundarySelectionRequest):
     pass
 
@@ -304,6 +344,7 @@ SemanticRuleRequest: TypeAlias = (
     | BoundarySelectionRequest
     | ApplicabilityRequest
     | StructuralApplicabilityRequest
+    | StructuralApplicabilitySetRequest
     | PriceTransformationRequest
     | ConfidenceRuleRequest
     | TemporalEligibilityRequest
@@ -328,5 +369,6 @@ __all__ = [
     "SemanticRuleRequest",
     "SourceExtractionRequest",
     "StructuralApplicabilityRequest",
+    "StructuralApplicabilitySetRequest",
     "TemporalEligibilityRequest",
 ]
