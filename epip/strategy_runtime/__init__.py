@@ -30,6 +30,7 @@ from epip.strategy_runtime.result import (
     StrategyRuntimeResult,
     StrategyRuntimeState,
 )
+from epip.strategy_runtime.runtime import StrategyRuntime, StrategyRuntimeProtocol
 from epip.strategy_runtime.serialization import from_dict, from_json, to_dict, to_json
 from epip.strategy_runtime.signal_envelope import StrategySignalEnvelope
 
@@ -53,8 +54,10 @@ __all__ = [
     "StrategyProfile",
     "StrategyProfileIdentity",
     "StrategyProfileRegistryProtocol",
+    "StrategyRuntime",
     "StrategyRuntimeDiagnostics",
     "StrategyRuntimeOptions",
+    "StrategyRuntimeProtocol",
     "StrategyRuntimeRequest",
     "StrategyRuntimeResult",
     "StrategyRuntimeState",

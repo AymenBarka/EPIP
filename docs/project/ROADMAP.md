@@ -126,11 +126,11 @@ resume. Every subsequent implementation phase requires separate authorization.
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
-| P03 | GOVERNANCE AUTHORIZED | Shared Strategy Runtime |
+| P03 | GOVERNANCE AUTHORIZED / IMPLEMENTATION IN PROGRESS | Shared Strategy Runtime |
 | P03 evidence-set handoff | NORMATIVE CONTRACT RECONCILED | P02 bundle-to-A07 identity preservation |
-| P03 implementation | READY FOR AUTHORIZATION | P03-F00 only; later milestones remain unauthorized |
-| P03-F00 | READY TO RESUME | Canonical single-evaluation runtime orchestration |
-| P03-F01 | NOT AUTHORIZED | Runtime branch, provenance, and boundary coverage closure |
+| P03 implementation | IN PROGRESS | P03-F00 closed; later milestones require authorization |
+| P03-F00 | CLOSED / FROZEN | Canonical single-evaluation runtime orchestration |
+| P03-F01 | READY FOR AUTHORIZATION | Runtime branch, provenance, and boundary coverage closure |
 | P03-F02 | NOT AUTHORIZED | Determinism, concurrency, compliance, and final closure |
 | P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
