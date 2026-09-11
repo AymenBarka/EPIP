@@ -98,8 +98,9 @@ P02-F18 closes public-boundary evidence for its reachable branches, and P02 is C
 P03 governance freezes the Shared Strategy Runtime boundary. A07-E02-E08-R01 has implemented and
 verified ordered evidence-set continuity. The P03 evidence-set handoff authority is normatively
 reconciled as exact preservation from the accepted P02 bundle into A07 E00. P03-F00, P03-F01, and
-P03-F02 are closed, so P03 is CLOSED / FROZEN and P04 is ready only for separate governance
-authorization. Every subsequent implementation phase requires separate authorization.
+P03-F02 are closed, so P03 is CLOSED / FROZEN. P04-R00 reconciles the one canonical single-frame
+wave-3 Elliott/Fibonacci setup, making P04 ready for separate governance authorization. Every
+subsequent governance or implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -133,7 +134,13 @@ authorization. Every subsequent implementation phase requires separate authoriza
 | P03-F00 | CLOSED / FROZEN | Canonical single-evaluation runtime orchestration |
 | P03-F01 | CLOSED / FROZEN | Test-only runtime branch, provenance, and public-boundary evidence closure |
 | P03-F02 | CLOSED / FROZEN | Determinism, concurrency, compliance, and final closure |
-| P04 | READY FOR AUTHORIZATION | Elliott/Fibonacci strategy profile |
+| P04-R00 | CLOSED / FROZEN | Elliott/Fibonacci setup and analytical adequacy reconciliation |
+| P04 | READY FOR GOVERNANCE AUTHORIZATION | Elliott/Fibonacci strategy profile |
+| P04-F00 | READY FOR IMPLEMENTATION AUTHORIZATION | Profile/configuration foundation; implementation not authorized |
+| P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
+| P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
+| P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
+| P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
 | P07 | Planned | Shared-runtime backtesting |
