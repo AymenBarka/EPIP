@@ -1,6 +1,6 @@
 # P02-R03 — Additive Semantic Declaration and Candidate Role Amendment
 
-Status: AUTHORIZED / IMPLEMENTED LOCALLY / REMOTE CLOSURE PENDING / NOT FROZEN
+Status: COMPLETE / CLOSED / FROZEN
 
 Authority class: predecessor contract reconciliation
 
@@ -574,9 +574,9 @@ P02-R03 implementation was separately authorized with the five-production-file
 boundary, five focused test files, 48 governed test conditions, compliance
 inventory review, and exact-SHA closure gates defined here.
 
-Until implementation closure is complete:
+Final implementation disposition:
 
-- P02-R03 is **AUTHORIZED / IMPLEMENTED LOCALLY / NOT FROZEN**;
+- P02-R03 is **COMPLETE / CLOSED / FROZEN**;
 - P04-F00-R03 is **PROPOSED / NOT FROZEN**; and
 - P04-F01 is **NOT AUTHORIZED / GOVERNANCE BLOCKED**.
 
@@ -613,6 +613,15 @@ The compliance delta is exactly three new explicit frozen dataclasses:
 `SemanticRuleCatalog`, `SemanticRuleCatalogEntry`, and
 `StructuralApplicabilityRequest`.
 
-This evidence does not freeze P02-R03. Commit, push, documentation validation,
-and exact-SHA remote Quality, CodeQL, and Documentation results remain required
-before closure.
+The implementation commit is
+`83ef3e79d3b6e3cc6fa7e7e5ee25c935d7b45860`. It was pushed normally with
+HEAD/origin parity. Exact-SHA remote closure evidence:
+
+- Quality run `34626519988`: PASS, including Black, Ruff, MyPy, pytest,
+  coverage, and EventBus stress;
+- CodeQL run `34626519932`: PASS; and
+- Documentation run `34626519958`: PASS, including Markdown style, links,
+  Mermaid syntax, and documentation build.
+
+P02-R03 is therefore complete, closed, and frozen. P04-F00-R03 remains proposed
+and not frozen. P04-F01 and all later P04/P05 features remain not authorized.
