@@ -141,7 +141,7 @@ authorization.
 | P04 | GOVERNANCE AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P04-F00-R01 | SUPERSEDED / BLOCKED BY R02 RESOLUTION | Initial configuration reconciliation exposed P02 caller-binding conflict |
 | P04-F00-R02 | CLOSED / FROZEN | Profile normative configuration reconciled |
-| P04-F00 | AUTHORIZED / READY FOR IMPLEMENTATION | Profile/configuration foundation only |
+| P04-F00 | CLOSED / FROZEN | Immutable profile/configuration foundation implemented |
 | P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
@@ -153,8 +153,8 @@ authorization.
 P02-R02-I00 closure validation retained the immutable/compliance baseline (606
 inventory entries and unchanged canonical digest), added 14 tests without
 removing predecessor nodes, and passed the 2,924-test selected regression at
-97.32% aggregate coverage. P04-F00 authorization remains limited to its
-separate implementation step; P04-F01 through P04-F04 and P05 remain
+97.32% aggregate coverage. P04-F00 then implemented only the immutable
+profile/configuration foundation. P04-F01 through P04-F04 and P05 remain
 unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
