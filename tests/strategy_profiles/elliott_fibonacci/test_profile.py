@@ -5,6 +5,7 @@ import importlib
 import inspect
 import json
 from dataclasses import FrozenInstanceError
+from hashlib import sha256
 
 import pytest
 
@@ -13,6 +14,9 @@ from epip.strategy_mapping import (
     FOUNDATION_SCHEMA_VERSION,
     FreshnessBasis,
     NonAcceptanceAction,
+    SemanticInvocationKind,
+    SemanticRuleCatalog,
+    SemanticRuleCatalogState,
     SemanticRuleFamily,
     StrategySemanticMappingProfile,
     from_json,
@@ -22,6 +26,7 @@ from epip.strategy_profiles.elliott_fibonacci import (
     EVIDENCE_KEYS,
     POLICY,
     PROFILE,
+    RULE_CATALOG,
     RULE_IDENTITIES,
     RULE_MANIFEST,
     SEMANTIC_PROFILE,
@@ -77,8 +82,8 @@ def test_profile_and_semantic_references_are_exact_and_closed() -> None:
         SEMANTIC_PROFILE.evidence_taxonomy.taxonomy_identity.reference
     )
     assert PROFILE.mtf_requirement == SEMANTIC_PROFILE.mtf_direction_policy.rule_identity.reference
-    required = {identity for identity in RULE_IDENTITIES.values()}
-    assert required.issuperset(item.identity for item in RULE_MANIFEST.declarations)
+    assert {item.identity for item in RULE_CATALOG.entries} == set(RULE_IDENTITIES.values())
+    assert RULE_MANIFEST is None
 
 
 def test_caller_bound_primary_and_required_sources_are_exact() -> None:
@@ -131,7 +136,47 @@ def test_rule_identity_inventory_and_fingerprints_are_canonical() -> None:
         )
         assert identity == rebuilt
         assert hash(identity) == hash(rebuilt)
-    assert {item.family for item in RULE_MANIFEST.declarations}.issubset(set(SemanticRuleFamily))
+    payload = "\n".join(
+        f"{suffix}={identity.reference}" for suffix, identity in RULE_IDENTITIES.items()
+    )
+    assert sha256(payload.encode()).hexdigest() == (
+        "4312aab4d2bf321807a643a3259e25d888faa935c21cdf0f6943bf6b0031faf4"
+    )
+    assert {item.family for item in RULE_CATALOG.entries}.issubset(set(SemanticRuleFamily))
+
+
+def test_rule_catalog_is_declaration_only_and_has_no_executable_closure() -> None:
+    assert type(RULE_CATALOG) is SemanticRuleCatalog
+    assert len(RULE_CATALOG.entries) == 37
+    assert all(
+        item.state is SemanticRuleCatalogState.DECLARATION_ONLY and item.implementation_id is None
+        for item in RULE_CATALOG.entries
+    )
+    assert RULE_MANIFEST is None
+
+
+def test_f01_applicability_declarations_are_structural() -> None:
+    entries = {item.identity: item for item in RULE_CATALOG.entries}
+    for suffix in ("applicability.elliott-wave3", "applicability.fibonacci-wave3"):
+        assert (
+            entries[RULE_IDENTITIES[suffix]].invocation_kind
+            is SemanticInvocationKind.STRUCTURAL_APPLICABILITY
+        )
+    assert all(
+        item.invocation_kind is not SemanticInvocationKind.STRUCTURAL_APPLICABILITY
+        for item in RULE_CATALOG.entries
+        if item.identity
+        not in {
+            RULE_IDENTITIES["applicability.elliott-wave3"],
+            RULE_IDENTITIES["applicability.fibonacci-wave3"],
+        }
+    )
+
+
+def test_rule_catalog_serialization_is_deterministic() -> None:
+    payload = to_json(RULE_CATALOG)
+    assert payload == to_json(RULE_CATALOG)
+    assert from_json(SemanticRuleCatalog, payload) == RULE_CATALOG
 
 
 def test_objects_are_immutable_deterministic_and_serializable() -> None:
@@ -153,6 +198,7 @@ def test_package_has_no_execution_or_dynamic_discovery_surface() -> None:
         "EVIDENCE_KEYS",
         "POLICY",
         "PROFILE",
+        "RULE_CATALOG",
         "RULE_IDENTITIES",
         "RULE_MANIFEST",
         "SEMANTIC_PROFILE",
@@ -171,4 +217,4 @@ def test_package_has_no_execution_or_dynamic_discovery_surface() -> None:
     )
     assert not any(value in source for value in forbidden)
     assert not any(name.endswith("Rule") for name in exported)
-    assert all(dataclasses.is_dataclass(item) for item in RULE_MANIFEST.declarations)
+    assert all(dataclasses.is_dataclass(item) for item in RULE_CATALOG.entries)

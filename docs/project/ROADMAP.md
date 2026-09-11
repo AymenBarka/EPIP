@@ -141,7 +141,8 @@ authorization.
 | P04 | GOVERNANCE AUTHORIZED | Elliott/Fibonacci strategy profile |
 | P04-F00-R01 | SUPERSEDED / BLOCKED BY R02 RESOLUTION | Initial configuration reconciliation exposed P02 caller-binding conflict |
 | P04-F00-R02 | CLOSED / FROZEN | Profile normative configuration reconciled |
-| P04-F00 | CLOSED / FROZEN | Immutable profile/configuration foundation implemented |
+| P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
+| P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
 | P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
@@ -154,7 +155,9 @@ P02-R02-I00 closure validation retained the immutable/compliance baseline (606
 inventory entries and unchanged canonical digest), added 14 tests without
 removing predecessor nodes, and passed the 2,924-test selected regression at
 97.32% aggregate coverage. P04-F00 then implemented only the immutable
-profile/configuration foundation. P04-F01 through P04-F04 and P05 remain
+profile/configuration foundation. P04-F00-R03 then migrated its 37-rule
+inventory to the P02 `SemanticRuleCatalog`, retained zero executable rules, and
+preserved every frozen rule fingerprint. P04-F01 through P04-F04 and P05 remain
 unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |

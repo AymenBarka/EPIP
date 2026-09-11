@@ -27,11 +27,12 @@ from epip.strategy_mapping import (
     ModelParameter,
     MtfDirectionPolicyRef,
     NonAcceptanceAction,
-    ResolvedRuleManifest,
     RuleIdentity,
     SemanticInvocationKind,
     SemanticResultKind,
-    SemanticRuleDeclaration,
+    SemanticRuleCatalog,
+    SemanticRuleCatalogEntry,
+    SemanticRuleCatalogState,
     SemanticRuleFamily,
     SourceSelector,
     SourceSelectorKind,
@@ -444,18 +445,39 @@ SEMANTIC_PROFILE = StrategySemanticMappingProfile.create(
     global_conflict_action=NonAcceptanceAction.REJECT,
 )
 
-_DECLARATIONS = tuple(
-    SemanticRuleDeclaration(
+_STRUCTURAL_APPLICABILITY_RULES = frozenset(
+    {"applicability.elliott-wave3", "applicability.fibonacci-wave3"}
+)
+
+_CATALOG_ENTRIES = tuple(
+    SemanticRuleCatalogEntry(
         _RULES[suffix],
         family,
-        *_INVOCATION_RESULT[family],
-        _RULES[suffix].rule_id,
+        (
+            SemanticInvocationKind.STRUCTURAL_APPLICABILITY
+            if suffix in _STRUCTURAL_APPLICABILITY_RULES
+            else _INVOCATION_RESULT[family][0]
+        ),
+        _INVOCATION_RESULT[family][1],
+        SemanticRuleCatalogState.DECLARATION_ONLY,
     )
     for family, suffixes in _FAMILY_SUFFIXES.items()
     for suffix in suffixes
 )
-RULE_MANIFEST = ResolvedRuleManifest.create(_DECLARATIONS)
+RULE_CATALOG = SemanticRuleCatalog.create(_CATALOG_ENTRIES)
 
-assert RULE_MANIFEST.schema_version == EXECUTION_SCHEMA_VERSION
+# P04-F00 has declarations but no authorized implementations. P02 manifests
+# are non-empty executable closures, so absence represents the exact empty
+# executable closure without manufacturing implementation bindings.
+RULE_MANIFEST = None
 
-__all__ = ["POLICY", "PROFILE", "RULE_IDENTITIES", "RULE_MANIFEST", "SEMANTIC_PROFILE"]
+assert RULE_CATALOG.schema_version == EXECUTION_SCHEMA_VERSION
+
+__all__ = [
+    "POLICY",
+    "PROFILE",
+    "RULE_CATALOG",
+    "RULE_IDENTITIES",
+    "RULE_MANIFEST",
+    "SEMANTIC_PROFILE",
+]
