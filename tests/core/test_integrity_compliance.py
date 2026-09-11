@@ -8,7 +8,7 @@ from epip.core.integrity_compliance import (
     scan_immutable_dataclasses,
 )
 
-EXPECTED_DIGEST = "2b2aa94b9f3a8fb7ebe305be5dc3697f645197df82f3d12bee598d8f08c0930b"
+EXPECTED_DIGEST = "86f80e197821dae4c010a55fc8e3fbde25dfd43871d00841d17b7e68dcb4d977"
 
 
 def test_every_immutable_business_dataclass_is_in_compliance_inventory() -> None:

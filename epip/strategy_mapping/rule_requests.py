@@ -176,6 +176,16 @@ class ApplicabilityRequest(BoundarySelectionRequest):
 
 
 @dataclass(frozen=True, slots=True)
+class StructuralApplicabilityRequest:
+    context: SemanticRuleInvocationContext
+    candidate: SemanticCandidate
+
+    def __post_init__(self) -> None:
+        exact(self.context, SemanticRuleInvocationContext, "context")
+        exact(self.candidate, SemanticCandidate, "candidate")
+
+
+@dataclass(frozen=True, slots=True)
 class PriceTransformationRequest(BoundarySelectionRequest):
     pass
 
@@ -293,6 +303,7 @@ SemanticRuleRequest: TypeAlias = (
     | CandidateRankingRequest
     | BoundarySelectionRequest
     | ApplicabilityRequest
+    | StructuralApplicabilityRequest
     | PriceTransformationRequest
     | ConfidenceRuleRequest
     | TemporalEligibilityRequest
@@ -316,5 +327,6 @@ __all__ = [
     "SemanticRuleInvocationContext",
     "SemanticRuleRequest",
     "SourceExtractionRequest",
+    "StructuralApplicabilityRequest",
     "TemporalEligibilityRequest",
 ]

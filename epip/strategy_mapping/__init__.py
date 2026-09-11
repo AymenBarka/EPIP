@@ -47,6 +47,9 @@ from epip.strategy_mapping.profile import SemanticProfileIdentity, StrategySeman
 from epip.strategy_mapping.resolved_rules import (
     ResolvedRuleManifest,
     ResolvedSemanticRuleSet,
+    SemanticRuleCatalog,
+    SemanticRuleCatalogEntry,
+    SemanticRuleCatalogState,
     SemanticRuleDeclaration,
 )
 from epip.strategy_mapping.rule_execution import (
@@ -75,6 +78,7 @@ from epip.strategy_mapping.rule_requests import (
     SemanticRuleInvocationContext,
     SemanticRuleRequest,
     SourceExtractionRequest,
+    StructuralApplicabilityRequest,
     TemporalEligibilityRequest,
 )
 from epip.strategy_mapping.rule_results import (
@@ -95,6 +99,7 @@ from epip.strategy_mapping.rule_results import (
 from epip.strategy_mapping.rule_values import (
     ConfidenceInputValue,
     SemanticCandidate,
+    SemanticCandidateRole,
     SemanticValue,
     TimeframeDirectionValue,
 )
@@ -164,9 +169,13 @@ __all__ = [
     "RuleIdentity",
     "SelectionRuleResult",
     "SemanticCandidate",
+    "SemanticCandidateRole",
     "SemanticInvocationKind",
     "SemanticProfileIdentity",
     "SemanticResultKind",
+    "SemanticRuleCatalog",
+    "SemanticRuleCatalogEntry",
+    "SemanticRuleCatalogState",
     "SemanticRuleDeclaration",
     "SemanticRuleDiagnosticCode",
     "SemanticRuleFamily",
@@ -181,6 +190,7 @@ __all__ = [
     "SourceSelectorKind",
     "StopSourcePolicy",
     "StrategySemanticMappingProfile",
+    "StructuralApplicabilityRequest",
     "TargetSourcePolicy",
     "TemporalEligibilityPolicy",
     "TemporalEligibilityRequest",

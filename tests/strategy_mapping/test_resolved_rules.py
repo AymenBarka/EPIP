@@ -84,6 +84,10 @@ def test_runtime_declaration_mismatch_fails(rule):
     )
     with pytest.raises(DataIntegrityError):
         ResolvedSemanticRuleSet(resolved.manifest, (bad,))
+    with pytest.raises(DataIntegrityError):
+        ResolvedSemanticRuleSet(resolved.manifest, ())
+    with pytest.raises(DataIntegrityError):
+        ResolvedSemanticRuleSet(resolved.manifest, (implementation, implementation))
 
 
 def test_exact_profile_closure_rejects_incompatible_foundation_fixture(rule, semantic_profile):

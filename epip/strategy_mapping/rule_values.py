@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from math import isfinite
 
 from epip.a07.foundation import StrategyDirection
@@ -24,6 +25,17 @@ def _number(value: object, field: str, *, positive: bool = False) -> float:
     if positive and value <= 0.0:
         raise DataIntegrityError(f"{field} must be positive")
     return value
+
+
+class SemanticCandidateRole(Enum):
+    UNSPECIFIED = "UNSPECIFIED"
+    QUALIFICATION = "QUALIFICATION"
+    ANCHOR_START = "ANCHOR_START"
+    ANCHOR_END = "ANCHOR_END"
+    ZONE = "ZONE"
+    ENTRY = "ENTRY"
+    STOP = "STOP"
+    TARGET = "TARGET"
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,15 +93,36 @@ class SemanticCandidate:
     timeframe: str
     source_rule_identity: RuleIdentity
     value: SemanticValue
+    role: SemanticCandidateRole = SemanticCandidateRole.UNSPECIFIED
 
     def __post_init__(self) -> None:
         for name in ("source_binding_id", "provenance_ref", "instrument_binding_id", "timeframe"):
             object.__setattr__(self, name, text(getattr(self, name), name))
         exact(self.source_rule_identity, RuleIdentity, "source_rule_identity")
         exact(self.value, SemanticValue, "value")
-        expected = digest(self, exclude=frozenset({"candidate_id"}))
+        exact(self.role, SemanticCandidateRole, "role")
+        excluded = (
+            frozenset({"candidate_id", "role"})
+            if self.role is SemanticCandidateRole.UNSPECIFIED
+            else frozenset({"candidate_id"})
+        )
+        expected = digest(self, exclude=excluded)
         if self.candidate_id != expected:
             raise DataIntegrityError("candidate_id does not match semantic candidate")
+
+    def __hash__(self) -> int:
+        values = (
+            self.candidate_id,
+            self.source_binding_id,
+            self.provenance_ref,
+            self.instrument_binding_id,
+            self.timeframe,
+            self.source_rule_identity,
+            self.value,
+        )
+        return hash(
+            values if self.role is SemanticCandidateRole.UNSPECIFIED else (*values, self.role)
+        )
 
     @classmethod
     def create(
@@ -101,6 +134,7 @@ class SemanticCandidate:
         timeframe: str,
         source_rule_identity: RuleIdentity,
         value: SemanticValue,
+        role: SemanticCandidateRole = SemanticCandidateRole.UNSPECIFIED,
     ) -> SemanticCandidate:
         candidate = object.__new__(cls)
         values = (
@@ -111,10 +145,16 @@ class SemanticCandidate:
             timeframe,
             source_rule_identity,
             value,
+            role,
         )
         for name, item in zip(cls.__dataclass_fields__, values, strict=True):
             object.__setattr__(candidate, name, item)
-        return cls(digest(candidate, exclude=frozenset({"candidate_id"})), *values[1:])
+        excluded = (
+            frozenset({"candidate_id", "role"})
+            if role is SemanticCandidateRole.UNSPECIFIED
+            else frozenset({"candidate_id"})
+        )
+        return cls(digest(candidate, exclude=excluded), *values[1:])
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -157,4 +197,10 @@ class TimeframeDirectionValue:
         return (self.role.value, self.timeframe, self.direction.value)
 
 
-__all__ = ["ConfidenceInputValue", "SemanticCandidate", "SemanticValue", "TimeframeDirectionValue"]
+__all__ = [
+    "ConfidenceInputValue",
+    "SemanticCandidate",
+    "SemanticCandidateRole",
+    "SemanticValue",
+    "TimeframeDirectionValue",
+]
