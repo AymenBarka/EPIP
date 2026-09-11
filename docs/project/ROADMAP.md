@@ -149,6 +149,13 @@ authorization.
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
 | P07 | Planned | Shared-runtime backtesting |
+
+P02-R02-I00 closure validation retained the immutable/compliance baseline (606
+inventory entries and unchanged canonical digest), added 14 tests without
+removing predecessor nodes, and passed the 2,924-test selected regression at
+97.32% aggregate coverage. P04-F00 authorization remains limited to its
+separate implementation step; P04-F01 through P04-F04 and P05 remain
+unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
