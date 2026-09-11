@@ -170,9 +170,7 @@ class MtfDirectionPolicyRef:
             "required_timeframes",
             allow_empty=self.bind_primary_timeframe,
         )
-        if self.bind_primary_timeframe and (
-            timeframes or roles != (TimeframeRole.PRIMARY,)
-        ):
+        if self.bind_primary_timeframe and (timeframes or roles != (TimeframeRole.PRIMARY,)):
             raise DataIntegrityError(
                 "caller-primary mode requires no configured timeframes and only PRIMARY"
             )
