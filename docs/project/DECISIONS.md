@@ -263,3 +263,14 @@ history or create it through the normal ADR review process.
 - **ADR:** [ADR-0028](../adr/ADR-0028-OrderedEvidenceSetContinuityAcrossA07.md)
 - **Specification:**
   [A07 E02/E08 Ordered Evidence-Set Continuity Reconciliation](A07_E02_E08_ORDERED_EVIDENCE_SET_CONTINUITY_RECONCILIATION.md)
+
+## ADR-0029 — Caller-Bound Primary Timeframe
+
+- **Milestone:** P02-R02 / P04-F00-R02
+- **Status:** Accepted
+- **Purpose:** add an explicit caller-bound PRIMARY mode to P02 timeframe selection while
+  preserving exact concrete-timeframe profiles and excluding wildcard or P05 semantics.
+- **ADR:** [ADR-0029](../adr/ADR-0029-CallerBoundPrimaryTimeframe.md)
+- **Specifications:**
+  [P02-R02 reconciliation](P02_R02_CALLER_BOUND_PRIMARY_TIMEFRAME_RECONCILIATION.md) and
+  [P04-F00-R02 reconciliation](P04_F00_R02_NORMATIVE_CONFIGURATION_RECONCILIATION.md)
