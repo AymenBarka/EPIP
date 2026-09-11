@@ -99,8 +99,9 @@ P03 governance freezes the Shared Strategy Runtime boundary. A07-E02-E08-R01 has
 verified ordered evidence-set continuity. The P03 evidence-set handoff authority is normatively
 reconciled as exact preservation from the accepted P02 bundle into A07 E00. P03-F00, P03-F01, and
 P03-F02 are closed, so P03 is CLOSED / FROZEN. P04-R00 reconciles the one canonical single-frame
-wave-3 Elliott/Fibonacci setup, making P04 ready for separate governance authorization. Every
-subsequent governance or implementation phase requires separate authorization.
+wave-3 Elliott/Fibonacci setup. P04 governance is authorized, and only P04-F00 is ready for
+implementation under its exact authorization. Every later implementation phase requires separate
+authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -135,8 +136,8 @@ subsequent governance or implementation phase requires separate authorization.
 | P03-F01 | CLOSED / FROZEN | Test-only runtime branch, provenance, and public-boundary evidence closure |
 | P03-F02 | CLOSED / FROZEN | Determinism, concurrency, compliance, and final closure |
 | P04-R00 | CLOSED / FROZEN | Elliott/Fibonacci setup and analytical adequacy reconciliation |
-| P04 | READY FOR GOVERNANCE AUTHORIZATION | Elliott/Fibonacci strategy profile |
-| P04-F00 | READY FOR IMPLEMENTATION AUTHORIZATION | Profile/configuration foundation; implementation not authorized |
+| P04 | GOVERNANCE AUTHORIZED | Elliott/Fibonacci strategy profile |
+| P04-F00 | AUTHORIZED / READY FOR IMPLEMENTATION | Profile/configuration foundation only |
 | P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
