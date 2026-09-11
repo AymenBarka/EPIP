@@ -97,8 +97,9 @@ across multi-source mapped evidence. P02-F09 closes the generic canonical fact a
 P02-F18 closes public-boundary evidence for its reachable branches, and P02 is CLOSED / FROZEN.
 P03 governance freezes the Shared Strategy Runtime boundary. A07-E02-E08-R01 has implemented and
 verified ordered evidence-set continuity. The P03 evidence-set handoff authority is normatively
-reconciled as exact preservation from the accepted P02 bundle into A07 E00, so P03-F00 is ready to
-resume. Every subsequent implementation phase requires separate authorization.
+reconciled as exact preservation from the accepted P02 bundle into A07 E00. P03-F00, P03-F01, and
+P03-F02 are closed, so P03 is CLOSED / FROZEN and P04 is ready only for separate governance
+authorization. Every subsequent implementation phase requires separate authorization.
 
 | Phase | State | Purpose |
 | --- | --- | --- |
@@ -126,13 +127,13 @@ resume. Every subsequent implementation phase requires separate authorization.
 | P02 | CLOSED / FROZEN | Generic analysis-to-A07 fact adapter |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
-| P03 | GOVERNANCE AUTHORIZED / IMPLEMENTATION IN PROGRESS | Shared Strategy Runtime |
+| P03 | CLOSED / FROZEN | Shared Strategy Runtime |
 | P03 evidence-set handoff | NORMATIVE CONTRACT RECONCILED | P02 bundle-to-A07 identity preservation |
-| P03 implementation | IN PROGRESS | P03-F00 and P03-F01 closed; P03-F02 authorized for implementation |
+| P03 implementation | COMPLETE / CLOSED / FROZEN | P03-F00, P03-F01, and P03-F02 closed |
 | P03-F00 | CLOSED / FROZEN | Canonical single-evaluation runtime orchestration |
 | P03-F01 | CLOSED / FROZEN | Test-only runtime branch, provenance, and public-boundary evidence closure |
-| P03-F02 | AUTHORIZED / READY FOR IMPLEMENTATION | Determinism, concurrency, compliance, and final closure |
-| P04 | NOT AUTHORIZED | Elliott/Fibonacci strategy profile |
+| P03-F02 | CLOSED / FROZEN | Determinism, concurrency, compliance, and final closure |
+| P04 | READY FOR AUTHORIZATION | Elliott/Fibonacci strategy profile |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
 | P06 | Planned | E2E signal integration |
 | P07 | Planned | Shared-runtime backtesting |
