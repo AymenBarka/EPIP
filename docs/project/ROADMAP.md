@@ -146,7 +146,7 @@ authorization.
 | P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
 | P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
-| P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
+| P04-F02 | NOT AUTHORIZED / RECONCILIATION COMPLETE | Geometry owns no RR; transport and ranking blockers remain |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
@@ -163,6 +163,13 @@ preserved every frozen rule fingerprint. P04-F01 then implemented exactly five
 setup-qualification rules with 82 new test nodes, retained the compliance
 baseline, and closed with 32 future declarations untouched. P04-F02 through
 P04-F04 and P05 remain unauthorized.
+
+P04-F02-R01 reconciled the strategy-level `RR >= 3.0` requirement with frozen
+A07 E07 ownership: F02 ends at direction and geometry completeness, F04 later
+hands canonical geometry to A07, and E07 remains the exclusive risk, reward,
+RR, threshold, and zero-risk authority. F02 remains not authorized pending
+Fibonacci geometry transport, market-structure fact discrimination, ranking,
+executable-closure, and exact test-matrix reconciliation.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
