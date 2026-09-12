@@ -145,7 +145,7 @@ authorization.
 | P04-F00-R02 | CLOSED / FROZEN | Profile normative configuration reconciled |
 | P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
-| P04-F01 | NOT AUTHORIZED | Elliott/Fibonacci setup and direction rules |
+| P04-F01 | AUTHORIZED / READY FOR IMPLEMENTATION | Five-rule Elliott/Fibonacci setup qualification only |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
