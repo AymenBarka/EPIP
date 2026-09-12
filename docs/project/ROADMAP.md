@@ -131,6 +131,7 @@ authorization.
 | P02-R02-I00 | CLOSED / FROZEN | Additive caller-bound PRIMARY policy and adapter binding |
 | P02-R03 | CLOSED / FROZEN | Generic catalogs, candidate roles, and structural applicability |
 | P02-R04 | COMPLETE / CLOSED / FROZEN | Structural candidate-set and typed-source request |
+| P02-R05 | AUTHORIZED / READY FOR IMPLEMENTATION | Additive semantic fact identity and directional candidate/source-set transport |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
 | P03 | CLOSED / FROZEN | Shared Strategy Runtime |
@@ -170,6 +171,13 @@ hands canonical geometry to A07, and E07 remains the exclusive risk, reward,
 RR, threshold, and zero-risk authority. F02 remains not authorized pending
 Fibonacci geometry transport, market-structure fact discrimination, ranking,
 executable-closure, and exact test-matrix reconciliation.
+
+P02-R05 is authorized as the strictly additive predecessor amendment for typed
+semantic fact identity and directional candidate/source-set transport. It must
+preserve historical candidate identity, frozen P04-F01 outputs and fingerprints,
+P03, and A07. P04-F02 remains not authorized until P02-R05 is implemented,
+closed, and frozen and a fresh F02 readiness review resolves its business-policy
+gaps.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
