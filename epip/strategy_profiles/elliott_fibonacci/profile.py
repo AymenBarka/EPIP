@@ -27,6 +27,7 @@ from epip.strategy_mapping import (
     ModelParameter,
     MtfDirectionPolicyRef,
     NonAcceptanceAction,
+    ResolvedSemanticRuleSet,
     RuleIdentity,
     SemanticInvocationKind,
     SemanticResultKind,
@@ -55,6 +56,13 @@ from epip.strategy_profiles.elliott_fibonacci.configuration import (
     PROFILE_VERSION,
     REQUIRED_SOURCE_DOMAINS,
     TARGET_RATIO,
+)
+from epip.strategy_profiles.elliott_fibonacci.setup_rules import (
+    ElliottExtractionRule,
+    ElliottWave3ApplicabilityRule,
+    FibonacciExtractionRule,
+    FibonacciWave3ApplicabilityRule,
+    Wave1AnchorSelectionRule,
 )
 from epip.strategy_runtime._base import CONTRACT_VERSION
 from epip.strategy_runtime.mtf import TimeframeRole
@@ -449,6 +457,23 @@ _STRUCTURAL_APPLICABILITY_RULES = frozenset(
     {"applicability.elliott-wave3", "applicability.fibonacci-wave3"}
 )
 
+_IMPLEMENTATIONS = (
+    ElliottExtractionRule(_RULES["extract.elliott"]),
+    FibonacciExtractionRule(_RULES["extract.fibonacci"]),
+    ElliottWave3ApplicabilityRule(_RULES["applicability.elliott-wave3"], _RULES["extract.elliott"]),
+    FibonacciWave3ApplicabilityRule(
+        _RULES["applicability.fibonacci-wave3"],
+        _RULES["extract.elliott"],
+        _RULES["extract.fibonacci"],
+    ),
+    Wave1AnchorSelectionRule(
+        _RULES["select.wave1-anchor"],
+        _RULES["extract.elliott"],
+        _RULES["extract.fibonacci"],
+    ),
+)
+_IMPLEMENTATIONS_BY_IDENTITY = {item.identity: item for item in _IMPLEMENTATIONS}
+
 _CATALOG_ENTRIES = tuple(
     SemanticRuleCatalogEntry(
         _RULES[suffix],
@@ -459,17 +484,24 @@ _CATALOG_ENTRIES = tuple(
             else _INVOCATION_RESULT[family][0]
         ),
         _INVOCATION_RESULT[family][1],
-        SemanticRuleCatalogState.DECLARATION_ONLY,
+        (
+            SemanticRuleCatalogState.EXECUTABLE
+            if _RULES[suffix] in _IMPLEMENTATIONS_BY_IDENTITY
+            else SemanticRuleCatalogState.DECLARATION_ONLY
+        ),
+        (
+            _IMPLEMENTATIONS_BY_IDENTITY[_RULES[suffix]].implementation_id
+            if _RULES[suffix] in _IMPLEMENTATIONS_BY_IDENTITY
+            else None
+        ),
     )
     for family, suffixes in _FAMILY_SUFFIXES.items()
     for suffix in suffixes
 )
 RULE_CATALOG = SemanticRuleCatalog.create(_CATALOG_ENTRIES)
 
-# P04-F00 has declarations but no authorized implementations. P02 manifests
-# are non-empty executable closures, so absence represents the exact empty
-# executable closure without manufacturing implementation bindings.
-RULE_MANIFEST = None
+RULE_MANIFEST = RULE_CATALOG.executable_manifest()
+RULE_SET = ResolvedSemanticRuleSet(RULE_MANIFEST, _IMPLEMENTATIONS)
 
 assert RULE_CATALOG.schema_version == EXECUTION_SCHEMA_VERSION
 
@@ -479,5 +511,6 @@ __all__ = [
     "RULE_CATALOG",
     "RULE_IDENTITIES",
     "RULE_MANIFEST",
+    "RULE_SET",
     "SEMANTIC_PROFILE",
 ]

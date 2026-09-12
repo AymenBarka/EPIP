@@ -1,8 +1,8 @@
 # P04-F01-R01 — Elliott/Fibonacci Wave-3 Setup Qualification Contract
 
-Status: **AUTHORIZED / READY FOR IMPLEMENTATION**
+Status: **COMPLETE / CLOSED / FROZEN**
 
-Scope: P04-F01 only; governance authorization, no implementation
+Scope: P04-F01 implementation and closure only
 
 ## Authority and prerequisites
 
@@ -326,9 +326,20 @@ Gap classification after reconciliation:
 - G4: none unresolved;
 - G5: none unresolved.
 
-## Authorization decision
+## Implementation closure
 
-P04-F01 is **AUTHORIZED / READY FOR IMPLEMENTATION**.
+P04-F01 implements exactly the five frozen rules in
+`epip/strategy_profiles/elliott_fibonacci/setup_rules.py`. The catalog contains
+five executable and 32 declaration-only entries; `RULE_MANIFEST` and
+`RULE_SET` contain the same five identities and unchanged fingerprints.
 
-This authorization grants no production change in this governance task and no
-authority for P04-F02, P04-F03, P04-F04, or P05.
+Closure validation recorded 82 new test nodes, increasing collection from
+2,992 to 3,074 with zero predecessor removals. The selected regression passed
+3,073 tests with the single designated EventBus stress test deselected; that
+stress test passed independently. The compliance inventory remained 610 with
+digest `522ea5bed864f02263ac38219ca3e8ff9bbd91f1905b842e42bb41c050c9e218`.
+Focused changed-module coverage was 97% overall, with `setup_rules.py` at 96%
+and `profile.py` at 100%.
+
+P04-F01 is **COMPLETE / CLOSED / FROZEN**. P04-F02, P04-F03, P04-F04, and P05
+remain **NOT AUTHORIZED**.

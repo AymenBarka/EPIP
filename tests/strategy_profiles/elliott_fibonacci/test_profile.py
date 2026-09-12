@@ -29,6 +29,7 @@ from epip.strategy_profiles.elliott_fibonacci import (
     RULE_CATALOG,
     RULE_IDENTITIES,
     RULE_MANIFEST,
+    RULE_SET,
     SEMANTIC_PROFILE,
 )
 from epip.strategy_profiles.elliott_fibonacci.configuration import (
@@ -83,7 +84,7 @@ def test_profile_and_semantic_references_are_exact_and_closed() -> None:
     )
     assert PROFILE.mtf_requirement == SEMANTIC_PROFILE.mtf_direction_policy.rule_identity.reference
     assert {item.identity for item in RULE_CATALOG.entries} == set(RULE_IDENTITIES.values())
-    assert RULE_MANIFEST is None
+    assert len(RULE_MANIFEST.declarations) == 5
 
 
 def test_caller_bound_primary_and_required_sources_are_exact() -> None:
@@ -145,14 +146,33 @@ def test_rule_identity_inventory_and_fingerprints_are_canonical() -> None:
     assert {item.family for item in RULE_CATALOG.entries}.issubset(set(SemanticRuleFamily))
 
 
-def test_rule_catalog_is_declaration_only_and_has_no_executable_closure() -> None:
+def test_rule_catalog_has_exact_f01_executable_closure() -> None:
     assert type(RULE_CATALOG) is SemanticRuleCatalog
     assert len(RULE_CATALOG.entries) == 37
-    assert all(
-        item.state is SemanticRuleCatalogState.DECLARATION_ONLY and item.implementation_id is None
-        for item in RULE_CATALOG.entries
+    executable = tuple(
+        item for item in RULE_CATALOG.entries if item.state is SemanticRuleCatalogState.EXECUTABLE
     )
-    assert RULE_MANIFEST is None
+    declared = tuple(
+        item
+        for item in RULE_CATALOG.entries
+        if item.state is SemanticRuleCatalogState.DECLARATION_ONLY
+    )
+    assert len(executable) == 5 and len(declared) == 32
+    assert all(item.implementation_id is not None for item in executable)
+    assert all(item.implementation_id is None for item in declared)
+    identities = {
+        RULE_IDENTITIES[suffix]
+        for suffix in (
+            "extract.elliott",
+            "extract.fibonacci",
+            "applicability.elliott-wave3",
+            "applicability.fibonacci-wave3",
+            "select.wave1-anchor",
+        )
+    }
+    assert {item.identity for item in executable} == identities
+    assert {item.identity for item in RULE_MANIFEST.declarations} == identities
+    assert {item.identity for item in RULE_SET.implementations} == identities
 
 
 def test_f01_applicability_declarations_are_structural() -> None:
@@ -201,6 +221,7 @@ def test_package_has_no_execution_or_dynamic_discovery_surface() -> None:
         "RULE_CATALOG",
         "RULE_IDENTITIES",
         "RULE_MANIFEST",
+        "RULE_SET",
         "SEMANTIC_PROFILE",
     }
     source = inspect.getsource(

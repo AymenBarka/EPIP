@@ -145,7 +145,7 @@ authorization.
 | P04-F00-R02 | CLOSED / FROZEN | Profile normative configuration reconciled |
 | P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
-| P04-F01 | AUTHORIZED / READY FOR IMPLEMENTATION | Five-rule Elliott/Fibonacci setup qualification only |
+| P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
 | P04-F02 | NOT AUTHORIZED | Geometry, confidence, and evidence rules |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
@@ -159,8 +159,10 @@ removing predecessor nodes, and passed the 2,924-test selected regression at
 97.32% aggregate coverage. P04-F00 then implemented only the immutable
 profile/configuration foundation. P04-F00-R03 then migrated its 37-rule
 inventory to the P02 `SemanticRuleCatalog`, retained zero executable rules, and
-preserved every frozen rule fingerprint. P04-F01 through P04-F04 and P05 remain
-unauthorized.
+preserved every frozen rule fingerprint. P04-F01 then implemented exactly five
+setup-qualification rules with 82 new test nodes, retained the compliance
+baseline, and closed with 32 future declarations untouched. P04-F02 through
+P04-F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |

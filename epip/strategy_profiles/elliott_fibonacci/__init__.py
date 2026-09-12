@@ -7,6 +7,7 @@ from epip.strategy_profiles.elliott_fibonacci.profile import (
     RULE_CATALOG,
     RULE_IDENTITIES,
     RULE_MANIFEST,
+    RULE_SET,
     SEMANTIC_PROFILE,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "RULE_CATALOG",
     "RULE_IDENTITIES",
     "RULE_MANIFEST",
+    "RULE_SET",
     "SEMANTIC_PROFILE",
 ]
