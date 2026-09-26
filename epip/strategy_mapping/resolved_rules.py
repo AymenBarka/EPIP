@@ -22,6 +22,7 @@ from epip.strategy_mapping.rule_requests import (
     CandidateRankingRequest,
     CandidateSelectionRequest,
     ConfidenceRuleRequest,
+    DirectionalCandidateSourceSetRequest,
     DirectionRuleRequest,
     EvidenceMappingRequest,
     EvidenceOrderingRequest,
@@ -111,13 +112,22 @@ _REQUEST_TYPES: dict[SemanticInvocationKind, tuple[type[object], ...]] = {
     SemanticInvocationKind.DIRECTION: (DirectionRuleRequest,),
     SemanticInvocationKind.SELECTION: (CandidateSelectionRequest, RankedCandidateSelectionRequest),
     SemanticInvocationKind.RANKING: (CandidateRankingRequest,),
-    SemanticInvocationKind.BOUNDARY: (BoundarySelectionRequest,),
-    SemanticInvocationKind.APPLICABILITY: (ApplicabilityRequest,),
+    SemanticInvocationKind.BOUNDARY: (
+        BoundarySelectionRequest,
+        DirectionalCandidateSourceSetRequest,
+    ),
+    SemanticInvocationKind.APPLICABILITY: (
+        ApplicabilityRequest,
+        DirectionalCandidateSourceSetRequest,
+    ),
     SemanticInvocationKind.STRUCTURAL_APPLICABILITY: (
         StructuralApplicabilityRequest,
         StructuralApplicabilitySetRequest,
     ),
-    SemanticInvocationKind.PRICE_TRANSFORMATION: (PriceTransformationRequest,),
+    SemanticInvocationKind.PRICE_TRANSFORMATION: (
+        PriceTransformationRequest,
+        DirectionalCandidateSourceSetRequest,
+    ),
     SemanticInvocationKind.CONFIDENCE: (ConfidenceRuleRequest,),
     SemanticInvocationKind.TEMPORAL_ELIGIBILITY: (TemporalEligibilityRequest,),
     SemanticInvocationKind.EVIDENCE_MAPPING: (EvidenceMappingRequest,),

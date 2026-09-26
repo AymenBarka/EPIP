@@ -38,6 +38,17 @@ class SemanticCandidateRole(Enum):
     TARGET = "TARGET"
 
 
+@dataclass(frozen=True, slots=True, order=True)
+class SemanticFactIdentity:
+    namespace: str
+    name: str
+    version: str
+
+    def __post_init__(self) -> None:
+        for field in ("namespace", "name", "version"):
+            object.__setattr__(self, field, text(getattr(self, field), field))
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticValue:
     kind: SemanticValueKind
@@ -94,6 +105,7 @@ class SemanticCandidate:
     source_rule_identity: RuleIdentity
     value: SemanticValue
     role: SemanticCandidateRole = SemanticCandidateRole.UNSPECIFIED
+    fact_identity: SemanticFactIdentity | None = None
 
     def __post_init__(self) -> None:
         for name in ("source_binding_id", "provenance_ref", "instrument_binding_id", "timeframe"):
@@ -101,17 +113,19 @@ class SemanticCandidate:
         exact(self.source_rule_identity, RuleIdentity, "source_rule_identity")
         exact(self.value, SemanticValue, "value")
         exact(self.role, SemanticCandidateRole, "role")
-        excluded = (
-            frozenset({"candidate_id", "role"})
-            if self.role is SemanticCandidateRole.UNSPECIFIED
-            else frozenset({"candidate_id"})
-        )
-        expected = digest(self, exclude=excluded)
+        if self.fact_identity is not None:
+            exact(self.fact_identity, SemanticFactIdentity, "fact_identity")
+        excluded = {"candidate_id"}
+        if self.role is SemanticCandidateRole.UNSPECIFIED:
+            excluded.add("role")
+        if self.fact_identity is None:
+            excluded.add("fact_identity")
+        expected = digest(self, exclude=frozenset(excluded))
         if self.candidate_id != expected:
             raise DataIntegrityError("candidate_id does not match semantic candidate")
 
     def __hash__(self) -> int:
-        values = (
+        values: tuple[object, ...] = (
             self.candidate_id,
             self.source_binding_id,
             self.provenance_ref,
@@ -120,9 +134,11 @@ class SemanticCandidate:
             self.source_rule_identity,
             self.value,
         )
-        return hash(
-            values if self.role is SemanticCandidateRole.UNSPECIFIED else (*values, self.role)
-        )
+        if self.role is not SemanticCandidateRole.UNSPECIFIED:
+            values = (*values, self.role)
+        if self.fact_identity is not None:
+            values = (*values, self.fact_identity)
+        return hash(values)
 
     @classmethod
     def create(
@@ -135,6 +151,7 @@ class SemanticCandidate:
         source_rule_identity: RuleIdentity,
         value: SemanticValue,
         role: SemanticCandidateRole = SemanticCandidateRole.UNSPECIFIED,
+        fact_identity: SemanticFactIdentity | None = None,
     ) -> SemanticCandidate:
         candidate = object.__new__(cls)
         values = (
@@ -146,15 +163,16 @@ class SemanticCandidate:
             source_rule_identity,
             value,
             role,
+            fact_identity,
         )
         for name, item in zip(cls.__dataclass_fields__, values, strict=True):
             object.__setattr__(candidate, name, item)
-        excluded = (
-            frozenset({"candidate_id", "role"})
-            if role is SemanticCandidateRole.UNSPECIFIED
-            else frozenset({"candidate_id"})
-        )
-        return cls(digest(candidate, exclude=excluded), *values[1:])
+        excluded = {"candidate_id"}
+        if role is SemanticCandidateRole.UNSPECIFIED:
+            excluded.add("role")
+        if fact_identity is None:
+            excluded.add("fact_identity")
+        return cls(digest(candidate, exclude=frozenset(excluded)), *values[1:])
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -201,6 +219,7 @@ __all__ = [
     "ConfidenceInputValue",
     "SemanticCandidate",
     "SemanticCandidateRole",
+    "SemanticFactIdentity",
     "SemanticValue",
     "TimeframeDirectionValue",
 ]

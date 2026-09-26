@@ -131,7 +131,8 @@ authorization.
 | P02-R02-I00 | CLOSED / FROZEN | Additive caller-bound PRIMARY policy and adapter binding |
 | P02-R03 | CLOSED / FROZEN | Generic catalogs, candidate roles, and structural applicability |
 | P02-R04 | COMPLETE / CLOSED / FROZEN | Structural candidate-set and typed-source request |
-| P02-R05 | AUTHORIZED / IMPLEMENTATION IN PROGRESS | A01 SCOPE AMENDMENT AUTHORIZED; semantic fact identity and directional candidate/source-set transport |
+| P02-R05-A01 | CLOSED / FROZEN | Compliance baseline and relational-validation scope amendment |
+| P02-R05 | CLOSED / FROZEN | Semantic fact identity and validated directional candidate/source-set transport |
 | A07-E02/E08 continuity | IMPLEMENTED / VERIFIED | Ordered evidence-set continuity restored |
 | A07-E02-E08-R01 | CLOSED / FROZEN | Combined continuity implementation |
 | P03 | CLOSED / FROZEN | Shared Strategy Runtime |
@@ -147,7 +148,7 @@ authorization.
 | P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
 | P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
-| P04-F02 | NOT AUTHORIZED / PREDECESSOR AMENDMENT REQUIRED | Geometry owns no RR; R05 closure and fresh authorization review required |
+| P04-F02 | READY FOR AUTHORIZATION REVIEW | R05 predecessor closed; implementation remains unauthorized; geometry owns no RR |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
@@ -172,17 +173,16 @@ RR, threshold, and zero-risk authority. F02 remains not authorized pending
 Fibonacci geometry transport, market-structure fact discrimination, ranking,
 executable-closure, and exact test-matrix reconciliation.
 
-P02-R05 is authorized and implementation is in progress for typed semantic fact
-identity and directional candidate/source-set transport. The
-[A01 scope amendment](P02_R05_A01_COMPLIANCE_BASELINE_AND_RELATIONAL_VALIDATION_SCOPE_AMENDMENT.md)
-authorizes only the additional compliance-test baseline maintenance and freezes
-exact candidate/source/provenance validation before canonical sorting. Its
-governance publication preserves unfinished local implementation; it does not
-close R05. The four-file production scope and 34 functional conditions remain
-unchanged. Historical candidate identity, frozen P04-F01 outputs and fingerprints,
-P03, and A07 remain protected. P04-F02 remains not authorized until R05 is
-implemented, closed, and frozen and a fresh F02 readiness review resolves its
-business-policy gaps.
+P02-R05 is closed under the frozen
+[A01 scope amendment](P02_R05_A01_COMPLIANCE_BASELINE_AND_RELATIONAL_VALIDATION_SCOPE_AMENDMENT.md).
+The [implementation closure](P02_R05_IMPLEMENTATION_CLOSURE.md) certifies typed
+semantic fact identity and exact candidate/source/provenance validation before
+canonical sorting. It preserves historical candidate IDs and hashes, frozen
+P04-F01 outputs and fingerprints, P03, and A07. The 34 governed conditions map
+to executed tests; collection increases from 3074 to 3127 with zero removals,
+and the authorized compliance inventory increases from 610 to 612. P04-F02 is
+ready for a fresh authorization review of its remaining business-policy gaps;
+its implementation remains unauthorized. P04-F03/F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
