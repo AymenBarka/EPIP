@@ -148,7 +148,12 @@ authorization.
 | P04-F00-R03 | CLOSED / FROZEN | Additive catalog and structural declaration migration |
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
 | P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
-| P04-F02 | READY FOR AUTHORIZATION REVIEW | R05 predecessor closed; implementation remains unauthorized; geometry owns no RR |
+| P04-R01-G00 | CLOSED / FROZEN | Research governance and causal Elliott readiness |
+| P04-R01-D00 | AUTHORIZED / READY FOR IMPLEMENTATION | Historical dataset foundation, manifests, and integrity checks |
+| P04-R01-E00 | NOT AUTHORIZED | Experimental causal swing and W1/W2 research |
+| P04-R01-Q00 | NOT AUTHORIZED | Pre-registered quantitative validation |
+| P04-R01-C00 | NOT AUTHORIZED | Wave 3 continuation, reconciliation, or suspension decision |
+| P04-F02 | NOT AUTHORIZED / RESEARCH RECONCILIATION REQUIRED | Awaits P04-R01-C00; geometry owns no RR |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
 | P05 | NOT AUTHORIZED | Multi-timeframe context |
@@ -180,9 +185,12 @@ semantic fact identity and exact candidate/source/provenance validation before
 canonical sorting. It preserves historical candidate IDs and hashes, frozen
 P04-F01 outputs and fingerprints, P03, and A07. The 34 governed conditions map
 to executed tests; collection increases from 3074 to 3127 with zero removals,
-and the authorized compliance inventory increases from 610 to 612. P04-F02 is
-ready for a fresh authorization review of its remaining business-policy gaps;
-its implementation remains unauthorized. P04-F03/F04 and P05 remain unauthorized.
+and the authorized compliance inventory increases from 610 to 612.
+[P04-R01-G00](P04_R01_G00_RESEARCH_GOVERNANCE_AND_CAUSAL_ELLIOTT_READINESS.md)
+then recorded that the frozen Elliott and Fibonacci producers cannot satisfy
+F01 anchor continuity on real data. P04-F02 is therefore not authorized until
+the P04-R01 research sequence G00 -> D00 -> E00 -> Q00 -> C00 records a
+decision; only D00 is authorized. P04-F03/F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
