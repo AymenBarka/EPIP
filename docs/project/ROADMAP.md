@@ -149,6 +149,7 @@ authorization.
 | P04-F00 | CLOSED / FROZEN | Immutable foundation with additive R03 migration incorporated |
 | P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
 | P04-R01-G00 | CLOSED / FROZEN | Research governance and causal Elliott readiness |
+| P04-R01-G00-A01 | CLOSED / FROZEN | [Tick-level BID/ASK data scope amendment](P04_R01_G00_A01_TICK_DATA_SCOPE_AMENDMENT.md) |
 | P04-R01-D00 | AUTHORIZED / READY FOR IMPLEMENTATION | Historical dataset foundation, manifests, and integrity checks |
 | P04-R01-E00 | NOT AUTHORIZED | Experimental causal swing and W1/W2 research |
 | P04-R01-Q00 | NOT AUTHORIZED | Pre-registered quantitative validation |
