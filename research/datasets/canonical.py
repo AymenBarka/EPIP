@@ -2,7 +2,7 @@
 
 Frozen rules (``epip-research-ticks-csv/1`` and ``epip-research-bars-csv/1``):
 
-- UTF-8, ``\\n`` line endings, one header row, no trailing spaces, final newline;
+- UTF-8, LF (``0x0A``) line endings, one header row, no trailing spaces, final newline;
 - timestamps ``YYYY-MM-DDTHH:MM:SS.mmmZ`` (UTC, milliseconds);
 - prices rendered from integer points with exactly ``price_decimals`` decimals;
 - quoted volumes rendered from integer millionths with exactly six decimals;

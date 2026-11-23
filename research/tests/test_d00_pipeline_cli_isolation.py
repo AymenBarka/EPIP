@@ -8,6 +8,7 @@ import runpy
 import shutil
 import socket
 import sys
+import urllib.error
 import urllib.request
 from dataclasses import replace
 from pathlib import Path
@@ -269,7 +270,8 @@ def test_module_entry_point(
 def test_network_is_forbidden_in_research_tests() -> None:
     with pytest.raises(NetworkForbiddenError):
         socket.create_connection(("example.com", 80))
-    with pytest.raises(Exception):  # noqa: B017 - urllib wraps the guard error
+    # urllib may surface the guard error directly or wrapped in URLError.
+    with pytest.raises((NetworkForbiddenError, urllib.error.URLError)):
         urllib.request.urlopen("http://example.com", timeout=1)
 
 

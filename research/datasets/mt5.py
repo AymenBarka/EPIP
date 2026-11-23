@@ -143,8 +143,10 @@ def _rows(data: bytes, expected: tuple[str, ...]) -> list[list[str]]:
 def _server_time(date: str, time: str) -> datetime:
     fmt = "%Y.%m.%d %H:%M:%S.%f" if "." in time else "%Y.%m.%d %H:%M:%S"
     try:
-        # Naive on purpose: broker server time, converted only via ServerTimeConvention.
-        return datetime.strptime(f"{date} {time}", fmt)  # noqa: DTZ007
+        # Parsed with a placeholder +0000 offset, then made naive on purpose: this is
+        # broker server time, converted to UTC only via ServerTimeConvention.
+        parsed = datetime.strptime(f"{date} {time} +0000", f"{fmt} %z")
+        return parsed.replace(tzinfo=None)
     except ValueError as exc:
         raise DatasetIntegrityError(f"MT5 timestamp {date} {time} invalid") from exc
 

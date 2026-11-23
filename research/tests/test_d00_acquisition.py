@@ -45,7 +45,7 @@ WINDOW = authorized_window("A01-SAMPLE-2012-03")
 
 
 def sample_responder(url: str, _max: int) -> HttpResponse:
-    symbol = url.split("/datafeed/")[1].split("/")[0]
+    symbol = url.split("/datafeed/", maxsplit=1)[1].split("/", maxsplit=1)[0]
     if url.endswith("_candles_hour_1.bi5"):
         side = PriceSide.BID if "/BID_" in url else PriceSide.ASK
         return ok(
