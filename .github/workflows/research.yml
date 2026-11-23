@@ -1,0 +1,72 @@
+name: Research
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "research/**"
+      - ".github/workflows/research.yml"
+      - "pyproject.toml"
+      - "requirements.txt"
+  pull_request:
+    paths:
+      - "research/**"
+      - ".github/workflows/research.yml"
+      - "pyproject.toml"
+      - "requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -e ".[dev]"
+
+      - name: Black
+        run: python -m black --check research/datasets research/tests
+
+      - name: Ruff
+        run: python -m ruff check research/datasets research/tests
+
+      - name: MyPy
+        run: python -m mypy --explicit-package-bases research/datasets research/tests
+
+      - name: Research tests and coverage
+        run: >-
+          python -m pytest -p no:cacheprovider research/tests
+          --cov=research/datasets --cov-report=term-missing --cov-fail-under=95
+
+      - name: Determinism rerun
+        run: python -m pytest -q -p no:cacheprovider research/tests
+
+      - name: Production isolation
+        if: >-
+          github.event_name == 'push'
+          && github.event.before != '0000000000000000000000000000000000000000'
+        run: |
+          if ! git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- epip/; then
+            echo "A research push modified epip/; this requires separate governance."
+            exit 1
+          fi

@@ -1,0 +1,332 @@
+# P04-R01-D00 — Reproducible Tick-Level BID/ASK Dataset Foundation
+
+Status: **IMPLEMENTATION COMPLETE / DATA ACQUISITION VALIDATION PENDING**
+
+D00 is **not** CLOSED / FROZEN. Its closure requires the owner-run acquisition
+of the authorized technical sample and the validation steps of section 15.
+
+## 1. Authority and scope
+
+Implemented under
+[P04-R01-G00](P04_R01_G00_RESEARCH_GOVERNANCE_AND_CAUSAL_ELLIOTT_READINESS.md)
+as amended by
+[P04-R01-G00-A01](P04_R01_G00_A01_TICK_DATA_SCOPE_AMENDMENT.md), starting from
+`4bac84c446907f5833f996848ed9e0fa43a0b8fb`. The file scope is G00 section 17:
+
+| Path | Purpose |
+| --- | --- |
+| `research/datasets/**` | research-only dataset package (15 modules) |
+| `research/tests/**` | offline tests and fixtures (140 test nodes) |
+| `.gitignore` | adds `/data/` only |
+| `.github/workflows/research.yml` | Research CI, explicitly named by the D00 authorization |
+| `docs/project/P04_R01_D00_DATASET_CLOSURE.md` | this record |
+| `docs/project/ROADMAP.md` | D00 status |
+
+No file under `epip/` or `tests/` changes, and `research/__init__.py` is not
+needed (`research` is a namespace package). No production module imports
+`research`, and the research package imports nothing from `epip`.
+
+## 2. Architecture
+
+```text
+Dukascopy tick and H1 candle files ──► acquisition (bounded, journaled, atomic)
+                                            │ immutable raw .bi5 under data/raw
+                                            ▼
+                     decode + validate (fail closed) ──► canonical tick CSV (gzip)
+                                            │
+                     H1 / H4 BID and ASK bars (half-open UTC) ──► bar CSV (gzip)
+                                            │
+          Dukascopy H1 candles ──► independent cross-check report (xcheck-h1/1)
+                                            │
+                raw + canonical SHA-256 manifests ──► local registry
+                                            │
+                 consultation ledger ──► future E00 / Q00 consumers
+
+MT5 bar/tick exports ──► separate importer ──► own manifests (never merged)
+```
+
+| Module | Responsibility |
+| --- | --- |
+| `contracts.py` | immutable typed contracts, enums, versions, fail-closed errors |
+| `dukascopy.py` | instrument scales, `.bi5` tick and candle decoding, URLs, paths, empty-hour calendar |
+| `canonical.py` | frozen CSV encoding, parsing, deterministic gzip, SHA-256 |
+| `aggregate.py` | H1/H4 bar derivation per side |
+| `crosscheck.py` | derived H1 versus provider H1 comparison |
+| `mt5.py` | MT5 bar/tick import with explicit server-time convention |
+| `manifest.py` | deterministic manifests, identity, tamper and file verification |
+| `registry.py` | local manifest-based registry |
+| `ledger.py` | consultation ledger and conservative OOS status |
+| `acquisition.py` | authorized windows, plan, transport, limits, journal, resume |
+| `build.py` | offline build from raw files to registered datasets |
+| `storage.py` | storage convention, safe relative paths, atomic writes |
+| `cli.py`, `__main__.py` | Windows-compatible command line |
+
+## 3. Dataset schemas and versions
+
+| Contract | Version |
+| --- | --- |
+| Manifest schema | `1` (any other version is rejected) |
+| Tick CSV | `epip-research-ticks-csv/1` |
+| Bar CSV | `epip-research-bars-csv/1` |
+| MT5 CSV | `epip-research-mt5-csv/1` |
+| Cross-check policy | `xcheck-h1/1` |
+| Empty-hour calendar | `saturday-only/1` |
+
+Contracts carry provider identity, instrument with explicit price decimals,
+price side (BID or ASK, never MID), granularity (TICK, H1, H4), source format,
+coverage, raw artifact identity, canonical content identity, diagnostics, and
+lineage. Ticks hold integer points and quoted volumes in integer millionths.
+Bars hold one side, OHLC points, contributing tick count, and a
+COMPLETE/INCOMPLETE coverage flag. There is no trade-volume field: Dukascopy
+volumes are quoted liquidity.
+
+## 4. Source-specific decoding
+
+Verified Dukascopy formats (LZMA "alone" streams, big-endian):
+
+- tick hour file: 20-byte records `uint32 ms offset, uint32 ask, uint32 bid,
+  float32 ask volume, float32 bid volume`, offset from the UTC hour start;
+- H1 candle month file: 24-byte records `uint32 second offset, uint32 open,
+  uint32 close, uint32 low, uint32 high, float32 volume`.
+
+Scales are configured per instrument: EURUSD 5 decimals, XAUUSD 3 decimals.
+Any other instrument is rejected. Decoding fails closed on invalid LZMA, a
+record length not a multiple of the record size, offsets outside the UTC hour
+or month, non-positive prices, ask below bid, non-finite or negative volumes,
+out-of-order records, and exact duplicate consecutive records. Distinct quotes
+in the same millisecond are kept in source order. Candles must sit on hour
+boundaries, be strictly increasing, and satisfy OHLC invariants.
+
+## 5. Normalization specification
+
+- UTF-8, `\n` line endings, header row, final newline, no trailing spaces.
+- Tick columns: `timestamp_utc,bid,ask,bid_volume,ask_volume`.
+- Bar columns: `start_utc,end_utc,side,open,high,low,close,tick_count,coverage`.
+- Timestamps: `YYYY-MM-DDTHH:MM:SS.mmmZ`.
+- Prices: integer points rendered with exactly the instrument's decimals;
+  volumes with exactly six decimals. No floating-point formatting.
+- Row order: ticks in source order; bars by start, then side.
+- Duplicate policy: exact duplicate consecutive tick records reject the file.
+- Invalid tick policy: any invalid record rejects the whole hour file
+  (`CORRUPTED`); nothing is repaired, dropped, or interpolated.
+- gzip: level 9, `mtime=0`, empty file name.
+
+## 6. Hashing rules
+
+| Digest | Input |
+| --- | --- |
+| `raw_sha256` | exact provider bytes as downloaded |
+| `canonical_sha256` | uncompressed canonical CSV bytes (authoritative content identity) |
+| `compressed_sha256` | stored gzip bytes |
+| `dataset_id` | canonical JSON of the manifest identity section |
+
+The manifest's `provenance` section (builder, broker, convention source)
+never participates in `dataset_id`. Acquisition timestamps live only in the
+journal.
+
+## 7. H1/H4 derivation
+
+Bars are half-open UTC intervals `[start, end)`; a tick exactly on a boundary
+belongs to the next interval. H4 intervals start at 00, 04, 08, 12, 16, and
+20 UTC. BID and ASK bars are built independently. An interval without ticks
+produces no bar. A bar is COMPLETE only if every source hour it spans is
+POPULATED or an EXPECTED_CLOSURE; otherwise it is INCOMPLETE. Tick count is
+the number of contributing records. Bar datasets record the tick dataset in
+their lineage.
+
+## 8. Independent H1 cross-check
+
+Policy `xcheck-h1/1` compares tick-derived H1 bars with Dukascopy H1 candles
+inside the tick window, with a tolerance of 0 points per field. Justification:
+both come from the same provider quote stream, so any difference is a finding.
+The report lists compared and matched bars, field deviations, bars missing on
+either side, provider zero-volume filler candles, and INCOMPLETE derived bars.
+Status is `CONSISTENT` or `DEVIATIONS_REPORTED`. Derived values are never
+altered to match the provider.
+
+## 9. MT5 import limitations
+
+- Supported: Symbols-window exports of bars and ticks, tab or comma separated,
+  UTF-8, UTF-8 with BOM, or UTF-16.
+- Broker server time is converted only through an explicit
+  `ServerTimeConvention` (a fixed offset with documented evidence, or a table
+  of UTC-anchored offset segments). Without one, the import is rejected
+  (quarantined). Ambiguous or non-existent local times at offset changes are
+  rejected.
+- A missing BID or ASK in a tick row stays missing. ASK is never reconstructed
+  from BID and spread. Bar price side must be declared. Spread is kept as
+  published.
+- No terminal, broker connection, or MT5 package is used.
+
+## 10. Manifest and registry usage
+
+`registry/<dataset_id>.json` stores canonical manifest bytes. Registration
+first re-verifies every referenced file. It is idempotent for identical bytes
+(`duplicate`) and rejects any other content under the same identity
+(collision). Listing, inspection, and resolution (by identity or a unique
+prefix of at least 8 hex characters) re-validate each manifest. `verify` also
+re-hashes raw and canonical files.
+
+## 11. Data-quality classifications
+
+| Status | Meaning |
+| --- | --- |
+| POPULATED | non-empty, decoded, validated |
+| EXPECTED_CLOSURE | HTTP 200 with zero bytes inside Saturday UTC |
+| EMPTY_UNEXPLAINED | HTTP 200 with zero bytes outside Saturday UTC |
+| MISSING | HTTP 404 |
+| THROTTLED | HTTP 429 or 503 after bounded retries |
+| PROVIDER_ERROR | other HTTP error or transport failure after retries |
+| CORRUPTED | payload failed decoding or validation after retries |
+| PARTIAL | body shorter than the declared length after retries |
+| NOT_ACQUIRED | no journal record |
+
+An empty response is never a closure by itself; the conservative Saturday-only
+calendar flags Friday-evening and Sunday hours as EMPTY_UNEXPLAINED, which
+makes the affected bars INCOMPLETE.
+
+## 12. OOS ledger
+
+`ledger.py` reproduces the G00 section 10 baseline: EURUSD, XAUUSD, and USDJPY
+are CONSULTED; GBPUSD is `UNVERIFIED — NOT ATTESTED VIRGIN`. ATTESTED_VIRGIN
+requires an explicit owner attestation and is impossible for a CONSULTED
+instrument. The append-only consultation ledger records dataset identity and
+digest, experiment ID, purpose, UTC timestamp, partition (TECHNICAL,
+DEVELOPMENT, VALIDATION, FINAL_OOS), and outputs. No experiment was run and no
+consultation was recorded during D00.
+
+## 13. Research CI
+
+`.github/workflows/research.yml` runs on pushes and pull requests touching
+`research/**`, the workflow, `pyproject.toml`, or `requirements.txt`. With
+Python 3.13 and `PYTHONHASHSEED=0` it runs Black, Ruff, strict MyPy, the
+research tests with `--cov=research/datasets --cov-fail-under=95`, a second
+identical test run, and a production-isolation guard failing any research push
+that modifies `epip/`. It uses no network data, MT5, broker, secret, or large
+dataset. The Quality, CodeQL, and Documentation workflows are unchanged.
+
+## 14. Test evidence and reproducibility proof
+
+| Gate | Result |
+| --- | --- |
+| Research tests | 140 passed (96 test functions) |
+| Research coverage | 100.00 % of 1,985 statement lines (local standard-library line tracer); CI enforces ≥ 95 % with pytest-cov |
+| Research static checks | Black, Ruff, strict MyPy: pass (23 files) |
+| Canonical collection | 3127 before and after; 0 predecessor nodes removed |
+| Canonical regression | 3126 passed, 1 deselected; stress test passed separately |
+| Production static checks | Black (694 files), Ruff, strict MyPy (694 files): pass |
+| Compliance | inventory 612, digest `92b40f1dfec340c886345710bf4a446b5a2dafa753b7129c12c7d3488c46f3f1`, unchanged |
+
+Reproducibility proof (`test_rebuild_is_reproducible_bit_for_bit`): the same
+raw files built in two separate roots with different provenance produce
+identical dataset identities and byte-identical canonical gzip files, and a
+rebuild in place is idempotent.
+
+Acceptance mapping (prefixes: K `test_d00_dukascopy.py`, C
+`test_d00_canonical_aggregate.py`, M `test_d00_mt5.py`, R
+`test_d00_manifest_registry_ledger.py`, A `test_d00_acquisition.py`, P
+`test_d00_pipeline_cli_isolation.py`):
+
+| # | Requirement | Executed tests |
+| --- | --- | --- |
+| 1 | Valid tick decoding | K `test_valid_tick_decoding_maps_offsets_prices_and_volumes` |
+| 2 | Invalid record length | K `test_invalid_record_length_fails_closed` |
+| 3 | Invalid LZMA payload | K `test_invalid_lzma_payload_fails_closed` |
+| 4 | Instrument-specific scaling | K `test_instrument_specific_scaling_is_explicit`; C `test_xauusd_prices_render_with_three_decimals` |
+| 5 | UTC timestamp boundaries | K `test_offsets_outside_the_utc_hour_fail`, `test_last_millisecond_of_hour_is_inside`, `test_hour_start_must_be_aligned` |
+| 6 | BID/ASK consistency | K `test_ask_below_bid_fails_closed`, `test_equal_bid_ask_is_accepted` |
+| 7 | Invalid prices | K `test_invalid_prices_and_volumes_fail_closed` |
+| 8 | Duplicate ticks | K `test_duplicate_tick_fails_closed`, `test_same_millisecond_distinct_quotes_are_kept_in_source_order` |
+| 9 | Out-of-order ticks | K `test_out_of_order_ticks_fail_closed` |
+| 10 | Canonical serialization determinism | C `test_canonical_tick_csv_is_frozen_and_round_trips`, `test_serialization_is_deterministic_and_checksums_stable`, `test_property_seeded_random_ticks_round_trip` |
+| 11 | Raw checksum stability | C `test_serialization_is_deterministic_and_checksums_stable`; R `test_file_tampering_is_detected` |
+| 12 | Canonical checksum stability | P `test_rebuild_is_reproducible_bit_for_bit` |
+| 13 | Gzip determinism | C `test_gzip_is_deterministic_with_zero_mtime_and_no_name` |
+| 14 | H1 aggregation | C `test_h1_aggregation_per_side_with_tick_counts`, `test_tick_on_boundary_belongs_to_next_interval` |
+| 15 | H4 aggregation | C `test_h4_aggregation_spans_four_hours` |
+| 16 | Empty intervals | C `test_empty_interval_produces_no_bar` |
+| 17 | Incomplete intervals | C `test_incomplete_coverage_is_flagged_not_hidden`; P `test_incomplete_hours_are_flagged_and_crosscheck_reports` |
+| 18 | Independent H1 cross-check | C `test_crosscheck_consistent_when_provider_matches`, `test_crosscheck_reports_without_altering_values`; P `test_missing_hour_is_reported_on_both_sides` |
+| 19 | MT5 tick import | M `test_mt5_tick_import_converts_server_time_and_keeps_missing_sides`, `test_mt5_tick_import_accepts_utf16_and_comma_exports` |
+| 20 | MT5 bar import | M `test_mt5_bar_import_requires_declared_side_and_keeps_spread` |
+| 21 | Ambiguous timezone rejection | M `test_ambiguous_timezone_is_rejected_quarantine`, `test_dst_overlap_is_ambiguous_and_gap_non_existent` |
+| 22 | Manifest round-trip | R `test_manifest_round_trip_is_canonical`, `test_provenance_never_changes_identity` |
+| 23 | Manifest tampering | R `test_manifest_tampering_is_detected`, `test_noncanonical_or_malformed_manifest_is_rejected`, `test_unsupported_manifest_version_is_rejected` |
+| 24 | Registry collisions | R `test_registry_collision_and_corruption_are_rejected` |
+| 25 | Registry integrity | R `test_registry_register_list_resolve_verify`, `test_registry_rejects_unverifiable_dataset`, `test_registry_reference_rules` |
+| 26 | Offline dry-run | P `test_cli_plan_and_dry_run_are_offline` |
+| 27 | Download budget | A `test_download_budget_is_never_exceeded`, `test_exhausted_budget_aborts_before_request`, `test_urllib_transport_contract_without_network` |
+| 28 | Request-rate enforcement | A `test_minimum_interval_between_requests`, `test_request_ceiling_and_rate_are_enforced` |
+| 29 | Bounded retries | A `test_bounded_retries_then_final_status`, `test_limits_validation_and_backoff_cap` |
+| 30 | Empty HTTP response classification | A `test_empty_http_200_is_not_automatically_a_closure`; K `test_empty_hour_is_closure_only_on_saturday` |
+| 31 | Resume safety | A `test_resume_skips_verified_files_and_refuses_unverified` |
+| 32 | Atomic writes | A `test_atomic_write_never_overwrites_and_leaves_no_partial` |
+| 33 | Consultation ledger | R `test_consultation_ledger_append_and_read`, `test_consultation_validation` |
+| 34 | OOS status preservation | R `test_oos_status_is_preserved_and_never_inferred` |
+| 35 | Frozen production-contract isolation | P `test_frozen_production_contract_isolation`, `test_network_is_forbidden_in_research_tests` |
+
+Every research test runs with an autouse guard that makes socket connections
+raise; all transports in tests are fakes.
+
+## 15. Acquisition instructions (owner-run, separately authorized)
+
+Preconditions:
+
+1. Read and confirm the provider's terms of use for local research use
+   (A01 section 7). Record the outcome in the D00 validation note.
+2. Use Python 3.13 on Windows from the repository root.
+
+```powershell
+cd C:\Users\Ansible\Documents\GitHub\EPIP
+python -m research.datasets plan --window A01-SAMPLE-2012-03
+python -m research.datasets acquire --window A01-SAMPLE-2012-03 --dry-run
+python -m research.datasets acquire --window A01-SAMPLE-2012-03 --confirm-provider-terms
+python -m research.datasets build --window A01-SAMPLE-2012-03
+python -m research.datasets registry list
+python -m research.datasets registry verify <first 8+ hex of a dataset_id>
+```
+
+The only authorized window is `A01-SAMPLE-2012-03`: EURUSD and XAUUSD ticks
+from 2012-03-12 00:00 UTC to 2012-03-17 00:00 UTC (end excluded) and H1 BID and
+ASK candles of March 2012. Limits: 244 planned requests, at most 400 requests
+including retries, at most 20,000,000 downloaded bytes, one request per second
+minimum spacing, 30-second timeout, four retries with 2–60 second backoff,
+abort after five consecutive failed files. The command exits with code 2 if
+any limit aborts the run. Re-running resumes and skips verified files; an
+unverified existing file stops the run unless `--allow-overwrite` is given.
+
+Validation required for D00 closure:
+
+1. acquisition completed without abort, within the byte budget;
+2. `build` succeeded and `registry verify` passes for every dataset;
+3. a second `build` from the same raw files, in a fresh data root, reproduces
+   every `dataset_id`;
+4. the cross-check reports are reviewed, and any deviation is explained;
+5. the owner reports the dataset identities; a D00 closure update records them.
+
+## 16. Instructions for future E00 consumers
+
+- Resolve datasets only through the registry and verify them before use.
+- Read canonical files only through `canonical.csv_to_ticks` and
+  `csv_to_bars`.
+- Respect coverage flags and hour classification; never fill gaps.
+- Treat technical-sample datasets as `TECHNICAL`: no strategy evaluation.
+- Record every consultation in the ledger before reading data.
+- OHLC bars never replace ticks for intrabar-dependent simulation (A01
+  section 10).
+
+## 17. Known limitations
+
+- No real data acquired yet; D00 closure depends on section 15.
+- The Saturday-only empty-hour calendar is conservative and will mark some
+  Friday-evening and Sunday bars INCOMPLETE.
+- Exact duplicate consecutive ticks reject a whole hour file; if real data
+  contains them, a governed policy change is required.
+- The provider endpoint is undocumented; its terms must be confirmed by the
+  owner before acquisition.
+- Compressed digests depend on the zlib implementation; identity relies on the
+  uncompressed canonical digest.
+- MT5 conventions must be supplied by the owner from broker evidence; DST is
+  supported only through an explicit offset table.
+- The Research CI isolation guard fails any research push that also modifies
+  `epip/`; such a change requires separate governance and a separate push.

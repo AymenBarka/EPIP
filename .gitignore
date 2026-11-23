@@ -218,3 +218,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .venv/
+
+# P04-R01-D00: local research datasets are never committed (G00 D1, A01 section 9)
+/data/
