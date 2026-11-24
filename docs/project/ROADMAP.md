@@ -150,7 +150,7 @@ authorization.
 | P04-F01 | COMPLETE / CLOSED / FROZEN | Five-rule Elliott/Fibonacci setup qualification only |
 | P04-R01-G00 | CLOSED / FROZEN | Research governance and causal Elliott readiness |
 | P04-R01-G00-A01 | CLOSED / FROZEN | [Tick-level BID/ASK data scope amendment](P04_R01_G00_A01_TICK_DATA_SCOPE_AMENDMENT.md) |
-| P04-R01-D00 | IMPLEMENTATION COMPLETE / DATA ACQUISITION VALIDATION PENDING | [Tick dataset foundation](P04_R01_D00_DATASET_CLOSURE.md); closure awaits the owner-run sample acquisition |
+| P04-R01-D00 | CLOSED / FROZEN | [Tick dataset foundation](P04_R01_D00_DATASET_CLOSURE.md); technical sample acquired, reproduced, and cross-checked |
 | P04-R01-E00 | NOT AUTHORIZED | Experimental causal swing and W1/W2 research |
 | P04-R01-Q00 | NOT AUTHORIZED | Pre-registered quantitative validation |
 | P04-R01-C00 | NOT AUTHORIZED | Wave 3 continuation, reconciliation, or suspension decision |
@@ -191,7 +191,8 @@ and the authorized compliance inventory increases from 610 to 612.
 then recorded that the frozen Elliott and Fibonacci producers cannot satisfy
 F01 anchor continuity on real data. P04-F02 is therefore not authorized until
 the P04-R01 research sequence G00 -> D00 -> E00 -> Q00 -> C00 records a
-decision; only D00 is authorized. P04-F03/F04 and P05 remain unauthorized.
+decision; D00 is now closed and no later step is authorized. P04-F03/F04 and
+P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |

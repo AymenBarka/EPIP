@@ -1,9 +1,10 @@
 # P04-R01-D00 — Reproducible Tick-Level BID/ASK Dataset Foundation
 
-Status: **IMPLEMENTATION COMPLETE / DATA ACQUISITION VALIDATION PENDING**
+Status: **CLOSED / FROZEN**
 
-D00 is **not** CLOSED / FROZEN. Its closure requires the owner-run acquisition
-of the authorized technical sample and the validation steps of section 15.
+D00 closed on 2026-11-24 after the owner-run acquisition of the authorized
+technical sample and the validation steps of section 15; section 19 records
+the evidence and the registered dataset identities.
 
 ## 1. Authority and scope
 
@@ -341,7 +342,8 @@ Validation required for D00 closure:
 
 ## 17. Known limitations
 
-- D00 closure depends on section 15; section 18 records the acquisition so far.
+- Dukascopy's XAUUSD H1 candle feed is not an exact aggregation of its XAUUSD
+  tick feed (section 19); provider candles remain a cross-check only.
 - The empty-hour calendar does not model holidays or exceptional closures;
   such hours stay EMPTY_UNEXPLAINED.
 - Exact duplicate consecutive ticks reject a whole hour file; if real data
@@ -370,6 +372,10 @@ Observed behaviour of the endpoint and of the D00 tooling:
   21h–23h UTC, XAUUSD Friday 21h–23h UTC, and XAUUSD Wednesday 14 March 21h UTC
   (the daily metals break). The former `saturday-only/1` calendar classified
   them EMPTY_UNEXPLAINED.
+- A sixth run with the corrected tooling (`--timeout-seconds 120`) stored the
+  last two hours and reported `ACQUISITION COMPLETE`: 244 of 244 items, 237
+  populated and 7 scheduled closures, 4,629,911 raw bytes, within the
+  20,000,000-byte ceiling.
 - The first run stopped without a summary: `http.client.IncompleteRead`, raised
   when a connection drops mid-body, is not an `OSError` and escaped the
   transport. A later run stopped at the 400-request ceiling of that run.
@@ -390,3 +396,55 @@ Corrections made before closure, inside the D00 file scope:
 
 None of these changes alters decoding, canonical serialization, aggregation,
 cross-check policy, manifest schema, or any production contract.
+
+## 19. Closure evidence
+
+Validation of section 15, executed on 2026-11-24 from the corrected tooling of
+commit `6d24500b4d596c365a687e01665718fdfc707f68` (Quality, CodeQL,
+Documentation, and Research CI passed on that commit):
+
+1. **Acquisition complete.** `ACQUISITION COMPLETE`, 244 of 244 planned items
+   stored, 4,629,911 raw bytes.
+2. **Build and registry.** `build` succeeded without warnings. Every dataset
+   was re-verified independently of the D00 code: identity digest, canonical
+   and compressed digests, row counts, lineage, and the raw digest and size of
+   all 244 source files.
+3. **Reproducibility.** A second `build` from copies of the raw files and the
+   journal, in a fresh data root outside the repository, reproduced all eight
+   `dataset_id` values.
+4. **Cross-check reviewed** (policy `xcheck-h1/1`, tolerance 0 points):
+   - EURUSD: `CONSISTENT`; all 234 derived H1 BID and ASK bars equal the
+     provider candles exactly. This validates decoding, UTC alignment, and
+     aggregation on real data.
+   - XAUUSD: `DEVIATIONS_REPORTED`; 138 of 232 bars match, 94 bars carry 139
+     field deviations (median 0.190, maximum 2.736 USD). Derived ranges are
+     mostly wider (51 lower lows, 38 higher highs), and deviations cluster
+     around the daily break at 21h–22h UTC. With identical code giving an exact
+     match on EURUSD, the deviations reflect a difference between Dukascopy's
+     XAUUSD tick and candle feeds, not a pipeline defect. In addition, the
+     provider publishes a 14 March 21h UTC candle for an hour whose tick file
+     is empty and which the calendar classifies as the scheduled daily break;
+     it is reported as missing in derived. The owner accepted these documented
+     provider differences. Ticks remain the authoritative source (A01 section
+     10); the cross-check reports and never alters data.
+5. **Dataset identities** (technical sample, partition `TECHNICAL`, never for
+   strategy evaluation):
+
+| Instrument | Dataset | Coverage | Rows | `dataset_id` |
+| --- | --- | --- | --- | --- |
+| EURUSD | ticks | 117 populated, 3 closures | 467,445 | `4f181694010c2f8ef9256d21ac68a94a78ad657b36b54e27cd285948f7206e8b` |
+| EURUSD | H1 bars (from ticks) | 117 populated, 3 closures | 234 | `a4c33c19042a167c87928e934d46a6a90996616b25bd38567b38963428a05d31` |
+| EURUSD | H4 bars (from ticks) | 117 populated, 3 closures | 60 | `2cbce30dc9a787937c67f88e64df6cf0ef8a2d002e2e0051c9eac5eb73cb17ec` |
+| EURUSD | provider H1 candles | March 2012 | 1,052 | `a062854cd9ac0b2b70a70bb18e0c42e0918e5e884af3d0a716afbf3de2c45c32` |
+| XAUUSD | ticks | 116 populated, 4 closures | 417,548 | `bdc05950f91477e55ec1dcff702a8e3325d5abdee1ae5452622e3de3089b45c6` |
+| XAUUSD | H1 bars (from ticks) | 116 populated, 4 closures | 232 | `ce4d98346a842b077e7b11a0320c471ca7e7dad87e8653d0385976ea60adff5a` |
+| XAUUSD | H4 bars (from ticks) | 116 populated, 4 closures | 60 | `ccda98c0c19e6ab6263c595a9072a3330ed1379db5e7af50a1e131f150994351` |
+| XAUUSD | provider H1 candles | March 2012 | 1,052 | `30fa14bc4787bd32cbd973c81e5c37ffb239d5104366495780a166404669c36e` |
+
+The six diagnostic datasets of the first, incomplete build remain in the local
+registry, are superseded by these identities, and must never be consumed. No
+dataset was consulted for research: the consultation ledger is unchanged.
+
+Closing D00 authorizes nothing further. E00, Q00, and C00 remain not
+authorized; P04-F02 remains not authorized pending research reconciliation;
+P05 remains not authorized.
