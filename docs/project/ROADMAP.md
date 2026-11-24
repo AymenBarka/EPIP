@@ -152,8 +152,19 @@ authorization.
 | P04-R01-G00-A01 | CLOSED / FROZEN | [Tick-level BID/ASK data scope amendment](P04_R01_G00_A01_TICK_DATA_SCOPE_AMENDMENT.md) |
 | P04-R01-D00 | CLOSED / FROZEN | [Tick dataset foundation](P04_R01_D00_DATASET_CLOSURE.md); technical sample acquired, reproduced, and cross-checked |
 | P04-R01-E00 | CLOSED / FROZEN | [Causal Elliott research](P04_R01_E00_CLOSURE.md); prefix-invariant prototype accepted unchanged by frozen F01 for single counts |
-| P04-R01-Q00 | READY FOR AUTHORIZATION REVIEW | Pre-registered quantitative validation; prerequisites in the E00 closure section 14 |
+| P04-R01-Q00 | PROTOCOL FROZEN / IMPLEMENTATION NOT AUTHORIZED | Pre-registered quantitative validation governed by Q00-G00 |
+| P04-R01-Q00-G00 | CLOSED / FROZEN | [Quantitative validation protocol](P04_R01_Q00_G00_QUANTITATIVE_VALIDATION_PROTOCOL_RECONCILIATION.md); partitions, acquisition, statistics, 50-configuration H1 budget |
+| P04-R01-Q00-CI00 | READY FOR AUTHORIZATION REVIEW | Research CI covers `research/elliott_causal`; coverage gap still open |
+| P04-R01-D01-B1 | READY FOR AUTHORIZATION REVIEW, SUBJECT TO CI00 CLOSURE | First development tick batch, EURUSD/XAUUSD 2018-01 to 2018-06 |
+| P04-R01-D01-P | NOT AUTHORIZED | Optional C1 export probe (Level 1 equivalence) |
+| P04-R01-D01-B2+ | NOT AUTHORIZED | Remaining development batches, 2010–2018 |
+| P04-R01-Q00-I00 | NOT AUTHORIZED | Research harness and pre-registration record |
+| P04-R01-Q00-V00 | NOT AUTHORIZED | Protocol A selection on development data |
+| P04-R01-D02 | NOT AUTHORIZED | Validation data, 2019–2021 |
+| P04-R01-Q00-V01 | NOT AUTHORIZED | Protocol A validation, then Protocol B |
+| P04-R01-Q00-R00 | NOT AUTHORIZED | Q00 results review and closure |
 | P04-R01-C00 | NOT AUTHORIZED | Wave 3 continuation, reconciliation, or suspension decision |
+| F_STAR and FINAL_OOS | NOT AUTHORIZED | Final freeze, then prospective OOS collection and evaluation, only after C00; no demo or live trading |
 | P04-F02 | NOT AUTHORIZED / RESEARCH RECONCILIATION REQUIRED | Awaits P04-R01-C00; geometry owns no RR |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
 | P04-F04 | NOT AUTHORIZED | Final P04 closure evidence |
@@ -191,8 +202,9 @@ and the authorized compliance inventory increases from 610 to 612.
 then recorded that the frozen Elliott and Fibonacci producers cannot satisfy
 F01 anchor continuity on real data. P04-F02 is therefore not authorized until
 the P04-R01 research sequence G00 -> D00 -> E00 -> Q00 -> C00 records a
-decision; D00 and E00 are closed, Q00 is ready for authorization review, and
-no later step is authorized. P04-F03/F04 and P05 remain unauthorized.
+decision; D00, E00, and the Q00-G00 protocol are closed, Q00-CI00 and
+D01-B1 are ready for authorization review, and no implementation or data step
+is authorized. P04-F03/F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
