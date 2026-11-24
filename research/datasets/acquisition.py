@@ -16,6 +16,7 @@ permission. The volatile journal records every attempt and enables resume.
 
 from __future__ import annotations
 
+import http.client
 import json
 import time
 import urllib.error
@@ -149,6 +150,12 @@ class HttpResponse:
     declared_length: int | None
 
 
+def _describe(exc: BaseException) -> str:
+    """Short ASCII description of a transport error, for the journal only."""
+    text = f"{type(exc).__name__}: {exc}"
+    return text.encode("ascii", "replace").decode("ascii")[:200]
+
+
 class TransportFailure(Exception):
     """Timeout or connection failure (transient)."""
 
@@ -173,8 +180,8 @@ class UrllibTransport:
             response = self._open(request, timeout=timeout_s)
         except urllib.error.HTTPError as exc:
             return HttpResponse(exc.code, b"", None)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise TransportFailure(str(exc)) from exc
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
+            raise TransportFailure(_describe(exc)) from exc
         with response as handle:
             header = handle.headers.get("Content-Length")
             declared = int(header) if header is not None and header.isdigit() else None
@@ -184,8 +191,8 @@ class UrllibTransport:
                 body = handle.read(max_bytes)
                 if len(body) == max_bytes and handle.read(1):
                     raise BudgetExceeded("body exceeds remaining budget")
-            except (TimeoutError, OSError) as exc:
-                raise TransportFailure(str(exc)) from exc
+            except (http.client.HTTPException, TimeoutError, OSError) as exc:
+                raise TransportFailure(_describe(exc)) from exc
             return HttpResponse(int(handle.status), bytes(body), declared)
 
 
@@ -223,7 +230,7 @@ class AcquisitionLimits:
         require(type(self.max_bytes) is int and self.max_bytes > 0, "max_bytes invalid")
         require(type(self.max_requests) is int and self.max_requests > 0, "max_requests invalid")
         require(self.min_interval_s >= 1.0, "min_interval_s must be >= 1 second")
-        require(0 < self.timeout_s <= 120, "timeout_s out of range")
+        require(1 <= self.timeout_s <= 120, "timeout_s must be between 1 and 120 seconds")
         require(type(self.max_retries) is int and 0 <= self.max_retries <= 8, "max_retries")
         require(0 < self.backoff_base_s <= self.backoff_cap_s <= 300, "backoff invalid")
         require(
@@ -275,19 +282,23 @@ class JournalRecord:
     size_bytes: int
     raw_sha256: str
     recorded_at_utc: str
+    detail: str = ""
 
     def to_line(self) -> bytes:
+        fields: dict[str, object] = {
+            "relative_path": self.relative_path,
+            "url": self.url,
+            "status": self.status.value,
+            "attempts": self.attempts,
+            "size_bytes": self.size_bytes,
+            "raw_sha256": self.raw_sha256,
+            "recorded_at_utc": self.recorded_at_utc,
+        }
+        if self.detail:
+            fields["detail"] = self.detail
         return (
             json.dumps(
-                {
-                    "relative_path": self.relative_path,
-                    "url": self.url,
-                    "status": self.status.value,
-                    "attempts": self.attempts,
-                    "size_bytes": self.size_bytes,
-                    "raw_sha256": self.raw_sha256,
-                    "recorded_at_utc": self.recorded_at_utc,
-                },
+                fields,
                 sort_keys=True,
                 separators=(",", ":"),
             )
@@ -312,11 +323,23 @@ def read_journal(data_root: Path) -> dict[str, JournalRecord]:
                 int(d["size_bytes"]),
                 d["raw_sha256"],
                 d["recorded_at_utc"],
+                str(d.get("detail", "")),
             )
         except (ValueError, KeyError, TypeError) as exc:
             raise DatasetIntegrityError(f"journal line {number} is corrupted ({exc})") from exc
         latest[record.relative_path] = record
     return latest
+
+
+def pending_items(window: AuthorizedWindow, data_root: Path) -> tuple[str, ...]:
+    """Planned items whose latest journal record is not a stored outcome."""
+    journal = read_journal(data_root)
+    return tuple(
+        item.relative_path
+        for item in build_plan(window)
+        if (record := journal.get(item.relative_path)) is None
+        or record.status not in STORED_STATUSES
+    )
 
 
 def _append_journal(data_root: Path, record: JournalRecord) -> None:
@@ -348,7 +371,7 @@ def _classify(item: PlannedFetch, response: HttpResponse) -> FetchStatus:
     if len(response.body) == 0:
         if item.kind is FetchKind.CANDLES or item.hour_start_ms is None:
             return FetchStatus.EMPTY_UNEXPLAINED
-        empty = classify_empty_hour(item.hour_start_ms)
+        empty = classify_empty_hour(instrument(item.instrument), item.hour_start_ms)
         return (
             FetchStatus.EXPECTED_CLOSURE
             if empty is HourStatus.EXPECTED_CLOSURE
@@ -405,6 +428,7 @@ def run_acquisition(
         final: FetchStatus | None = None
         attempts = 0
         body = b""
+        detail = ""
         while final is None:
             if requests_used >= limits.max_requests:
                 aborted = "request ceiling reached"
@@ -425,12 +449,14 @@ def run_acquisition(
             except BudgetExceeded:
                 aborted = "byte budget would be exceeded"
                 break
-            except TransportFailure:
+            except TransportFailure as exc:
                 status = FetchStatus.TRANSPORT_FAILURE
+                detail = str(exc)
             else:
                 bytes_used += len(response.body)
                 body = response.body
                 status = _classify(item, response)
+                detail = "" if response.status == 200 else f"HTTP {response.status}"
             if status in RETRYABLE and attempts <= limits.max_retries:
                 clock.sleep(limits.backoff(attempts - 1))
                 continue
@@ -455,6 +481,7 @@ def run_acquisition(
                 len(body) if final in STORED_STATUSES else 0,
                 sha256_hex(body if final in STORED_STATUSES else b""),
                 clock.utc_now_text(),
+                "" if final in STORED_STATUSES else detail,
             ),
         )
         outcomes.append((item.relative_path, final))

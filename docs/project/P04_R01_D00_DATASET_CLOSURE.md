@@ -16,7 +16,7 @@ as amended by
 | Path | Purpose |
 | --- | --- |
 | `research/datasets/**` | research-only dataset package (15 modules) |
-| `research/tests/**` | offline tests and fixtures (140 test nodes) |
+| `research/tests/**` | offline tests and fixtures (164 test nodes) |
 | `.gitignore` | adds `/data/` only |
 | `.github/workflows/research.yml` | Research CI, explicitly named by the D00 authorization |
 | `docs/project/P04_R01_D00_DATASET_CLOSURE.md` | this record |
@@ -70,7 +70,7 @@ MT5 bar/tick exports ──► separate importer ──► own manifests (never 
 | Bar CSV | `epip-research-bars-csv/1` |
 | MT5 CSV | `epip-research-mt5-csv/1` |
 | Cross-check policy | `xcheck-h1/1` |
-| Empty-hour calendar | `saturday-only/1` |
+| Empty-hour calendar | `ny-1700-close/1` (recorded as a `SESSION_CALENDAR` diagnostic in tick and bar manifests) |
 
 Contracts carry provider identity, instrument with explicit price decimals,
 price side (BID or ASK, never MID), granularity (TICK, H1, H4), source format,
@@ -172,8 +172,8 @@ re-hashes raw and canonical files.
 | Status | Meaning |
 | --- | --- |
 | POPULATED | non-empty, decoded, validated |
-| EXPECTED_CLOSURE | HTTP 200 with zero bytes inside Saturday UTC |
-| EMPTY_UNEXPLAINED | HTTP 200 with zero bytes outside Saturday UTC |
+| EXPECTED_CLOSURE | HTTP 200 with zero bytes for an hour wholly inside a scheduled closure |
+| EMPTY_UNEXPLAINED | HTTP 200 with zero bytes for any other hour |
 | MISSING | HTTP 404 |
 | THROTTLED | HTTP 429 or 503 after bounded retries |
 | PROVIDER_ERROR | other HTTP error or transport failure after retries |
@@ -181,9 +181,18 @@ re-hashes raw and canonical files.
 | PARTIAL | body shorter than the declared length after retries |
 | NOT_ACQUIRED | no journal record |
 
-An empty response is never a closure by itself; the conservative Saturday-only
-calendar flags Friday-evening and Sunday hours as EMPTY_UNEXPLAINED, which
-makes the affected bars INCOMPLETE.
+An empty response is never a closure by itself. Calendar `ny-1700-close/1`
+schedules a closure from Friday 17:00 to Sunday 17:00 New York time for every
+instrument and, for XAUUSD only, a daily break from 17:00 to 18:00 New York
+time Monday to Thursday. New York time follows the United States rule in force
+since 2007 (second Sunday of March 07:00 UTC to first Sunday of November
+06:00 UTC); outside 2007–2099 the calendar refuses to classify. Holidays are
+not modelled, so an empty holiday hour stays EMPTY_UNEXPLAINED and its bars
+INCOMPLETE.
+
+The journal keeps what was observed (an empty HTTP 200). `build` derives the
+classification from the calendar at build time, so a journal written under the
+former `saturday-only/1` calendar is reinterpreted, never rewritten.
 
 ## 12. OOS ledger
 
@@ -209,8 +218,8 @@ dataset. The Quality, CodeQL, and Documentation workflows are unchanged.
 
 | Gate | Result |
 | --- | --- |
-| Research tests | 140 passed (96 test functions) |
-| Research coverage | 100.00 % of 1,985 statement lines (local standard-library line tracer); CI enforces ≥ 95 % with pytest-cov |
+| Research tests | 164 passed (101 test functions) |
+| Research coverage | 100.00 % of 2,071 statement lines (local standard-library line tracer); CI enforces ≥ 95 % with pytest-cov |
 | Research static checks | Black, Ruff, strict MyPy: pass (23 files) |
 | Canonical collection | 3127 before and after; 0 predecessor nodes removed |
 | Canonical regression | 3126 passed, 1 deselected; stress test passed separately |
@@ -258,8 +267,8 @@ Acceptance mapping (prefixes: K `test_d00_dukascopy.py`, C
 | 27 | Download budget | A `test_download_budget_is_never_exceeded`, `test_exhausted_budget_aborts_before_request`, `test_urllib_transport_contract_without_network` |
 | 28 | Request-rate enforcement | A `test_minimum_interval_between_requests`, `test_request_ceiling_and_rate_are_enforced` |
 | 29 | Bounded retries | A `test_bounded_retries_then_final_status`, `test_limits_validation_and_backoff_cap` |
-| 30 | Empty HTTP response classification | A `test_empty_http_200_is_not_automatically_a_closure`; K `test_empty_hour_is_closure_only_on_saturday` |
-| 31 | Resume safety | A `test_resume_skips_verified_files_and_refuses_unverified` |
+| 30 | Empty HTTP response classification | A `test_empty_http_200_is_not_automatically_a_closure`; K `test_empty_hour_calendar_is_instrument_and_dst_aware`, `test_new_york_offset_follows_the_us_rule`; P `test_build_reclassifies_empty_hours_with_the_current_calendar` |
+| 31 | Resume safety | A `test_resume_skips_verified_files_and_refuses_unverified`, `test_incomplete_read_is_a_transport_failure_not_a_crash`, `test_journal_records_the_last_error_detail`, `test_legacy_journal_lines_without_detail_are_read`; P `test_complete_rebuild_after_a_diagnostic_partial_build`, `test_cli_reports_pending_items_and_honours_options` |
 | 32 | Atomic writes | A `test_atomic_write_never_overwrites_and_leaves_no_partial` |
 | 33 | Consultation ledger | R `test_consultation_ledger_append_and_read`, `test_consultation_validation` |
 | 34 | OOS status preservation | R `test_oos_status_is_preserved_and_never_inferred` |
@@ -281,6 +290,7 @@ cd C:\Users\Ansible\Documents\GitHub\EPIP
 python -m research.datasets plan --window A01-SAMPLE-2012-03
 python -m research.datasets acquire --window A01-SAMPLE-2012-03 --dry-run
 python -m research.datasets acquire --window A01-SAMPLE-2012-03 --confirm-provider-terms
+# repeat the same acquire command until it prints ACQUISITION COMPLETE
 python -m research.datasets build --window A01-SAMPLE-2012-03
 python -m research.datasets registry list
 python -m research.datasets registry verify <first 8+ hex of a dataset_id>
@@ -290,14 +300,28 @@ The only authorized window is `A01-SAMPLE-2012-03`: EURUSD and XAUUSD ticks
 from 2012-03-12 00:00 UTC to 2012-03-17 00:00 UTC (end excluded) and H1 BID and
 ASK candles of March 2012. Limits: 244 planned requests, at most 400 requests
 including retries, at most 20,000,000 downloaded bytes, one request per second
-minimum spacing, 30-second timeout, four retries with 2–60 second backoff,
-abort after five consecutive failed files. The command exits with code 2 if
-any limit aborts the run. Re-running resumes and skips verified files; an
-unverified existing file stops the run unless `--allow-overwrite` is given.
+minimum spacing, a per-request timeout of 30 seconds by default
+(`--timeout-seconds`, 1 to 120), four retries with 2–60 second backoff, abort
+after five consecutive failed files. The request ceiling applies to each run;
+the byte ceiling of A01 section 7 is never exceeded by the whole sample. Each
+failed item records the last error (`HTTP 503`, or the transport exception) in
+the journal field `detail`.
+
+At the end of every run the command lists the planned items not yet stored and
+prints either `ACQUISITION COMPLETE` (exit code 0) or `ACQUISITION INCOMPLETE`
+(exit code 2). Re-running resumes, skips verified files, and retries only the
+pending items; an unverified existing file stops the run unless
+`--allow-overwrite` is given.
+
+`build` refuses to run while any planned item is pending. `--allow-incomplete`
+produces a diagnostic build whose coverage states every gap; it never closes
+D00. Canonical files and cross-check reports carry the first 16 hex digits of
+their content digest in their name, so a complete build never collides with an
+earlier diagnostic build.
 
 Validation required for D00 closure:
 
-1. acquisition completed without abort, within the byte budget;
+1. acquisition reported `ACQUISITION COMPLETE`, within the byte budget;
 2. `build` succeeded and `registry verify` passes for every dataset;
 3. a second `build` from the same raw files, in a fresh data root, reproduces
    every `dataset_id`;
@@ -317,9 +341,9 @@ Validation required for D00 closure:
 
 ## 17. Known limitations
 
-- No real data acquired yet; D00 closure depends on section 15.
-- The Saturday-only empty-hour calendar is conservative and will mark some
-  Friday-evening and Sunday bars INCOMPLETE.
+- D00 closure depends on section 15; section 18 records the acquisition so far.
+- The empty-hour calendar does not model holidays or exceptional closures;
+  such hours stay EMPTY_UNEXPLAINED.
 - Exact duplicate consecutive ticks reject a whole hour file; if real data
   contains them, a governed policy change is required.
 - The provider endpoint is undocumented; its terms must be confirmed by the
@@ -330,3 +354,39 @@ Validation required for D00 closure:
   supported only through an explicit offset table.
 - The Research CI isolation guard fails any research push that also modifies
   `epip/`; such a change requires separate governance and a separate push.
+
+## 18. Owner-run acquisition record and validation-phase corrections
+
+The owner confirmed the provider terms and ran the acquisition of
+`A01-SAMPLE-2012-03` on 2026-11-23 and 2026-11-24 (Windows, Python 3.13).
+Observed behaviour of the endpoint and of the D00 tooling:
+
+- The endpoint throttled heavily (HTTP 503) and dropped connections; most
+  items needed several runs. After five runs, 239 of 244 items were stored
+  (232 populated, 7 empty) and 5 XAUUSD hours of the London–New York overlap
+  had failed every attempt (13 March 13h, 15 March 10h and 12h, 16 March 10h
+  and 12h UTC).
+- The seven empty hours are all scheduled closures: EURUSD Friday 16 March
+  21h–23h UTC, XAUUSD Friday 21h–23h UTC, and XAUUSD Wednesday 14 March 21h UTC
+  (the daily metals break). The former `saturday-only/1` calendar classified
+  them EMPTY_UNEXPLAINED.
+- The first run stopped without a summary: `http.client.IncompleteRead`, raised
+  when a connection drops mid-body, is not an `OSError` and escaped the
+  transport. A later run stopped at the 400-request ceiling of that run.
+- A `build` executed after the first, incomplete run registered six diagnostic
+  datasets whose coverage states the gaps (EURUSD 10 of 120 hours, XAUUSD 0 of
+  120). They are local, never committed, and never consumed.
+
+Corrections made before closure, inside the D00 file scope:
+
+1. every `http.client.HTTPException` is a retryable transport failure;
+2. the journal records the last error of each failed item (`detail`);
+3. `--timeout-seconds` (1 to 120) for slow provider responses;
+4. an explicit completeness summary at the end of `acquire`;
+5. `build` refuses pending items unless `--allow-incomplete` is given;
+6. content-addressed canonical file and report names;
+7. the instrument-aware, DST-aware calendar `ny-1700-close/1`, recorded in
+   every tick and bar manifest.
+
+None of these changes alters decoding, canonical serialization, aggregation,
+cross-check policy, manifest schema, or any production contract.

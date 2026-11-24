@@ -16,14 +16,20 @@ from pathlib import Path
 import pytest
 
 from research.datasets import cli
-from research.datasets.acquisition import FetchStatus, authorized_window, run_acquisition
+from research.datasets.acquisition import (
+    FetchStatus,
+    HttpResponse,
+    TransportFailure,
+    authorized_window,
+    run_acquisition,
+)
 from research.datasets.build import build_instrument
 from research.datasets.canonical import csv_to_bars, gunzip
 from research.datasets.contracts import MS_PER_HOUR, BarCoverage, DatasetIntegrityError
 from research.datasets.dukascopy import instrument
 from research.datasets.registry import DatasetRegistry
 from research.tests.conftest import NetworkForbiddenError
-from research.tests.fixtures import FakeClock, FakeTransport, hour_ms, ok
+from research.tests.fixtures import FakeClock, FakeTransport, hour_ms, ok, status
 from research.tests.test_d00_acquisition import sample_responder
 
 WINDOW = authorized_window("A01-SAMPLE-2012-03")
@@ -35,6 +41,12 @@ def acquire(root: Path, responder: object = sample_responder) -> None:
     clock = FakeClock()
     report = run_acquisition(WINDOW, root, FakeTransport(responder, clock=clock), clock)  # type: ignore[arg-type]
     assert report.aborted is None
+
+
+def crosscheck_report(root: Path, symbol: str) -> dict[str, object]:
+    (path,) = root.glob(f"reports/{symbol}_A01-SAMPLE-2012-03_crosscheck_H1_*.json")
+    loaded: dict[str, object] = json.loads(path.read_text())
+    return loaded
 
 
 def test_end_to_end_build_registers_consistent_datasets(tmp_path: Path) -> None:
@@ -57,12 +69,10 @@ def test_end_to_end_build_registers_consistent_datasets(tmp_path: Path) -> None:
             )
             assert all(b.coverage is BarCoverage.COMPLETE for b in parsed)
         assert result.candle_dataset_id is not None
-        report = json.loads(
-            (
-                tmp_path / f"reports/{result.instrument}_A01-SAMPLE-2012-03_crosscheck_H1.json"
-            ).read_text()
-        )
+        report = crosscheck_report(tmp_path, result.instrument)
         assert report["status"] == "CONSISTENT" and report["compared"] == 240
+        assert [d.code for d in tick.diagnostics] == ["SESSION_CALENDAR"]
+        assert tick.diagnostics[0].message == "ny-1700-close/1"
 
 
 def test_rebuild_is_reproducible_bit_for_bit(tmp_path: Path) -> None:
@@ -97,7 +107,7 @@ def test_incomplete_hours_are_flagged_and_crosscheck_reports(tmp_path: Path) -> 
     assert result.crosscheck_status == "DEVIATIONS_REPORTED"
     registry = DatasetRegistry(tmp_path)
     h4 = registry.verify(result.bar_dataset_ids[1])
-    assert [d.code for d in h4.diagnostics] == ["INCOMPLETE_BARS"]
+    assert [d.code for d in h4.diagnostics] == ["SESSION_CALENDAR", "INCOMPLETE_BARS"]
     tick = registry.verify(result.tick_dataset_id)
     assert dict(tick.hour_classification)[gap].value == "EMPTY_UNEXPLAINED"
     assert tick.coverage.hours_unexplained_or_failed == 1
@@ -126,7 +136,9 @@ def test_build_not_acquired_and_failed_candles(tmp_path: Path) -> None:
     result = build_instrument(WINDOW, "EURUSD", tmp_path, PROVENANCE)
     assert result.candle_dataset_id is None
     empty_root = tmp_path / "empty"
-    empty = build_instrument(WINDOW, "XAUUSD", empty_root, PROVENANCE)
+    with pytest.raises(DatasetIntegrityError, match="acquisition incomplete for XAUUSD: 122"):
+        build_instrument(WINDOW, "XAUUSD", empty_root, PROVENANCE)
+    empty = build_instrument(WINDOW, "XAUUSD", empty_root, PROVENANCE, allow_incomplete=True)
     assert [d.code for d in empty.diagnostics][:1] == ["HOUR_NOT_ACQUIRED"]
     tick = DatasetRegistry(empty_root).verify(empty.tick_dataset_id)
     assert tick.content.row_count == 0 and tick.coverage.hours_populated == 0
@@ -307,19 +319,17 @@ def test_system_clock_contract() -> None:
 
 
 def test_missing_hour_is_reported_on_both_sides(tmp_path: Path) -> None:
-    from research.tests.fixtures import status
-
     def responder(url: str, budget: int) -> object:
         if url.endswith("/XAUUSD/2012/02/14/09h_ticks.bi5"):
             return status(404)
         return sample_responder(url, budget)
 
     acquire(tmp_path, responder)
-    result = build_instrument(WINDOW, "XAUUSD", tmp_path, PROVENANCE)
+    with pytest.raises(DatasetIntegrityError, match="1 planned items not stored"):
+        build_instrument(WINDOW, "XAUUSD", tmp_path, PROVENANCE)
+    result = build_instrument(WINDOW, "XAUUSD", tmp_path, PROVENANCE, allow_incomplete=True)
     assert [d.code for d in result.diagnostics] == ["HOUR_MISSING"]
-    report = json.loads(
-        (tmp_path / "reports/XAUUSD_A01-SAMPLE-2012-03_crosscheck_H1.json").read_text()
-    )
+    report = crosscheck_report(tmp_path, "XAUUSD")
     assert report["status"] == "DEVIATIONS_REPORTED"
     gap = hour_ms(2012, 3, 14, 9)
     assert report["missing_in_derived"] == [[gap, "ASK"], [gap, "BID"]]
@@ -350,3 +360,88 @@ def test_crosscheck_report_serializes_field_deviations() -> None:
     document = json.loads(report_json(report))
     assert document["deviations"] == [[0, "ASK", "low", 5, 6]]
     assert document["status"] == "DEVIATIONS_REPORTED"
+
+
+def test_build_reclassifies_empty_hours_with_the_current_calendar(tmp_path: Path) -> None:
+    friday_close = hour_ms(2012, 3, 16, 21)
+
+    def responder(url: str, budget: int) -> object:
+        if url.endswith("/EURUSD/2012/02/16/21h_ticks.bi5"):
+            return ok(b"")
+        return sample_responder(url, budget)
+
+    acquire(tmp_path, responder)
+    journal = tmp_path / "acquisition/journal.jsonl"
+    legacy = [line for line in journal.read_text().splitlines() if "/16/21h_ticks" in line]
+    assert '"status":"EXPECTED_CLOSURE"' in legacy[0]
+    # A journal written under the former Saturday-only calendar said EMPTY_UNEXPLAINED.
+    with journal.open("a") as handle:
+        handle.write(legacy[0].replace("EXPECTED_CLOSURE", "EMPTY_UNEXPLAINED") + "\n")
+    result = build_instrument(WINDOW, "EURUSD", tmp_path, PROVENANCE)
+    tick = DatasetRegistry(tmp_path).verify(result.tick_dataset_id)
+    assert dict(tick.hour_classification)[friday_close].value == "EXPECTED_CLOSURE"
+    (source,) = [s for s in tick.sources if s.relative_path.endswith("/16/21h_ticks.bi5")]
+    assert source.hour_status.value == "EXPECTED_CLOSURE"
+    assert tick.coverage.hours_expected_closure == 1 and result.diagnostics == ()
+
+
+def test_complete_rebuild_after_a_diagnostic_partial_build(tmp_path: Path) -> None:
+    window = replace(WINDOW, instruments=("EURUSD",), candle_months=())
+    clock = FakeClock()
+
+    def flaky(url: str, budget: int) -> HttpResponse:
+        if url.endswith("/EURUSD/2012/02/12/05h_ticks.bi5"):
+            raise TransportFailure("TimeoutError: timed out")
+        return sample_responder(url, budget)
+
+    run_acquisition(window, tmp_path, FakeTransport(flaky, clock=clock), clock)
+    with pytest.raises(DatasetIntegrityError, match="acquisition incomplete for EURUSD: 1"):
+        build_instrument(window, "EURUSD", tmp_path, PROVENANCE)
+    partial = build_instrument(window, "EURUSD", tmp_path, PROVENANCE, allow_incomplete=True)
+    run_acquisition(window, tmp_path, FakeTransport(sample_responder, clock=clock), clock)
+    complete = build_instrument(window, "EURUSD", tmp_path, PROVENANCE)
+    assert complete.tick_dataset_id != partial.tick_dataset_id
+    registry = DatasetRegistry(tmp_path)
+    assert registry.verify(partial.tick_dataset_id).coverage.hours_populated == 119
+    assert registry.verify(complete.tick_dataset_id).coverage.hours_populated == 120
+    assert len(list((tmp_path / "canonical/ticks").glob("EURUSD_*_ticks_*.csv.gz"))) == 2
+
+
+def test_cli_reports_pending_items_and_honours_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "SystemClock", FakeClock)
+    root = str(tmp_path)
+    timeouts: list[float] = []
+
+    class _Recording(FakeTransport):
+        def get(self, url: str, timeout_s: float, max_bytes: int) -> HttpResponse:
+            timeouts.append(timeout_s)
+            if url.endswith("/XAUUSD/2012/02/16/12h_ticks.bi5"):
+                return status(404)
+            return super().get(url, timeout_s, max_bytes)
+
+    base = ["--window", "A01-SAMPLE-2012-03", "--data-root", root]
+    acquire_args = ["acquire", *base, "--confirm-provider-terms", "--timeout-seconds", "90"]
+    assert cli.main(acquire_args, lambda: _Recording(sample_responder)) == 2
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["complete"] is False and payload["aborted"] is None
+    assert payload["pending"] == ["raw/dukascopy/XAUUSD/ticks/2012/03/16/12h_ticks.bi5"]
+    assert "ACQUISITION INCOMPLETE: 1 of 244 items pending" in captured.err
+    assert set(timeouts) == {90.0}
+    assert cli.main(["build", *base]) == 1
+    assert "acquisition incomplete for XAUUSD" in capsys.readouterr().err
+    assert cli.main(["build", *base, "--allow-incomplete"]) == 0
+    built = json.loads(capsys.readouterr().out)
+    assert built[1]["warnings"] == [
+        ["HOUR_MISSING", "raw/dukascopy/XAUUSD/ticks/2012/03/16/12h_ticks.bi5"]
+    ]
+    assert cli.main(acquire_args, lambda: FakeTransport(sample_responder)) == 0
+    finished = capsys.readouterr()
+    assert json.loads(finished.out)["complete"] is True
+    assert "ACQUISITION COMPLETE: all 244 items stored. Next: build." in finished.err
+    assert cli.main(["build", *base]) == 0
+    bad = ["acquire", *base, "--confirm-provider-terms", "--timeout-seconds", "500"]
+    assert cli.main(bad, lambda: FakeTransport(sample_responder)) == 1
+    assert "timeout_s must be between 1 and 120 seconds" in capsys.readouterr().err

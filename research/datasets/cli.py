@@ -19,7 +19,7 @@ import argparse
 import json
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,6 +29,8 @@ from research.datasets.acquisition import (
     UrllibTransport,
     authorized_window,
     build_plan,
+    limits_for,
+    pending_items,
     run_acquisition,
 )
 from research.datasets.build import build_instrument
@@ -44,6 +46,7 @@ from research.datasets.contracts import (
     PriceSide,
     Provider,
     RawArtifact,
+    Severity,
     SourceFormat,
 )
 from research.datasets.ledger import instrument_status
@@ -90,13 +93,16 @@ def _acquire(args: argparse.Namespace, transport_factory: Callable[[], Transport
         raise DatasetIntegrityError(
             "real acquisition requires --confirm-provider-terms (A01 section 7)"
         )
+    data_root = Path(args.data_root)
     report = run_acquisition(
         window,
-        Path(args.data_root),
+        data_root,
         transport_factory(),
         SystemClock(),
+        limits=replace(limits_for(window), timeout_s=args.timeout_seconds),
         allow_overwrite=args.allow_overwrite,
     )
+    pending = pending_items(window, data_root)
     _print(
         {
             "window": report.window_id,
@@ -105,16 +111,35 @@ def _acquire(args: argparse.Namespace, transport_factory: Callable[[], Transport
             "bytes_used": report.bytes_used,
             "aborted": report.aborted,
             "outcomes": [[path, status.value] for path, status in report.outcomes],
+            "complete": not pending,
+            "pending": list(pending),
         }
     )
-    return 0 if report.aborted is None else 2
+    if pending:
+        print(
+            f"ACQUISITION INCOMPLETE: {len(pending)} of {report.planned} items pending. "
+            "Relaunch the same acquire command; do not run build yet.",
+            file=sys.stderr,
+        )
+        return 2
+    print(
+        f"ACQUISITION COMPLETE: all {report.planned} items stored. Next: build.",
+        file=sys.stderr,
+    )
+    return 0
 
 
 def _build(args: argparse.Namespace) -> int:
     window = authorized_window(args.window)
     provenance = {"builder": "research.datasets.build", "window": window.window_id}
     results = [
-        build_instrument(window, symbol, Path(args.data_root), provenance)
+        build_instrument(
+            window,
+            symbol,
+            Path(args.data_root),
+            provenance,
+            allow_incomplete=args.allow_incomplete,
+        )
         for symbol in window.instruments
     ]
     _print(
@@ -125,7 +150,9 @@ def _build(args: argparse.Namespace) -> int:
                 "bar_dataset_ids": list(r.bar_dataset_ids),
                 "candle_dataset_id": r.candle_dataset_id,
                 "crosscheck_status": r.crosscheck_status,
-                "warnings": [[d.code, d.location] for d in r.diagnostics],
+                "warnings": [
+                    [d.code, d.location] for d in r.diagnostics if d.severity is Severity.WARNING
+                ],
             }
             for r in results
         ]
@@ -256,9 +283,20 @@ def parser() -> argparse.ArgumentParser:
     a.add_argument("--dry-run", action="store_true")
     a.add_argument("--confirm-provider-terms", action="store_true")
     a.add_argument("--allow-overwrite", action="store_true")
+    a.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=30.0,
+        help="per-request timeout, 1 to 120 seconds (default 30)",
+    )
     b = sub.add_parser("build")
     b.add_argument("--window", required=True)
     b.add_argument("--data-root", default="data")
+    b.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="diagnostic build despite pending acquisition items (coverage stays explicit)",
+    )
     r = sub.add_parser("registry")
     r.add_argument("action", choices=("list", "inspect", "verify"))
     r.add_argument("reference", nargs="?")

@@ -3,11 +3,12 @@ resume safety, atomic writes. All transports are fakes; no network is used."""
 
 from __future__ import annotations
 
+import http.client
 import io
 import urllib.error
 from dataclasses import replace
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 import pytest
 
@@ -23,6 +24,7 @@ from research.datasets.acquisition import (
     UrllibTransport,
     authorized_window,
     build_plan,
+    pending_items,
     read_journal,
     run_acquisition,
 )
@@ -173,23 +175,25 @@ def test_not_found_is_missing_without_retry(tmp_path: Path) -> None:
 
 
 def test_empty_http_200_is_not_automatically_a_closure(tmp_path: Path) -> None:
-    saturday = replace(
+    friday_close = replace(
         WINDOW,
         instruments=("EURUSD",),
-        tick_start_ms=hour_ms(2012, 3, 16, 23),
-        tick_end_ms=hour_ms(2012, 3, 17, 1),
+        tick_start_ms=hour_ms(2012, 3, 16, 20),
+        tick_end_ms=hour_ms(2012, 3, 16, 22),
         candle_months=((2012, 3),),
     )
     clock = FakeClock()
     transport = FakeTransport(lambda u, m: ok(b""), clock=clock)
-    report = run_acquisition(saturday, tmp_path, transport, clock)
+    report = run_acquisition(friday_close, tmp_path, transport, clock)
+    # 20h UTC is 16:00 New York (open): an empty answer stays unexplained.
+    # 21h UTC is 17:00 New York on Friday (EDT): a scheduled closure.
     assert [s for _, s in report.outcomes] == [
         FetchStatus.EMPTY_UNEXPLAINED,
         FetchStatus.EXPECTED_CLOSURE,
         FetchStatus.EMPTY_UNEXPLAINED,
         FetchStatus.EMPTY_UNEXPLAINED,
     ]
-    assert (tmp_path / "raw/dukascopy/EURUSD/ticks/2012/03/17/00h_ticks.bi5").read_bytes() == b""
+    assert (tmp_path / "raw/dukascopy/EURUSD/ticks/2012/03/16/21h_ticks.bi5").read_bytes() == b""
 
 
 def test_resume_skips_verified_files_and_refuses_unverified(tmp_path: Path) -> None:
@@ -259,18 +263,22 @@ def test_corrupted_journal_is_rejected(tmp_path: Path) -> None:
 
 
 def test_limits_validation_and_backoff_cap() -> None:
+    assert AcquisitionLimits(max_bytes=1, max_requests=1, timeout_s=120).timeout_s == 120
     limits = AcquisitionLimits(max_bytes=1, max_requests=1)
     assert [limits.backoff(n) for n in range(7)] == [2.0, 4.0, 8.0, 16.0, 32.0, 60.0, 60.0]
     for bad in (
         {"max_bytes": 0},
         {"max_requests": 0},
         {"timeout_s": 0},
+        {"timeout_s": 0.5},
+        {"timeout_s": 121},
         {"max_retries": 9},
         {"backoff_base_s": 0},
         {"max_consecutive_failures": 0},
     ):
+        kwargs: dict[str, Any] = {"max_bytes": 1, "max_requests": 1, **bad}
         with pytest.raises(DatasetIntegrityError):
-            AcquisitionLimits(**{"max_bytes": 1, "max_requests": 1, **bad})
+            AcquisitionLimits(**kwargs)
 
 
 class _FakeHandle:
@@ -333,3 +341,66 @@ def test_urllib_transport_error_mapping() -> None:
         UrllibTransport(lambda r, timeout: _Broken(b"", "1")).get(
             "https://example.invalid/u", 1.0, 10
         )
+
+
+def test_incomplete_read_is_a_transport_failure_not_a_crash() -> None:
+    """http.client.IncompleteRead is not an OSError; it must not abort the run."""
+
+    class _Truncated(_FakeHandle):
+        def read(self, size: int) -> bytes:
+            raise http.client.IncompleteRead(b"ab", 4)
+
+    with pytest.raises(TransportFailure, match="IncompleteRead"):
+        UrllibTransport(lambda r, timeout: _Truncated(b"", "6")).get(
+            "https://example.invalid/u", 1.0, 10
+        )
+
+    def disconnected(request: object, timeout: float) -> object:
+        raise http.client.RemoteDisconnected("closed")
+
+    with pytest.raises(TransportFailure, match="RemoteDisconnected: closed"):
+        UrllibTransport(disconnected).get("https://example.invalid/u", 1.0, 1)
+
+    def bad_status(request: object, timeout: float) -> object:
+        raise http.client.BadStatusLine("\xe9")
+
+    with pytest.raises(TransportFailure) as caught:
+        UrllibTransport(bad_status).get("https://example.invalid/u", 1.0, 1)
+    assert str(caught.value).isascii()
+
+
+def test_journal_records_the_last_error_detail(tmp_path: Path) -> None:
+    window = small_window(3)
+
+    class _Flaky(FakeTransport):
+        def get(self, url: str, timeout_s: float, max_bytes: int) -> HttpResponse:
+            if url.endswith("/00h_ticks.bi5"):
+                raise TransportFailure("TimeoutError: timed out")
+            return super().get(url, timeout_s, max_bytes)
+
+    clock = FakeClock()
+
+    def responder(url: str, budget: int) -> HttpResponse:
+        return status(503) if url.endswith("/01h_ticks.bi5") else sample_responder(url, budget)
+
+    run_acquisition(window, tmp_path, _Flaky(responder, clock=clock), clock)
+    journal = read_journal(tmp_path)
+    paths = [p.relative_path for p in build_plan(window)]
+    assert [journal[p].status for p in paths] == [
+        FetchStatus.TRANSPORT_FAILURE,
+        FetchStatus.THROTTLED,
+        FetchStatus.POPULATED,
+    ]
+    assert [journal[p].detail for p in paths] == ["TimeoutError: timed out", "HTTP 503", ""]
+    lines = (tmp_path / "acquisition/journal.jsonl").read_text().splitlines()
+    assert '"detail"' not in lines[-1] and '"detail":"HTTP 503"' in lines[1]
+    assert pending_items(window, tmp_path) == tuple(paths[:2])
+
+
+def test_legacy_journal_lines_without_detail_are_read(tmp_path: Path) -> None:
+    clock = FakeClock()
+    run_acquisition(small_window(1), tmp_path, FakeTransport(sample_responder, clock=clock), clock)
+    record = next(iter(read_journal(tmp_path).values()))
+    assert record.detail == "" and record.status is FetchStatus.POPULATED
+    assert pending_items(small_window(1), tmp_path) == ()
+    assert len(pending_items(small_window(2), tmp_path)) == 1

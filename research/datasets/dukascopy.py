@@ -168,15 +168,50 @@ def candle_relative_path(spec: InstrumentSpec, year: int, month: int, side: Pric
     return f"raw/dukascopy/{spec.symbol}/candles_h1/{side.value}/{year:04d}-{month:02d}.bi5"
 
 
-SESSION_CALENDAR_VERSION = "saturday-only/1"
+SESSION_CALENDAR_VERSION = "ny-1700-close/1"
+
+# Instruments with a daily 17:00-18:00 New York maintenance break (Mon-Thu).
+_DAILY_BREAK_SYMBOLS = frozenset({"XAUUSD"})
+_NY_STANDARD_OFFSET_MS = -5 * MS_PER_HOUR
+_NY_DAYLIGHT_OFFSET_MS = -4 * MS_PER_HOUR
 
 
-def classify_empty_hour(hour_start: int) -> HourStatus:
-    """Classify an HTTP 200 zero-byte hour.
+def _nth_sunday_utc_ms(year: int, month: int, nth: int, hour_utc: int) -> int:
+    first = datetime(year, month, 1, tzinfo=UTC)
+    day = 1 + (6 - first.weekday()) % 7 + 7 * (nth - 1)
+    return int(datetime(year, month, day, hour_utc, tzinfo=UTC).timestamp() * 1000)
 
-    Calendar ``saturday-only/1``: only hours inside Saturday UTC are treated as
-    an expected closure. Every other empty hour is EMPTY_UNEXPLAINED; an empty
-    response never proves a closure by itself.
+
+def new_york_offset_ms(instant_ms: int) -> int:
+    """US Eastern offset under the 2007+ rule (second Sunday of March 02:00 EST
+    to first Sunday of November 02:00 EDT). Outside 2007-2099 it is undefined."""
+    year = datetime.fromtimestamp(instant_ms / 1000, tz=UTC).year
+    require(2007 <= year <= 2099, f"calendar {SESSION_CALENDAR_VERSION} undefined for {year}")
+    dst_start = _nth_sunday_utc_ms(year, 3, 2, 7)
+    dst_end = _nth_sunday_utc_ms(year, 11, 1, 6)
+    return _NY_DAYLIGHT_OFFSET_MS if dst_start <= instant_ms < dst_end else _NY_STANDARD_OFFSET_MS
+
+
+def _closed_at(symbol: str, instant_ms: int) -> bool:
+    local = datetime.fromtimestamp((instant_ms + new_york_offset_ms(instant_ms)) / 1000, tz=UTC)
+    weekday, hour = local.weekday(), local.hour
+    if weekday == 5 or (weekday == 4 and hour >= 17) or (weekday == 6 and hour < 17):
+        return True
+    return symbol in _DAILY_BREAK_SYMBOLS and weekday <= 3 and hour == 17
+
+
+def classify_empty_hour(spec: InstrumentSpec, hour_start: int) -> HourStatus:
+    """Classify an HTTP 200 zero-byte tick hour.
+
+    Calendar ``ny-1700-close/1``: the market is scheduled closed from Friday
+    17:00 to Sunday 17:00 New York time and, for instruments with a daily
+    break (XAUUSD), from 17:00 to 18:00 New York time Monday to Thursday. An
+    empty hour is an EXPECTED_CLOSURE only when the whole UTC hour lies inside
+    a scheduled closure; every other empty hour stays EMPTY_UNEXPLAINED. An
+    empty response never proves a closure by itself, and holidays are not
+    modelled.
     """
-    d = datetime.fromtimestamp(hour_start / 1000, tz=UTC)
-    return HourStatus.EXPECTED_CLOSURE if d.weekday() == 5 else HourStatus.EMPTY_UNEXPLAINED
+    closed = _closed_at(spec.symbol, hour_start) and _closed_at(
+        spec.symbol, hour_start + MS_PER_HOUR - 1
+    )
+    return HourStatus.EXPECTED_CLOSURE if closed else HourStatus.EMPTY_UNEXPLAINED

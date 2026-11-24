@@ -13,7 +13,7 @@ For each instrument of an authorized window:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from research.datasets.acquisition import (
@@ -24,6 +24,7 @@ from research.datasets.acquisition import (
     JournalRecord,
     PlannedFetch,
     build_plan,
+    pending_items,
     read_journal,
 )
 from research.datasets.aggregate import aggregate
@@ -56,7 +57,9 @@ from research.datasets.contracts import (
 )
 from research.datasets.crosscheck import CrossCheckReport, crosscheck_h1
 from research.datasets.dukascopy import (
+    SESSION_CALENDAR_VERSION,
     ProviderCandle,
+    classify_empty_hour,
     decode_candles,
     decode_ticks,
     instrument,
@@ -110,11 +113,20 @@ def _source(
     return RawArtifact(item.relative_path, fmt, len(raw), sha256_hex(raw), status), status, raw
 
 
-def _content(data_root: Path, relative: str, canonical: bytes) -> ContentIdentity:
+def _content(data_root: Path, stem: str, canonical: bytes) -> ContentIdentity:
+    """Write ``{stem}_{sha16}.csv.gz``: the file name carries its canonical digest,
+    so a rebuild over more complete sources never collides with an older file."""
+    relative = f"{stem}_{sha256_hex(canonical)[:16]}.csv.gz"
     compressed = deterministic_gzip(canonical)
     _write_deterministic(resolve_relative(data_root, relative), compressed)
     return ContentIdentity(
         relative, sha256_hex(canonical), sha256_hex(compressed), canonical.count(b"\n") - 1
+    )
+
+
+def _calendar_diagnostic() -> Diagnostic:
+    return Diagnostic(
+        "SESSION_CALENDAR", Severity.INFO, SESSION_CALENDAR_VERSION, "hour_classification"
     )
 
 
@@ -123,9 +135,17 @@ def build_instrument(
     symbol: str,
     data_root: Path,
     provenance: dict[str, str],
+    *,
+    allow_incomplete: bool = False,
 ) -> BuildResult:
     spec: InstrumentSpec = instrument(symbol)
     require(symbol in window.instruments, f"{symbol} not in window {window.window_id}")
+    pending = [p for p in pending_items(window, data_root) if f"/{symbol}/" in p]
+    require(
+        allow_incomplete or not pending,
+        f"acquisition incomplete for {symbol}: {len(pending)} planned items not stored "
+        "(relaunch acquire, or pass --allow-incomplete for a diagnostic build)",
+    )
     plan = [p for p in build_plan(window) if p.instrument == symbol]
     journal = read_journal(data_root)
     diagnostics: list[Diagnostic] = []
@@ -138,6 +158,11 @@ def build_instrument(
         artifact, status, raw = _source(
             data_root, item, record.status if record else None, SourceFormat.DUKASCOPY_TICKS_BI5
         )
+        if status in (HourStatus.EXPECTED_CLOSURE, HourStatus.EMPTY_UNEXPLAINED):
+            # The empty response is the observation; its meaning comes from the calendar.
+            status = classify_empty_hour(spec, item.hour_start_ms)
+            if artifact is not None:
+                artifact = replace(artifact, hour_status=status)
         if artifact is not None:
             require(
                 record is not None and artifact.raw_sha256 == record.raw_sha256,
@@ -168,9 +193,7 @@ def build_instrument(
         len(statuses) - populated - closure,
     )
     tag = f"{symbol}_{window.window_id}"
-    tick_content = _content(
-        data_root, f"canonical/ticks/{tag}_ticks.csv.gz", ticks_to_csv(ticks, spec)
-    )
+    tick_content = _content(data_root, f"canonical/ticks/{tag}_ticks", ticks_to_csv(ticks, spec))
     common = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "provider": Provider.DUKASCOPY,
@@ -189,7 +212,7 @@ def build_instrument(
         sources=tuple(sources),
         content=tick_content,
         lineage=(),
-        diagnostics=tuple(diagnostics),
+        diagnostics=(_calendar_diagnostic(), *diagnostics),
         **common,  # type: ignore[arg-type]
     )
     registry = DatasetRegistry(data_root)
@@ -204,7 +227,7 @@ def build_instrument(
             derived_h1 = bars
         incomplete = sum(1 for b in bars if b.coverage is BarCoverage.INCOMPLETE)
         content = _content(
-            data_root, f"canonical/bars/{tag}_{granularity.value}.csv.gz", bars_to_csv(bars, spec)
+            data_root, f"canonical/bars/{tag}_{granularity.value}", bars_to_csv(bars, spec)
         )
         bar_manifest = DatasetManifest(
             dataset_kind="BARS",
@@ -216,16 +239,19 @@ def build_instrument(
             content=content,
             lineage=(tick_manifest.dataset_id,),
             diagnostics=(
-                (
-                    Diagnostic(
-                        "INCOMPLETE_BARS",
-                        Severity.WARNING,
-                        f"{incomplete} bars flagged INCOMPLETE",
-                        granularity.value,
-                    ),
-                )
-                if incomplete
-                else ()
+                _calendar_diagnostic(),
+                *(
+                    (
+                        Diagnostic(
+                            "INCOMPLETE_BARS",
+                            Severity.WARNING,
+                            f"{incomplete} bars flagged INCOMPLETE",
+                            granularity.value,
+                        ),
+                    )
+                    if incomplete
+                    else ()
+                ),
             ),
             **common,  # type: ignore[arg-type]
         )
@@ -299,7 +325,7 @@ def _candles(
         ),
         spec,
     )
-    content = _content(data_root, f"canonical/provider_candles/{tag}_H1.csv.gz", canonical)
+    content = _content(data_root, f"canonical/provider_candles/{tag}_H1", canonical)
     manifest = DatasetManifest(
         dataset_kind="PROVIDER_CANDLES",
         granularity=Granularity.H1,
@@ -326,8 +352,12 @@ def _candles(
         provenance=common["provenance"],  # type: ignore[arg-type]
     )
     registry.register(manifest)
+    report_bytes = report_json(report)
     _write_deterministic(
-        resolve_relative(data_root, f"reports/{tag}_crosscheck_H1.json"), report_json(report)
+        resolve_relative(
+            data_root, f"reports/{tag}_crosscheck_H1_{sha256_hex(report_bytes)[:16]}.json"
+        ),
+        report_bytes,
     )
     return manifest.dataset_id, report.status
 

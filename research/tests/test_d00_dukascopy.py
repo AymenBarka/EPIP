@@ -4,15 +4,23 @@ from __future__ import annotations
 
 import pytest
 
-from research.datasets.contracts import DatasetIntegrityError, HourStatus, PriceSide
+from research.datasets.contracts import (
+    MS_PER_HOUR,
+    DatasetIntegrityError,
+    HourStatus,
+    InstrumentSpec,
+    PriceSide,
+)
 from research.datasets.dukascopy import (
     DUKASCOPY_INSTRUMENTS,
+    SESSION_CALENDAR_VERSION,
     candle_relative_path,
     candle_url,
     classify_empty_hour,
     decode_candles,
     decode_ticks,
     instrument,
+    new_york_offset_ms,
     tick_relative_path,
     tick_url,
     volume_micro,
@@ -188,11 +196,56 @@ def test_urls_use_zero_based_months_and_paths_one_based() -> None:
     )
 
 
-def test_empty_hour_is_closure_only_on_saturday() -> None:
-    assert classify_empty_hour(hour_ms(2012, 3, 17, 10)) is HourStatus.EXPECTED_CLOSURE
-    assert classify_empty_hour(hour_ms(2012, 3, 16, 23)) is HourStatus.EMPTY_UNEXPLAINED
-    assert classify_empty_hour(hour_ms(2012, 3, 18, 21)) is HourStatus.EMPTY_UNEXPLAINED
-    assert classify_empty_hour(hour_ms(2012, 3, 12, 10)) is HourStatus.EMPTY_UNEXPLAINED
+EURUSD = DUKASCOPY_INSTRUMENTS["EURUSD"]
+XAUUSD = DUKASCOPY_INSTRUMENTS["XAUUSD"]
+CLOSED = HourStatus.EXPECTED_CLOSURE
+OPEN = HourStatus.EMPTY_UNEXPLAINED
+
+
+@pytest.mark.parametrize(
+    ("spec", "hour", "expected"),
+    [
+        # Summer time (EDT, UTC-4): Friday close 21h UTC, Sunday reopen 21h UTC.
+        (EURUSD, (2012, 3, 16, 20), OPEN),
+        (EURUSD, (2012, 3, 16, 21), CLOSED),
+        (EURUSD, (2012, 3, 17, 10), CLOSED),
+        (EURUSD, (2012, 3, 18, 20), CLOSED),
+        (EURUSD, (2012, 3, 18, 21), OPEN),
+        # Winter time (EST, UTC-5): Friday close 22h UTC, Sunday reopen 22h UTC.
+        (EURUSD, (2012, 3, 2, 21), OPEN),
+        (EURUSD, (2012, 3, 2, 22), CLOSED),
+        (EURUSD, (2012, 3, 4, 21), CLOSED),
+        (EURUSD, (2012, 3, 4, 22), OPEN),
+        # DST starts on Sunday 2012-03-11 at 07:00 UTC: reopen at 21h UTC.
+        (EURUSD, (2012, 3, 11, 20), CLOSED),
+        (EURUSD, (2012, 3, 11, 21), OPEN),
+        # Ordinary weekday hours are never a closure.
+        (EURUSD, (2012, 3, 12, 10), OPEN),
+        (EURUSD, (2012, 3, 14, 21), OPEN),
+        # XAUUSD daily 17:00-18:00 New York break, Monday to Thursday only.
+        (XAUUSD, (2012, 3, 14, 21), CLOSED),
+        (XAUUSD, (2012, 3, 14, 22), OPEN),
+        (XAUUSD, (2012, 3, 7, 22), CLOSED),
+        (XAUUSD, (2012, 3, 7, 21), OPEN),
+        (XAUUSD, (2012, 3, 18, 21), OPEN),
+    ],
+)
+def test_empty_hour_calendar_is_instrument_and_dst_aware(
+    spec: InstrumentSpec, hour: tuple[int, int, int, int], expected: HourStatus
+) -> None:
+    assert classify_empty_hour(spec, hour_ms(*hour)) is expected
+
+
+def test_new_york_offset_follows_the_us_rule() -> None:
+    start = hour_ms(2012, 3, 11, 7)
+    end = hour_ms(2012, 11, 4, 6)
+    assert new_york_offset_ms(start - 1) == -5 * MS_PER_HOUR
+    assert new_york_offset_ms(start) == -4 * MS_PER_HOUR
+    assert new_york_offset_ms(end - 1) == -4 * MS_PER_HOUR
+    assert new_york_offset_ms(end) == -5 * MS_PER_HOUR
+    with pytest.raises(DatasetIntegrityError, match="undefined for 2006"):
+        classify_empty_hour(EURUSD, hour_ms(2006, 7, 1, 0))
+    assert SESSION_CALENDAR_VERSION == "ny-1700-close/1"
 
 
 def test_payload_type_is_checked() -> None:
