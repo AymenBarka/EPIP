@@ -151,8 +151,8 @@ authorization.
 | P04-R01-G00 | CLOSED / FROZEN | Research governance and causal Elliott readiness |
 | P04-R01-G00-A01 | CLOSED / FROZEN | [Tick-level BID/ASK data scope amendment](P04_R01_G00_A01_TICK_DATA_SCOPE_AMENDMENT.md) |
 | P04-R01-D00 | CLOSED / FROZEN | [Tick dataset foundation](P04_R01_D00_DATASET_CLOSURE.md); technical sample acquired, reproduced, and cross-checked |
-| P04-R01-E00 | NOT AUTHORIZED | Experimental causal swing and W1/W2 research |
-| P04-R01-Q00 | NOT AUTHORIZED | Pre-registered quantitative validation |
+| P04-R01-E00 | CLOSED / FROZEN | [Causal Elliott research](P04_R01_E00_CLOSURE.md); prefix-invariant prototype accepted unchanged by frozen F01 for single counts |
+| P04-R01-Q00 | READY FOR AUTHORIZATION REVIEW | Pre-registered quantitative validation; prerequisites in the E00 closure section 14 |
 | P04-R01-C00 | NOT AUTHORIZED | Wave 3 continuation, reconciliation, or suspension decision |
 | P04-F02 | NOT AUTHORIZED / RESEARCH RECONCILIATION REQUIRED | Awaits P04-R01-C00; geometry owns no RR |
 | P04-F03 | NOT AUTHORIZED | Generic adapter/runtime integration |
@@ -191,8 +191,8 @@ and the authorized compliance inventory increases from 610 to 612.
 then recorded that the frozen Elliott and Fibonacci producers cannot satisfy
 F01 anchor continuity on real data. P04-F02 is therefore not authorized until
 the P04-R01 research sequence G00 -> D00 -> E00 -> Q00 -> C00 records a
-decision; D00 is now closed and no later step is authorized. P04-F03/F04 and
-P05 remain unauthorized.
+decision; D00 and E00 are closed, Q00 is ready for authorization review, and
+no later step is authorized. P04-F03/F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |
