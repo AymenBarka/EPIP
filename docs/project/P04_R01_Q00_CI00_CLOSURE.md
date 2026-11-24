@@ -1,12 +1,13 @@
 # P04-R01-Q00-CI00 — Research CI Hardening for the Causal Elliott Package
 
-Status: **IMPLEMENTED / REMOTE CERTIFICATION PENDING**
+Status: **CLOSED / FROZEN**
 
 CI00 implements the Research CI amendment frozen in
 [P04-R01-Q00-G00](P04_R01_Q00_G00_QUANTITATIVE_VALIDATION_PROTOCOL_RECONCILIATION.md)
-section 16. It closes only after Research, Quality, CodeQL, and Documentation
-pass on the implementation SHA and a documentation-only closure commit records
-that evidence (owner-approved two-commit procedure).
+section 16. Research, Quality, CodeQL, and Documentation passed on the
+implementation SHA `d35b8eeddd945acc190f3aef13e32885e515ffa4`. This
+documentation-only closure commit records that evidence (owner-approved
+two-commit procedure).
 
 ## 1. Authority and scope
 
@@ -108,16 +109,40 @@ Repository checks on the identical tree:
 | Compliance inventory / digest | 612 / `92b40f1dfec340c886345710bf4a446b5a2dafa753b7129c12c7d3488c46f3f1` |
 | Markdownlint, MkDocs strict, `git diff --check` | pass |
 
-## 4. Remote certification
+## 4. Remote certification (implementation commit)
 
-Pending. Commit 2 records:
+Implementation SHA: `d35b8eeddd945acc190f3aef13e32885e515ffa4`.
 
-- the implementation SHA;
-- the four workflow run IDs and conclusions;
-- the step-level evidence that Black, Ruff, and MyPy checked
-  `research/elliott_causal`;
-- both per-package coverage percentages reported by Research CI;
-- the test counts and the determinism rerun.
+| Workflow | Run ID | Conclusion |
+| --- | --- | --- |
+| Research | 45465385304 (job `research` 138698817823) | success |
+| Quality | 45465385193 | success |
+| CodeQL | 45465385262 | success |
+| Documentation | 45465385249 | success |
+
+The step list and step conclusions were read from the public GitHub Actions
+API. The step outputs below come from job 138698817823's log, retrieved and
+verified by the owner. The commands are those of `research.yml` at the
+implementation SHA (SHA-256 `2ec24199a2e1da4dc6869edac9dd51db77c64d52c5ec165a82f416b40730f2c9`).
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Black | `python -m black --check research/datasets research/elliott_causal research/tests` | 36 files would be left unchanged |
+| Ruff | `python -m ruff check research/datasets research/elliott_causal research/tests` | All checks passed! |
+| MyPy | `python -m mypy --explicit-package-bases research/datasets research/elliott_causal research/tests` | Success: no issues found in 36 source files |
+| Research tests and coverage | `python -m pytest -p no:cacheprovider research/tests --cov=research/datasets --cov=research/elliott_causal --cov-report=term-missing` | 251 passed in 52.01 s; combined 2,053 statements, 0 missed, 100 % |
+| Gate 1 | `python -m coverage report --include="*/research/datasets/*" --fail-under=95` | 1,428 statements, 0 missed, **100 %** |
+| Gate 2 | `python -m coverage report --include="*/research/elliott_causal/*" --fail-under=95` | 625 statements, 0 missed, **100 %** |
+| Determinism rerun | `python -m pytest -q -p no:cacheprovider research/tests` | 251 passed in 28.59 s |
+| Production isolation | `git diff --quiet` on `epip/` between push endpoints | success |
+
+The remote counts equal the local Windows counts of section 3: 1,428 and 625
+statements, each fully covered.
+
+The closure commit changes only this record and `docs/project/ROADMAP.md`.
+`research.yml`, `research/`, `epip/`, and `tests/` are byte-identical to the
+implementation commit. Research CI is not expected to trigger on the closure
+commit; Quality, CodeQL, and Documentation certify it on its own SHA.
 
 ## 5. Frozen-contract preservation
 
