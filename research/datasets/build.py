@@ -28,6 +28,8 @@ from research.datasets.acquisition import (
     read_journal,
 )
 from research.datasets.aggregate import aggregate
+from research.datasets.batches import DecisionKind, OwnerDecision, decisions_for
+from research.datasets.calendar import classify_empty, holiday_reference, is_scheduled_weekend_hour
 from research.datasets.canonical import (
     bars_to_csv,
     deterministic_gzip,
@@ -59,7 +61,6 @@ from research.datasets.crosscheck import CrossCheckReport, crosscheck_h1
 from research.datasets.dukascopy import (
     SESSION_CALENDAR_VERSION,
     ProviderCandle,
-    classify_empty_hour,
     decode_candles,
     decode_ticks,
     instrument,
@@ -124,10 +125,49 @@ def _content(data_root: Path, stem: str, canonical: bytes) -> ContentIdentity:
     )
 
 
-def _calendar_diagnostic() -> Diagnostic:
-    return Diagnostic(
-        "SESSION_CALENDAR", Severity.INFO, SESSION_CALENDAR_VERSION, "hour_classification"
+def build_provenance(window: AuthorizedWindow) -> dict[str, str]:
+    """The single provenance used by every build path (CLI and batch tools), so a
+    rebuild in the same root never collides on manifest bytes."""
+    return {"builder": "research.datasets.build", "window": window.window_id}
+
+
+def _calendar_diagnostic(version: str = SESSION_CALENDAR_VERSION) -> Diagnostic:
+    return Diagnostic("SESSION_CALENDAR", Severity.INFO, version, "hour_classification")
+
+
+_DECLARABLE_MISSING = frozenset(
+    {
+        HourStatus.MISSING,
+        HourStatus.PROVIDER_ERROR,
+        HourStatus.THROTTLED,
+        HourStatus.CORRUPTED,
+        HourStatus.PARTIAL,
+        HourStatus.NOT_ACQUIRED,
+    }
+)
+
+
+def _decision_map(
+    window: AuthorizedWindow, decisions: tuple[OwnerDecision, ...] | None
+) -> dict[int, OwnerDecision]:
+    chosen = decisions_for(window.window_id) if decisions is None else decisions
+    require(
+        all(d.window_id == window.window_id for d in chosen),
+        "owner decisions belong to another window",
     )
+    require(
+        not any(d.kind is DecisionKind.EXCLUDE_MONTH for d in chosen),
+        f"{window.window_id} is excluded by an owner decision",
+    )
+    by_hour: dict[int, OwnerDecision] = {}
+    for d in chosen:
+        require(d.hour_ms not in by_hour, f"duplicate owner decision for {d.hour_utc}")
+        require(
+            window.tick_start_ms <= d.hour_ms < window.tick_end_ms,
+            f"owner decision {d.hour_utc} lies outside {window.window_id}",
+        )
+        by_hour[d.hour_ms] = d
+    return by_hour
 
 
 def build_instrument(
@@ -137,10 +177,23 @@ def build_instrument(
     provenance: dict[str, str],
     *,
     allow_incomplete: bool = False,
+    decisions: tuple[OwnerDecision, ...] | None = None,
 ) -> BuildResult:
     spec: InstrumentSpec = instrument(symbol)
     require(symbol in window.instruments, f"{symbol} not in window {window.window_id}")
-    pending = [p for p in pending_items(window, data_root) if f"/{symbol}/" in p]
+    decided = _decision_map(window, decisions)
+    declared_missing = {
+        item.relative_path
+        for item in build_plan(window)
+        if item.hour_start_ms is not None
+        and (d := decided.get(item.hour_start_ms)) is not None
+        and d.kind is DecisionKind.DECLARE_MISSING
+    }
+    pending = [
+        p
+        for p in pending_items(window, data_root)
+        if f"/{symbol}/" in p and p not in declared_missing
+    ]
     require(
         allow_incomplete or not pending,
         f"acquisition incomplete for {symbol}: {len(pending)} planned items not stored "
@@ -160,9 +213,43 @@ def build_instrument(
         )
         if status in (HourStatus.EXPECTED_CLOSURE, HourStatus.EMPTY_UNEXPLAINED):
             # The empty response is the observation; its meaning comes from the calendar.
-            status = classify_empty_hour(spec, item.hour_start_ms)
-            if artifact is not None:
-                artifact = replace(artifact, hour_status=status)
+            status = classify_empty(spec, item.hour_start_ms, window.calendar_version)
+            reference = holiday_reference(symbol, item.hour_start_ms, window.calendar_version)
+            if status is HourStatus.EMPTY_UNEXPLAINED and reference is not None:
+                diagnostics.append(
+                    Diagnostic(
+                        "HOLIDAY_REFERENCE",
+                        Severity.INFO,
+                        f"{reference.name}: {reference.source}",
+                        item.relative_path,
+                    )
+                )
+        decision = decided.pop(item.hour_start_ms, None)
+        if decision is not None:
+            if decision.kind is DecisionKind.DECLARE_EXPECTED_CLOSURE:
+                require(
+                    status is HourStatus.EMPTY_UNEXPLAINED,
+                    f"closure decision for {decision.hour_utc} does not match an observed "
+                    f"empty hour ({status.value})",
+                )
+                status = HourStatus.EXPECTED_CLOSURE
+            else:
+                require(
+                    status in _DECLARABLE_MISSING,
+                    f"missing decision for {decision.hour_utc} does not match a failed hour "
+                    f"({status.value})",
+                )
+                status = HourStatus.MISSING
+            diagnostics.append(
+                Diagnostic(
+                    "OWNER_DECISION",
+                    Severity.INFO,
+                    f"{decision.kind.value} on {decision.decided_on}: {decision.source}",
+                    item.relative_path,
+                )
+            )
+        if artifact is not None and status is not artifact.hour_status:
+            artifact = replace(artifact, hour_status=status)
         if artifact is not None:
             require(
                 record is not None and artifact.raw_sha256 == record.raw_sha256,
@@ -181,6 +268,24 @@ def build_instrument(
                 )
             )
         hours[item.hour_start_ms] = status
+    require(not decided, f"owner decisions target hours outside the plan: {sorted(decided)}")
+    if window.skip_scheduled_weekend:
+        unrequested = [
+            h
+            for h in range(window.tick_start_ms, window.tick_end_ms, MS_PER_HOUR)
+            if h not in hours
+        ]
+        for hour in unrequested:
+            require(is_scheduled_weekend_hour(hour), "an unplanned hour is not a weekend hour")
+            hours[hour] = HourStatus.EXPECTED_CLOSURE
+        diagnostics.append(
+            Diagnostic(
+                "SCHEDULED_CLOSURE_NOT_REQUESTED",
+                Severity.INFO,
+                f"{len(unrequested)} weekend hours declared from {window.calendar_version}",
+                "hour_classification",
+            )
+        )
     statuses = list(hours.values())
     populated = statuses.count(HourStatus.POPULATED)
     closure = statuses.count(HourStatus.EXPECTED_CLOSURE)
@@ -212,7 +317,7 @@ def build_instrument(
         sources=tuple(sources),
         content=tick_content,
         lineage=(),
-        diagnostics=(_calendar_diagnostic(), *diagnostics),
+        diagnostics=(_calendar_diagnostic(window.calendar_version), *diagnostics),
         **common,  # type: ignore[arg-type]
     )
     registry = DatasetRegistry(data_root)
@@ -239,7 +344,7 @@ def build_instrument(
             content=content,
             lineage=(tick_manifest.dataset_id,),
             diagnostics=(
-                _calendar_diagnostic(),
+                _calendar_diagnostic(window.calendar_version),
                 *(
                     (
                         Diagnostic(

@@ -28,6 +28,12 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
+from research.datasets.calendar import (
+    CALENDAR_V1,
+    SUPPORTED_CALENDARS,
+    classify_empty,
+    is_scheduled_weekend_hour,
+)
 from research.datasets.canonical import sha256_hex
 from research.datasets.contracts import (
     MS_PER_HOUR,
@@ -39,7 +45,6 @@ from research.datasets.contracts import (
 from research.datasets.dukascopy import (
     candle_relative_path,
     candle_url,
-    classify_empty_hour,
     decode_candles,
     decode_ticks,
     hour_start_ms,
@@ -63,6 +68,17 @@ class AuthorizedWindow:
     candle_months: tuple[tuple[int, int], ...]
     max_bytes: int
     max_requests: int
+    calendar_version: str = CALENDAR_V1
+    skip_scheduled_weekend: bool = False
+    max_planned_requests: int | None = None
+    acquisition_open: bool = True
+
+    def __post_init__(self) -> None:
+        require(self.calendar_version in SUPPORTED_CALENDARS, "window calendar unsupported")
+        require(
+            self.max_planned_requests is None or 0 < self.max_planned_requests <= self.max_requests,
+            "max_planned_requests invalid",
+        )
 
 
 AUTHORIZED_WINDOWS: dict[str, AuthorizedWindow] = {
@@ -112,6 +128,8 @@ def build_plan(window: AuthorizedWindow) -> tuple[PlannedFetch, ...]:
     for symbol in window.instruments:
         spec = instrument(symbol)
         for hour in range(window.tick_start_ms, window.tick_end_ms, MS_PER_HOUR):
+            if window.skip_scheduled_weekend and is_scheduled_weekend_hour(hour):
+                continue  # declared from the calendar, never requested
             d = datetime.fromtimestamp(hour / 1000, tz=UTC)
             plan.append(
                 PlannedFetch(
@@ -140,6 +158,10 @@ def build_plan(window: AuthorizedWindow) -> tuple[PlannedFetch, ...]:
                     )
                 )
     require(len(plan) <= window.max_requests, "plan exceeds the request ceiling")
+    require(
+        window.max_planned_requests is None or len(plan) <= window.max_planned_requests,
+        "plan exceeds the planned-request ceiling",
+    )
     return tuple(plan)
 
 
@@ -331,6 +353,55 @@ def read_journal(data_root: Path) -> dict[str, JournalRecord]:
     return latest
 
 
+DAILY_REQUESTS_RELATIVE_PATH = "acquisition/daily_requests.jsonl"
+DAILY_REQUEST_CEILING = 5_000
+
+
+class DailyRequestBudget:
+    """Persistent per-UTC-day request counter shared by every run and window.
+
+    One line is appended **before** each request, so a crash never hides a
+    request; the count survives restarts (Q00-G00 section 6.5).
+    """
+
+    def __init__(self, data_root: Path, ceiling: int = DAILY_REQUEST_CEILING) -> None:
+        require(type(ceiling) is int and ceiling > 0, "daily ceiling invalid")
+        self._path = resolve_relative(data_root, DAILY_REQUESTS_RELATIVE_PATH)
+        self.ceiling = ceiling
+        self._cache: tuple[str, int] | None = None
+
+    def used(self, utc_date: str) -> int:
+        if self._cache is not None and self._cache[0] == utc_date:
+            return self._cache[1]
+        count = 0
+        if self._path.is_file():
+            for number, line in enumerate(self._path.read_bytes().splitlines(), 1):
+                try:
+                    record = json.loads(line)
+                    day = record["utc_date"]
+                    require(type(day) is str and len(day) == 10, "date invalid")
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise DatasetIntegrityError(
+                        f"daily request ledger line {number} is corrupted ({exc})"
+                    ) from exc
+                count += day == utc_date
+        self._cache = (utc_date, count)
+        return count
+
+    def try_consume(self, utc_date: str, window_id: str) -> bool:
+        used = self.used(utc_date)
+        if used >= self.ceiling:
+            return False
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(
+            {"utc_date": utc_date, "window": window_id}, sort_keys=True, separators=(",", ":")
+        )
+        with open(self._path, "ab") as handle:
+            handle.write((line + "\n").encode("ascii"))
+        self._cache = (utc_date, used + 1)
+        return True
+
+
 def pending_items(window: AuthorizedWindow, data_root: Path) -> tuple[str, ...]:
     """Planned items whose latest journal record is not a stored outcome."""
     journal = read_journal(data_root)
@@ -359,7 +430,7 @@ class AcquisitionReport:
     aborted: str | None
 
 
-def _classify(item: PlannedFetch, response: HttpResponse) -> FetchStatus:
+def _classify(item: PlannedFetch, response: HttpResponse, calendar: str) -> FetchStatus:
     if response.status == 404:
         return FetchStatus.MISSING
     if response.status in (429, 503):
@@ -371,7 +442,7 @@ def _classify(item: PlannedFetch, response: HttpResponse) -> FetchStatus:
     if len(response.body) == 0:
         if item.kind is FetchKind.CANDLES or item.hour_start_ms is None:
             return FetchStatus.EMPTY_UNEXPLAINED
-        empty = classify_empty_hour(instrument(item.instrument), item.hour_start_ms)
+        empty = classify_empty(instrument(item.instrument), item.hour_start_ms, calendar)
         return (
             FetchStatus.EXPECTED_CLOSURE
             if empty is HourStatus.EXPECTED_CLOSURE
@@ -397,7 +468,13 @@ def run_acquisition(
     *,
     limits: AcquisitionLimits | None = None,
     allow_overwrite: bool = False,
+    daily_budget: DailyRequestBudget | None = None,
 ) -> AcquisitionReport:
+    require(
+        window.acquisition_open,
+        f"acquisition gate closed for {window.window_id}: a separate owner authorization "
+        "must open it before any download",
+    )
     limits = limits or limits_for(window)
     require(limits.max_bytes <= window.max_bytes, "limits exceed the window byte ceiling")
     require(limits.max_requests <= window.max_requests, "limits exceed the window request ceiling")
@@ -433,6 +510,11 @@ def run_acquisition(
             if requests_used >= limits.max_requests:
                 aborted = "request ceiling reached"
                 break
+            if daily_budget is not None and not daily_budget.try_consume(
+                clock.utc_now_text()[:10], window.window_id
+            ):
+                aborted = "daily request ceiling reached"
+                break
             remaining = limits.max_bytes - bytes_used
             if remaining <= 0:
                 aborted = "byte budget exhausted"
@@ -455,7 +537,7 @@ def run_acquisition(
             else:
                 bytes_used += len(response.body)
                 body = response.body
-                status = _classify(item, response)
+                status = _classify(item, response, window.calendar_version)
                 detail = "" if response.status == 200 else f"HTTP {response.status}"
             if status in RETRYABLE and attempts <= limits.max_retries:
                 clock.sleep(limits.backoff(attempts - 1))

@@ -155,7 +155,7 @@ authorization.
 | P04-R01-Q00 | PROTOCOL FROZEN / IMPLEMENTATION NOT AUTHORIZED | Pre-registered quantitative validation governed by Q00-G00 |
 | P04-R01-Q00-G00 | CLOSED / FROZEN | [Quantitative validation protocol](P04_R01_Q00_G00_QUANTITATIVE_VALIDATION_PROTOCOL_RECONCILIATION.md); partitions, acquisition, statistics, 50-configuration H1 budget |
 | P04-R01-Q00-CI00 | CLOSED / FROZEN | [Research CI hardening](P04_R01_Q00_CI00_CLOSURE.md); `research/datasets` and `research/elliott_causal` each gated at 95 % (both 100 % at `d35b8eed`) |
-| P04-R01-D01-B1 | READY FOR AUTHORIZATION REVIEW — CI00 PREREQUISITE SATISFIED | First development tick batch, EURUSD/XAUUSD 2018-01 to 2018-06 |
+| P04-R01-D01-B1 | IMPLEMENTED / ACQUISITION AUTHORIZATION PENDING | [First development tick batch](P04_R01_D01_B1_CLOSURE.md), EURUSD/XAUUSD 2018-01 to 2018-06; acquisition gates closed |
 | P04-R01-D01-P | NOT AUTHORIZED | Optional C1 export probe (Level 1 equivalence) |
 | P04-R01-D01-B2+ | NOT AUTHORIZED | Remaining development batches, 2010–2018 |
 | P04-R01-Q00-I00 | NOT AUTHORIZED | Research harness and pre-registration record |
@@ -202,8 +202,9 @@ and the authorized compliance inventory increases from 610 to 612.
 then recorded that the frozen Elliott and Fibonacci producers cannot satisfy
 F01 anchor continuity on real data. P04-F02 is therefore not authorized until
 the P04-R01 research sequence G00 -> D00 -> E00 -> Q00 -> C00 records a
-decision; D00, E00, Q00-G00, and Q00-CI00 are closed, D01-B1 is ready for
-authorization review, and no implementation or data step is authorized. P04-F03/F04 and P05 remain unauthorized.
+decision; D00, E00, Q00-G00, and Q00-CI00 are closed, D01-B1 is implemented
+with its acquisition gates closed pending owner authorization, and no data
+acquisition step is authorized. P04-F03/F04 and P05 remain unauthorized.
 | P08 | Planned | Trade ledger and metrics |
 | P09 | Planned | Walk-forward evaluation |
 | P10 | Planned | Quantitative validation |

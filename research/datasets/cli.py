@@ -24,16 +24,24 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from research.datasets.acquisition import (
+    DailyRequestBudget,
     SystemClock,
     Transport,
     UrllibTransport,
-    authorized_window,
     build_plan,
     limits_for,
     pending_items,
     run_acquisition,
 )
-from research.datasets.build import build_instrument
+from research.datasets.batch_ops import (
+    MonthStatus,
+    batch_plan,
+    batch_quality,
+    export_manifests,
+    reproduce,
+)
+from research.datasets.batches import governed_window
+from research.datasets.build import build_instrument, build_provenance
 from research.datasets.canonical import deterministic_gzip, sha256_hex
 from research.datasets.contracts import (
     MANIFEST_SCHEMA_VERSION,
@@ -70,7 +78,7 @@ def _print(payload: object) -> None:
 
 
 def _plan(args: argparse.Namespace) -> int:
-    window = authorized_window(args.window)
+    window = governed_window(args.window)
     plan = build_plan(window)
     _print(
         {
@@ -79,6 +87,9 @@ def _plan(args: argparse.Namespace) -> int:
             "requests": len(plan),
             "max_bytes": window.max_bytes,
             "max_requests": window.max_requests,
+            "max_planned_requests": window.max_planned_requests,
+            "calendar": window.calendar_version,
+            "acquisition_gate": "OPEN" if window.acquisition_open else "CLOSED",
             "items": [[p.kind.value, p.instrument, p.url, p.relative_path] for p in plan],
         }
     )
@@ -86,9 +97,14 @@ def _plan(args: argparse.Namespace) -> int:
 
 
 def _acquire(args: argparse.Namespace, transport_factory: Callable[[], Transport]) -> int:
-    window = authorized_window(args.window)
+    window = governed_window(args.window)
     if args.dry_run:
         return _plan(args)
+    if not window.acquisition_open:
+        raise DatasetIntegrityError(
+            f"acquisition gate closed for {window.window_id}: downloads need a separate "
+            "owner authorization; use --dry-run to inspect the plan"
+        )
     if not args.confirm_provider_terms:
         raise DatasetIntegrityError(
             "real acquisition requires --confirm-provider-terms (A01 section 7)"
@@ -101,6 +117,7 @@ def _acquire(args: argparse.Namespace, transport_factory: Callable[[], Transport
         SystemClock(),
         limits=replace(limits_for(window), timeout_s=args.timeout_seconds),
         allow_overwrite=args.allow_overwrite,
+        daily_budget=DailyRequestBudget(data_root),
     )
     pending = pending_items(window, data_root)
     _print(
@@ -130,8 +147,8 @@ def _acquire(args: argparse.Namespace, transport_factory: Callable[[], Transport
 
 
 def _build(args: argparse.Namespace) -> int:
-    window = authorized_window(args.window)
-    provenance = {"builder": "research.datasets.build", "window": window.window_id}
+    window = governed_window(args.window)
+    provenance = build_provenance(window)
     results = [
         build_instrument(
             window,
@@ -157,6 +174,53 @@ def _build(args: argparse.Namespace) -> int:
             for r in results
         ]
     )
+    return 0
+
+
+def _batch_plan(args: argparse.Namespace) -> int:
+    _print(batch_plan(args.batch))
+    return 0
+
+
+def _batch_quality(args: argparse.Namespace) -> int:
+    months = batch_quality(args.batch, Path(args.data_root))
+    _print(
+        {
+            "batch": args.batch,
+            "months": [
+                {
+                    "window": m.window_id,
+                    "status": m.status.value,
+                    "detail": m.detail,
+                    "hour_status_counts": dict(m.hour_status_counts),
+                    "undecided_hours": list(m.undecided_hours),
+                    "dataset_ids": (
+                        []
+                        if m.build is None
+                        else [m.build.tick_dataset_id, *m.build.bar_dataset_ids]
+                        + ([m.build.candle_dataset_id] if m.build.candle_dataset_id else [])
+                    ),
+                    "crosscheck_status": None if m.build is None else m.build.crosscheck_status,
+                }
+                for m in months
+            ],
+            "all_pass": all(m.status is MonthStatus.PASS for m in months),
+        }
+    )
+    return 0 if all(m.status is MonthStatus.PASS for m in months) else 2
+
+
+def _reproduce(args: argparse.Namespace) -> int:
+    result = reproduce(governed_window(args.window), Path(args.data_root), Path(args.fresh_root))
+    _print(result)
+    return 0 if result["identical"] else 2
+
+
+def _export_manifests(args: argparse.Namespace) -> int:
+    written = export_manifests(
+        governed_window(args.window), Path(args.data_root), Path(args.destination)
+    )
+    _print({"window": args.window, "manifests": [str(p) for p in written]})
     return 0
 
 
@@ -297,6 +361,19 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="diagnostic build despite pending acquisition items (coverage stays explicit)",
     )
+    bp = sub.add_parser("batch-plan")
+    bp.add_argument("--batch", required=True)
+    bq = sub.add_parser("batch-quality")
+    bq.add_argument("--batch", required=True)
+    bq.add_argument("--data-root", default="data")
+    rp = sub.add_parser("reproduce")
+    rp.add_argument("--window", required=True)
+    rp.add_argument("--data-root", default="data")
+    rp.add_argument("--fresh-root", required=True)
+    ex = sub.add_parser("export-manifests")
+    ex.add_argument("--window", required=True)
+    ex.add_argument("--data-root", default="data")
+    ex.add_argument("--destination", default="research/datasets/manifests")
     r = sub.add_parser("registry")
     r.add_argument("action", choices=("list", "inspect", "verify"))
     r.add_argument("reference", nargs="?")
@@ -332,6 +409,14 @@ def main(
             return _build(args)
         if args.command == "registry":
             return _registry(args)
+        if args.command == "batch-plan":
+            return _batch_plan(args)
+        if args.command == "batch-quality":
+            return _batch_quality(args)
+        if args.command == "reproduce":
+            return _reproduce(args)
+        if args.command == "export-manifests":
+            return _export_manifests(args)
         if args.command == "mt5-import":
             return _mt5_import(args)
         return _ledger(args)
