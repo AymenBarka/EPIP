@@ -154,7 +154,7 @@ authorization.
 | P04-R01-E00 | CLOSED / FROZEN | [Causal Elliott research](P04_R01_E00_CLOSURE.md); prefix-invariant prototype accepted unchanged by frozen F01 for single counts |
 | P04-R01-Q00 | PROTOCOL FROZEN / IMPLEMENTATION NOT AUTHORIZED | Pre-registered quantitative validation governed by Q00-G00 |
 | P04-R01-Q00-G00 | CLOSED / FROZEN | [Quantitative validation protocol](P04_R01_Q00_G00_QUANTITATIVE_VALIDATION_PROTOCOL_RECONCILIATION.md); partitions, acquisition, statistics, 50-configuration H1 budget |
-| P04-R01-Q00-CI00 | READY FOR AUTHORIZATION REVIEW | Research CI covers `research/elliott_causal`; coverage gap still open |
+| P04-R01-Q00-CI00 | IMPLEMENTED / REMOTE CERTIFICATION PENDING | [Research CI hardening](P04_R01_Q00_CI00_CLOSURE.md); `research/elliott_causal` gated, closure awaits exact-SHA CI |
 | P04-R01-D01-B1 | READY FOR AUTHORIZATION REVIEW, SUBJECT TO CI00 CLOSURE | First development tick batch, EURUSD/XAUUSD 2018-01 to 2018-06 |
 | P04-R01-D01-P | NOT AUTHORIZED | Optional C1 export probe (Level 1 equivalence) |
 | P04-R01-D01-B2+ | NOT AUTHORIZED | Remaining development batches, 2010–2018 |
