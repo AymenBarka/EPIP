@@ -154,7 +154,7 @@ under the git-ignored `data/` root and are never committed.
 | Research tests | 276 passed (251 existing unchanged + 25 new), twice, identical |
 | Coverage `research/datasets` | 100 % |
 | Coverage `research/elliott_causal` | 100 % |
-| D00 synthetic identities | Unchanged (pinned by test) |
+| D00 synthetic content | Unchanged: canonical SHA-256 and row counts pinned by test (platform-independent) |
 | Production isolation | No import of `epip`, `research.elliott_causal` or `research.harness` from `research/datasets` |
 | Production collection / compliance | 3127 / 612 unchanged (no production file touched) |
 | Network | None; all tests use synthetic fixtures and a fake transport |
@@ -178,21 +178,21 @@ network request.
 
 ```powershell
 # Batch plan and per-window dry run (offline)
-& $py -m research.datasets.cli batch-plan --batch D01-B1
-& $py -m research.datasets.cli acquire --window D01-B1-EURUSD-2018-01 --dry-run
+& $py -m research.datasets batch-plan --batch D01-B1
+& $py -m research.datasets acquire --window D01-B1-EURUSD-2018-01 --dry-run
 
 # One instrument-month acquisition with provider-terms confirmation (gated)
-& $py -m research.datasets.cli acquire --window D01-B1-EURUSD-2018-01 --data-root data --confirm-provider-terms
+& $py -m research.datasets acquire --window D01-B1-EURUSD-2018-01 --data-root data --confirm-provider-terms
 
 # Resume after an abort or a ceiling: rerun the same command (gated);
 # verified files are skipped and never overwritten
 
 # Build, registry verify, fresh-root reproduction, quality, manifest export
-& $py -m research.datasets.cli build --window D01-B1-EURUSD-2018-01 --data-root data
-& $py -m research.datasets.cli registry verify <dataset_id> --data-root data
-& $py -m research.datasets.cli reproduce --window D01-B1-EURUSD-2018-01 --data-root data --fresh-root data-fresh-EURUSD-2018-01
-& $py -m research.datasets.cli batch-quality --batch D01-B1 --data-root data
-& $py -m research.datasets.cli export-manifests --window D01-B1-EURUSD-2018-01 --data-root data
+& $py -m research.datasets build --window D01-B1-EURUSD-2018-01 --data-root data
+& $py -m research.datasets registry verify <dataset_id> --data-root data
+& $py -m research.datasets reproduce --window D01-B1-EURUSD-2018-01 --data-root data --fresh-root data-fresh-EURUSD-2018-01
+& $py -m research.datasets batch-quality --batch D01-B1 --data-root data
+& $py -m research.datasets export-manifests --window D01-B1-EURUSD-2018-01 --data-root data
 ```
 
 ## 10. Known risks
@@ -204,6 +204,16 @@ network request.
 - The XAUUSD Sunday reopen rule is new in v2; if observed data contradicts
   it, a populated hour is kept as populated (the calendar only classifies
   empty hours), and a calendar amendment is required before any rule change.
+- Dataset identifiers include the compressed-content digest, which depends on
+  the zlib implementation: the synthetic D00 H4 identifiers differ between
+  zlib 1.3.1 (owner's Windows, Python 3.13.1) and zlib-ng (Linux build,
+  Python 3.13.18) while canonical SHA-256 values are identical. The first
+  version of the D00 regression test pinned zlib-ng identifiers and failed on
+  Windows and in Research CI at `30094634`; it now pins canonical content. This D00 property is unchanged by
+  D01-B1; D00 identifiers (and D01 identifiers) are reproducible only with
+  the same zlib implementation. Changing the identity contract requires a
+  separate owner authorization. D01 reproduction and manifest commits must
+  use the owner's Windows environment.
 - Byte estimates derive from one D00 month (2012-03); 2018 volumes may
   differ, and the 100 MB per-run ceiling then splits a month across runs.
 

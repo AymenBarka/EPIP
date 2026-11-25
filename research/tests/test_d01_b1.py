@@ -578,28 +578,44 @@ def test_reproduce_reports_a_mismatch(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_d00_identities_are_unchanged_by_d01(tmp_path: Path) -> None:
-    """Synthetic D00 build identities recorded before D01 changes (calendar v1 path)."""
+    """Synthetic D00 canonical content recorded before D01 changes (calendar v1 path).
+
+    Canonical (uncompressed) SHA-256 is authoritative and platform-independent;
+    dataset identifiers also cover the compressed digest, which depends on the
+    zlib implementation (zlib vs zlib-ng), so they are compared within one run.
+    """
     expected = {
         "EURUSD": [
-            "69fad0d8e4a220a42a3bc577284176d7c03f277ec1a5cc80781df8085a116a5e",
-            "3ea52ca3c48044c0dc04d590ce92c0b017eb6306ca8b841ed85ad2334ea61756",
-            "ef52544254daab4320aff6aa0942224107f7c3340e814739d813214c2728060a",
-            "883fadcf0c323738b967f75d0a08871a5d77a32397e063e13b2be1750325e496",
+            ("29e7fb4ad5eb929e9c23bc921792c481fa9c08e639f639702313f732edb7e48e", 962),
+            ("a4c9e50327e8628ab2194567ff8f28116f9baf7ca6a718b96ea2d222f08163c6", 240),
+            ("df22320b63591eb4db4f62bfe2174e56864e46edc4c788ad000feac1843ddec3", 60),
+            ("b898cbc61a9eb67d0d77c885b27f17ed991bee24bb7736233b46961ae28d0710", 240),
         ],
         "XAUUSD": [
-            "cd14c03140640155336372ad13bd8918047d65def05574b8e484f98b7ed4f4c1",
-            "2e63d1824c80ba4a4ab5cd7cf629e5e5a9f3e66cf586844e165ec837b79ca67d",
-            "8e359c465dc91c8cdf2085ba4672767d25271f3e12872f00656650ed36d339ae",
-            "69d002f88a67eefcf36468ba26e11bf54f5eb4d96bbeed5e227c7b0506a17cb5",
+            ("65d644139d41576897f093df2a986565204ed451b70a7edb2574595a5ae1345e", 962),
+            ("30706853909b521a981f18f23b3085cda9be91794703865a756a6f945ac1e2f7", 240),
+            ("4f34c289cf9bf4cbd41b53d68c7afa4f5f13e2d5aff16ef0b59090c95353a754", 60),
+            ("58576f1c05546c13a8ecba666e3b3188273b12270b24b606aaed8a559f99e5d6", 240),
         ],
     }
     window = authorized_window("A01-SAMPLE-2012-03")
     assert window.calendar_version == CALENDAR_V1 and not window.skip_scheduled_weekend
     assert len(build_plan(window)) == 244
     acquire(window, tmp_path, sample_responder)
-    for symbol, ids in expected.items():
+    registry = DatasetRegistry(tmp_path)
+    for symbol, contents in expected.items():
         r = build_instrument(window, symbol, tmp_path, {"builder": "test"})
-        assert [r.tick_dataset_id, *r.bar_dataset_ids, r.candle_dataset_id] == ids
+        ids = [r.tick_dataset_id, *r.bar_dataset_ids, r.candle_dataset_id]
+        manifests = [registry.verify(i) for i in ids if i is not None]
+        assert [(m.content.canonical_sha256, m.content.row_count) for m in manifests] == contents
+        tick = manifests[0]
+        assert (tick.diagnostics[0].code, tick.diagnostics[0].message) == (
+            "SESSION_CALENDAR",
+            CALENDAR_V1,
+        )
+        assert all(m.lineage == (r.tick_dataset_id,) for m in manifests[1:3])
+        again = build_instrument(window, symbol, tmp_path, {"builder": "test"})
+        assert [again.tick_dataset_id, *again.bar_dataset_ids, again.candle_dataset_id] == ids
 
 
 def test_datasets_package_stays_isolated_from_production() -> None:
