@@ -16,11 +16,16 @@ permission. The volatile journal records every attempt and enables resume.
 
 from __future__ import annotations
 
+import ctypes
 import http.client
 import json
+import os
+import socket
+import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -460,6 +465,195 @@ def _classify(item: PlannedFetch, response: HttpResponse, calendar: str) -> Fetc
     return FetchStatus.POPULATED
 
 
+# --- acquisition locks ------------------------------------------------------------
+LOCKS_RELATIVE_DIR = "acquisition/locks"
+GLOBAL_LOCK_NAME = "global"
+_STILL_ACTIVE = 259
+_ERROR_INVALID_PARAMETER = 87
+_ERROR_ACCESS_DENIED = 5
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+
+class LockState(StrEnum):
+    """Diagnostic state of a lock owner. Only NOT_RUNNING permits a release by
+    someone other than the owner; UNKNOWN always fails closed."""
+
+    ALIVE = "ALIVE"
+    NOT_RUNNING = "NOT_RUNNING"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True, slots=True)
+class LockInfo:
+    name: str
+    path: Path
+    owner: dict[str, object]
+    state: LockState
+
+
+def _lock_path(data_root: Path, name: str) -> Path:
+    return resolve_relative(data_root, f"{LOCKS_RELATIVE_DIR}/{name}.lock")
+
+
+def _posix_state(pid: int) -> LockState:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return LockState.NOT_RUNNING
+    except PermissionError:
+        return LockState.ALIVE
+    except OSError:
+        return LockState.UNKNOWN
+    return LockState.ALIVE
+
+
+def _windows_state(pid: int, kernel32: Any, last_error: Callable[[], int]) -> LockState:
+    """Query a Windows process without signalling it (``os.kill`` would
+    terminate it on Windows)."""
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        error = last_error()
+        if error == _ERROR_INVALID_PARAMETER:
+            return LockState.NOT_RUNNING
+        if error == _ERROR_ACCESS_DENIED:
+            return LockState.ALIVE
+        return LockState.UNKNOWN
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return LockState.UNKNOWN
+        return LockState.ALIVE if code.value == _STILL_ACTIVE else LockState.NOT_RUNNING
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def process_state(
+    pid: int,
+    *,
+    platform: str | None = None,
+    kernel32: Any = None,
+    last_error: Callable[[], int] | None = None,
+) -> LockState:
+    """Best-effort liveness of a local process id; never sends a signal on
+    Windows. PID reuse after a restart reads as ALIVE, which fails closed."""
+    if type(pid) is not int or pid <= 0:
+        return LockState.UNKNOWN
+    if (platform or sys.platform) == "win32":
+        if kernel32 is None:  # pragma: no cover - exercised on Windows only
+            kernel32 = vars(ctypes)["WinDLL"]("kernel32", use_last_error=True)
+            last_error = vars(ctypes)["get_last_error"]
+        assert last_error is not None
+        return _windows_state(pid, kernel32, last_error)
+    return _posix_state(pid)
+
+
+def _owner_state(owner: dict[str, object]) -> LockState:
+    pid = owner.get("pid")
+    if owner.get("host") != socket.gethostname() or type(pid) is not int:
+        return LockState.UNKNOWN
+    return process_state(pid)
+
+
+class AcquisitionLock:
+    """Exclusive, fail-closed lock file created atomically with ``O_EXCL``.
+
+    The file records its owner (pid, host, random token, window, time). Only
+    the holder of the token releases it; nothing removes a lock because of its
+    age. Works on Windows and POSIX with the standard library only.
+    """
+
+    def __init__(self, data_root: Path, name: str, window_id: str, acquired_utc: str) -> None:
+        require(name.replace("-", "").isalnum(), f"invalid lock name {name!r}")
+        self.path = _lock_path(data_root, name)
+        self.name = name
+        self.token = uuid.uuid4().hex
+        self._owner = {
+            "lock": name,
+            "window": window_id,
+            "pid": os.getpid(),
+            "host": socket.gethostname(),
+            "token": self.token,
+            "acquired_utc": acquired_utc,
+            "executable": sys.executable,
+        }
+        self.held = False
+
+    def acquire(self) -> AcquisitionLock:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
+        try:
+            fd = os.open(self.path, flags, 0o644)
+        except FileExistsError:
+            raise DatasetIntegrityError(
+                f"acquisition lock {self.name} is held ({self.path}); another acquisition "
+                "may be running. Follow the stale-lock recovery procedure; locks are "
+                "never removed automatically"
+            ) from None
+        self.held = True
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(json.dumps(self._owner, sort_keys=True).encode("ascii") + b"\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+        except BaseException:
+            self.path.unlink()
+            self.held = False
+            raise
+        return self
+
+    def release(self) -> None:
+        if not self.held:
+            return
+        owner = _read_lock(self.path)
+        require(
+            owner.get("token") == self.token,
+            f"acquisition lock {self.name} is no longer owned by this process; not removed",
+        )
+        self.path.unlink()
+        self.held = False
+
+
+def _read_lock(path: Path) -> dict[str, object]:
+    try:
+        loaded = json.loads(path.read_bytes())
+    except (OSError, ValueError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def inspect_locks(data_root: Path) -> tuple[LockInfo, ...]:
+    """Diagnose existing locks without changing them."""
+    directory = resolve_relative(data_root, LOCKS_RELATIVE_DIR)
+    if not directory.is_dir():
+        return ()
+    infos = []
+    for path in sorted(directory.glob("*.lock")):
+        owner = _read_lock(path)
+        infos.append(
+            LockInfo(path.stem, path, owner, _owner_state(owner) if owner else LockState.UNKNOWN)
+        )
+    return tuple(infos)
+
+
+def release_stale_lock(data_root: Path, name: str, token: str) -> None:
+    """Owner-invoked recovery: remove lock ``name`` only if ``token`` matches its
+    recorded token and its owner is verified NOT_RUNNING on this host."""
+    path = _lock_path(data_root, name)
+    require(path.is_file(), f"no acquisition lock {name}")
+    owner = _read_lock(path)
+    require(
+        bool(owner) and owner.get("token") == token,
+        f"lock {name}: token does not match the recorded owner; not removed",
+    )
+    state = _owner_state(owner)
+    require(
+        state is LockState.NOT_RUNNING,
+        f"lock {name}: owner state {state.value}; ownership cannot be cleared safely. "
+        "Manual owner intervention is required (see the D01-B1 recovery procedure)",
+    )
+    path.unlink()
+
+
 def run_acquisition(
     window: AuthorizedWindow,
     data_root: Path,
@@ -470,11 +664,44 @@ def run_acquisition(
     allow_overwrite: bool = False,
     daily_budget: DailyRequestBudget | None = None,
 ) -> AcquisitionReport:
+    """Run under an exclusive global lock (shared daily budget, one acquisition
+    per data root) and an exclusive per-window lock, both taken before any
+    network request and released on completion or exception."""
     require(
         window.acquisition_open,
         f"acquisition gate closed for {window.window_id}: a separate owner authorization "
         "must open it before any download",
     )
+    now = clock.utc_now_text()
+    held: list[AcquisitionLock] = []
+    try:
+        for name in (GLOBAL_LOCK_NAME, window.window_id):
+            lock = AcquisitionLock(data_root, name, window.window_id, now)
+            held.append(lock.acquire())
+        return _run_acquisition(
+            window,
+            data_root,
+            transport,
+            clock,
+            limits=limits,
+            allow_overwrite=allow_overwrite,
+            daily_budget=daily_budget,
+        )
+    finally:
+        for lock in reversed(held):
+            lock.release()
+
+
+def _run_acquisition(
+    window: AuthorizedWindow,
+    data_root: Path,
+    transport: Transport,
+    clock: Clock,
+    *,
+    limits: AcquisitionLimits | None,
+    allow_overwrite: bool,
+    daily_budget: DailyRequestBudget | None,
+) -> AcquisitionReport:
     limits = limits or limits_for(window)
     require(limits.max_bytes <= window.max_bytes, "limits exceed the window byte ceiling")
     require(limits.max_requests <= window.max_requests, "limits exceed the window request ceiling")

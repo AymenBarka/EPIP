@@ -4,10 +4,10 @@ D01-B1: EURUSD and XAUUSD, 2018-01-01 to 2018-07-01 (end excluded), one
 window per instrument-month, calendar ``ny-1700-close/2``. Every window is
 independently resumable and verifiable.
 
-**Acquisition gate.** Every D01-B1 window has ``acquisition_open=False``:
-planning and dry runs work, real downloads are refused, even with
-``--confirm-provider-terms``. Only a separately authorized commit may open a
-gate.
+**Acquisition gate.** Only the windows in ``OPEN_WINDOWS`` accept owner-run
+downloads (with ``--confirm-provider-terms``); every other D01-B1 window has
+``acquisition_open=False``: planning and dry runs work, real downloads are
+refused. Only a separately authorized commit may open a gate.
 
 **Owner decisions.** An unexplained or failed hour blocks its month unless an
 explicit owner decision, committed here, covers it. Decisions are recorded in
@@ -34,10 +34,15 @@ MAX_REQUESTS_PER_RUN = 1_500
 MAX_BYTES_PER_RUN = 100_000_000
 
 
+# Owner authorization of 2026-11-25 (first acquisition window): one window only.
+OPEN_WINDOWS: frozenset[str] = frozenset({"D01-B1-EURUSD-2018-01"})
+
+
 def _month_window(symbol: str, year: int, month: int) -> AuthorizedWindow:
     end_year, end_month = (year + 1, 1) if month == 12 else (year, month + 1)
+    window_id = f"{D01_B1}-{symbol}-{year:04d}-{month:02d}"
     return AuthorizedWindow(
-        window_id=f"{D01_B1}-{symbol}-{year:04d}-{month:02d}",
+        window_id=window_id,
         authority=D01_B1_AUTHORITY,
         instruments=(symbol,),
         tick_start_ms=month_start_ms(year, month),
@@ -48,7 +53,7 @@ def _month_window(symbol: str, year: int, month: int) -> AuthorizedWindow:
         calendar_version=CALENDAR_V2,
         skip_scheduled_weekend=True,
         max_planned_requests=MAX_PLANNED_PER_MONTH,
-        acquisition_open=False,
+        acquisition_open=window_id in OPEN_WINDOWS,
     )
 
 

@@ -137,7 +137,7 @@ def test_d01_b1_has_exactly_twelve_instrument_months() -> None:
         assert len(w.instruments) == 1 and w.candle_months[0][0] == 2018
         assert w.calendar_version == CALENDAR_V2 and w.skip_scheduled_weekend
         assert (w.max_planned_requests, w.max_requests, w.max_bytes) == (600, 1500, 100_000_000)
-        assert w.acquisition_open is False
+        assert w.acquisition_open is (w.window_id == "D01-B1-EURUSD-2018-01")
     assert set(AUTHORIZED_WINDOWS) == {"A01-SAMPLE-2012-03"}
     with pytest.raises(DatasetIntegrityError, match="not governance-authorized"):
         governed_window("D01-B1-EURUSD-2018-07")
@@ -228,7 +228,9 @@ def test_holidays_are_references_never_automatic_closures() -> None:
 
 # --- acquisition gate, limits, throttling, budget, resume, immutability ----------------
 def test_acquisition_gate_is_closed_for_every_d01_window(tmp_path: Path) -> None:
-    for window in batch_windows(D01_B1):
+    closed = [w for w in batch_windows(D01_B1) if w.window_id != "D01-B1-EURUSD-2018-01"]
+    assert len(closed) == 11
+    for window in closed:
         with pytest.raises(DatasetIntegrityError, match="acquisition gate closed"):
             run_acquisition(window, tmp_path, FakeTransport(sample_responder), FakeClock())
     assert not any(tmp_path.iterdir())
@@ -240,14 +242,14 @@ def test_cli_refuses_gated_download_before_creating_a_transport(
     def forbidden() -> object:
         raise AssertionError("transport must not be created")
 
-    args = ["acquire", "--window", "D01-B1-EURUSD-2018-01", "--data-root", str(tmp_path)]
+    args = ["acquire", "--window", "D01-B1-XAUUSD-2018-01", "--data-root", str(tmp_path)]
     assert cli.main([*args, "--confirm-provider-terms"], forbidden) == 1  # type: ignore[arg-type]
     assert "acquisition gate closed" in capsys.readouterr().err
     assert cli.main([*args, "--dry-run"], forbidden) == 0  # type: ignore[arg-type]
     plan = json.loads(capsys.readouterr().out)
     assert (plan["requests"], plan["acquisition_gate"], plan["calendar"]) == (
         554,
-        "CLOSED",
+        "CLOSED",  # XAUUSD 2018-01 has the same plan size and stays closed
         CALENDAR_V2,
     )
     assert cli.main(["batch-plan", "--batch", D01_B1], forbidden) == 0  # type: ignore[arg-type]

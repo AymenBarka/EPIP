@@ -1,6 +1,10 @@
 # P04-R01-D01-B1 — First Development Tick Batch (Implementation)
 
-Status: **D01-B1 — IMPLEMENTED / ACQUISITION AUTHORIZATION PENDING**
+Status: **D01-B1 — ACQUISITION IN PROGRESS — PARTIAL BATCH**
+
+Window `D01-B1-EURUSD-2018-01` is **AUTHORIZED FOR OWNER-RUN ACQUISITION**
+(section 12); the eleven other windows remain **CLOSED**. No historical data
+has been acquired yet.
 
 D01-B1 implements, offline, the tooling for the first development batch frozen
 in
@@ -8,8 +12,8 @@ in
 Dukascopy BID/ASK ticks for EURUSD and XAUUSD from
 `2018-01-01T00:00:00Z` (inclusive) to `2018-07-01T00:00:00Z` (exclusive),
 H1/H4 derived from ticks, and the provider H1 cross-check. No historical data
-was acquired. Every D01-B1 acquisition gate is **CLOSED** in code; opening
-them requires a separate owner authorization (section 10). D01-B1 is not
+was acquired during implementation. Gates are opened only by separate owner
+authorizations (sections 11 and 12). D01-B1 is not
 closed or frozen while acquisition, validation and reproducibility remain
 pending.
 
@@ -189,7 +193,7 @@ network request.
 
 # Build, registry verify, fresh-root reproduction, quality, manifest export
 & $py -m research.datasets build --window D01-B1-EURUSD-2018-01 --data-root data
-& $py -m research.datasets registry verify <dataset_id> --data-root data
+& $py -m research.datasets registry verify DATASET_ID --data-root data
 & $py -m research.datasets reproduce --window D01-B1-EURUSD-2018-01 --data-root data --fresh-root data-fresh-EURUSD-2018-01
 & $py -m research.datasets batch-quality --batch D01-B1 --data-root data
 & $py -m research.datasets export-manifests --window D01-B1-EURUSD-2018-01 --data-root data
@@ -217,7 +221,7 @@ network request.
 - Byte estimates derive from one D00 month (2012-03); 2018 volumes may
   differ, and the 100 MB per-run ceiling then splits a month across runs.
 
-## 11. Next authorization required
+## 11. Gate opening rule
 
 Opening acquisition requires a separate owner authorization that names the
 windows to open (one instrument-month at a time or the twelve), confirms the
@@ -226,3 +230,151 @@ Dukascopy terms, and changes `acquisition_open` for those windows in
 decisions, quality gates, fresh-root reproduction, manifest commit and D01-B1
 closure follow under that authorization. D01-P, D01-B2+, Q00-I00 and all
 downstream steps remain NOT AUTHORIZED.
+
+## 12. First acquisition window authorization
+
+Authorized by the owner's P04-R01-D01-B1 first acquisition window
+authorization (starting SHA `1f94a8024f75f9b16bf5c5a95d977624e7f0b387`),
+amended by the owner's approval of acquisition locking (scope extended to
+`research/datasets/acquisition.py` and `research/tests/**`). The
+authorization opens one window and does not launch any download: the owner
+confirms the Dukascopy terms and starts the acquisition on Windows.
+
+### 12.1 Gate matrix
+
+`OPEN_WINDOWS` in `research/datasets/batches.py` is the single source of
+truth.
+
+| Window | Gate | Planned requests |
+| --- | --- | --- |
+| D01-B1-EURUSD-2018-01 | **OPEN** (owner-run) | 554 |
+| D01-B1-EURUSD-2018-02 | CLOSED | 482 |
+| D01-B1-EURUSD-2018-03 | CLOSED | 528 |
+| D01-B1-EURUSD-2018-04 | CLOSED | 509 |
+| D01-B1-EURUSD-2018-05 | CLOSED | 554 |
+| D01-B1-EURUSD-2018-06 | CLOSED | 503 |
+| D01-B1-XAUUSD-2018-01 | CLOSED | 554 |
+| D01-B1-XAUUSD-2018-02 | CLOSED | 482 |
+| D01-B1-XAUUSD-2018-03 | CLOSED | 528 |
+| D01-B1-XAUUSD-2018-04 | CLOSED | 509 |
+| D01-B1-XAUUSD-2018-05 | CLOSED | 554 |
+| D01-B1-XAUUSD-2018-06 | CLOSED | 503 |
+
+### 12.2 Safety gates for the open window
+
+| Gate | Evidence |
+| --- | --- |
+| Exact window | `2018-01-01T00:00:00Z` (1514764800000) to `2018-02-01T00:00:00Z` (1517443200000), end excluded |
+| Planned requests | 554 (552 tick hours, 2 monthly candle files), ceiling 600 |
+| Per run | 1500 requests, retries included; 100 MB |
+| Spacing, timeout, retries | 1.0 s minimum; 30 s timeout (1–120 s); 4 retries with exponential backoff; consecutive-failure stop |
+| Daily ceiling | 5000 requests per UTC day, persisted before each request |
+| Resume | Journaled; verified raw files skipped; unverified files never overwritten |
+| Concurrency | Exclusive global lock per data root and exclusive per-window lock (section 12.3) |
+| Terms | `--confirm-provider-terms` required; without it the CLI refuses before creating a transport |
+| Storage | Under `data/` (git-ignored); only metadata manifests are ever committed |
+
+### 12.3 Acquisition locks
+
+`run_acquisition` takes two lock files under `data/acquisition/locks/` before
+any network request: `global.lock` (one acquisition per data root, protecting
+the shared daily budget) and `<window_id>.lock`. Each is created atomically
+with `O_CREAT | O_EXCL` (Windows and POSIX, standard library only) and
+records `pid`, `host`, a random `token`, `window`, `acquired_utc`, and
+`executable` (on Windows the venv `python.exe` is a launcher, so the
+recorded `pid` is the interpreter process, its child). A held lock refuses the run before any transport call, journal
+write or budget consumption. Locks are released in a `finally` block after
+completion and after any exception (including Ctrl+C), and only if the file
+still carries the process's own token; a foreign lock is never removed.
+Dry runs and plans take no lock and write nothing; builds and quality checks
+take no lock.
+
+A lock left by a killed process, power failure or restart is never removed
+automatically or because of its age. `inspect_locks` diagnoses each lock as
+`ALIVE`, `NOT_RUNNING` (same host, process verified absent; Windows uses
+`OpenProcess`/`GetExitCodeProcess`, never a signal) or `UNKNOWN` (other
+host, unreadable file, unverifiable process). `release_stale_lock` removes a
+lock only when the caller supplies its recorded token and the owner is
+`NOT_RUNNING`; otherwise it fails closed.
+
+Stale-lock recovery procedure (owner):
+
+1. Confirm that no acquisition is running:
+   `Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -match 'research.datasets' } | Select-Object ProcessId, CommandLine`.
+2. Inspect the locks:
+   `& $py -c 'from pathlib import Path; from research.datasets.acquisition import inspect_locks; [print(i.name, i.state.value, i.owner) for i in inspect_locks(Path(''data''))]'`.
+3. If a lock is `NOT_RUNNING`, release it with its recorded token:
+   `& $py -c 'from pathlib import Path; from research.datasets.acquisition import release_stale_lock; release_stale_lock(Path(''data''), ''NAME'', ''TOKEN'')'`.
+4. If a lock is `ALIVE` or `UNKNOWN` (for example a PID reused after a
+   restart) and step 1 shows no acquisition process, the owner moves the
+   file aside, keeping it as evidence:
+   `Move-Item data\acquisition\locks\NAME.lock data\acquisition\locks\NAME.lock.stale-YYYYMMDD`.
+5. Rerun the same acquisition command. The journal and verified raw files
+   are preserved; a raw file without a journal record is refused, not
+   overwritten, and is reported for an owner decision.
+
+### 12.4 Owner-run Windows commands
+
+Run from the repository root after the owner has confirmed the Dukascopy
+terms for this batch. Claude does not run these commands.
+
+```powershell
+$py = ".\.venv313\Scripts\python.exe"
+$w = "D01-B1-EURUSD-2018-01"
+
+# 1. Dry run (no network, no file)
+& $py -m research.datasets acquire --window $w --dry-run
+
+# 2-3. Terms confirmation and acquisition (554 requests; about 2.2-3.7 h at the D00 observed throughput)
+& $py -m research.datasets acquire --window $w --data-root data --confirm-provider-terms
+
+# 4. Safe resume after throttling, a ceiling or an interruption: rerun the same command
+& $py -m research.datasets acquire --window $w --data-root data --confirm-provider-terms
+
+# 5. Build (refuses while any planned item is pending)
+& $py -m research.datasets build --window $w --data-root data
+
+# 6. Registry verification (repeat for each dataset id printed by build)
+& $py -m research.datasets registry list --data-root data
+& $py -m research.datasets registry verify DATASET_ID --data-root data
+
+# 7. Fresh-root reproducibility (the fresh root must not exist or be empty)
+& $py -m research.datasets reproduce --window $w --data-root data --fresh-root data-fresh-EURUSD-2018-01
+
+# 8. Batch quality (exit 2 is expected while other windows are pending)
+& $py -m research.datasets batch-quality --batch D01-B1 --data-root data
+
+# 9. Manifest export for review (metadata only; not committed until reviewed)
+& $py -m research.datasets export-manifests --window $w --data-root data
+```
+
+If Dukascopy throttles (HTTP 503), the run records the item, preserves the
+journal and stops at the limits; resume with the same command. Never raise
+the limits, shorten the spacing or run two acquisitions at once.
+
+### 12.5 Quality review after acquisition
+
+For the month: every planned item verified; unexpected empty hours
+investigated; holiday closures (2018-01-01) only through an explicit,
+sourced owner decision; corrupted or duplicate ticks stop the month; BID/ASK
+consistency and H1/H4 derivation checked; EURUSD provider H1 cross-check
+blocking; fresh-root rebuild on the same Windows environment with identical
+canonical hashes and dataset identities; manifests exported for review. No
+owner decision is added merely to make the gate pass, and no raw data is
+committed.
+
+### 12.6 Validation evidence
+
+| Gate | Result |
+| --- | --- |
+| Black, Ruff (default and preview), MyPy strict | Pass |
+| Research tests | 301 passed twice (276 existing nodes preserved, 25 new lock and gate nodes) |
+| Genuine concurrent processes | Same window, other window on the same root, six-process atomic race (exactly one winner) |
+| Coverage `research/datasets` / `research/elliott_causal` | ≥ 99.9 % (only the Windows-only `WinDLL` loader is excluded) / 100 % |
+| Production regression | 3127 passed |
+| Compliance inventory / digest | 612 / `92b40f1dfec340c886345710bf4a446b5a2dafa753b7129c12c7d3488c46f3f1` |
+| Network | None |
+
+Remaining NOT AUTHORIZED: the eleven other D01-B1 windows, D01-P, D01-B2+,
+Q00-I00 and all later Q00 milestones, C00, P04-F02/F03/F04, P05, demo and
+live trading.
